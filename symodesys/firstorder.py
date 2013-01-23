@@ -7,8 +7,8 @@ class FirstOrderODESystem(object):
     """
     indep_var_symb = sympy.symbols('t') # ODE implies 1 indep. variable
 
-    ny = None # Size of ODE system
-    nk = None # Number of parameters
+    num_dep_vars = None # Size of ODE system
+    num_params = None # Number of parameters
 
     _dep_var_basesymb = 'y'
     _param_basesymb = 'k'
@@ -19,8 +19,7 @@ class FirstOrderODESystem(object):
         To be subclassed
         should return e.g.  sympy.symarray('y', 3)
         """
-        return sympy.symarray(self._dep_var_basesymb, self.ny)
-    y = dep_var_symbs
+        return sympy.symarray(self._dep_var_basesymb, self.num_dep_vars)
 
     @property
     def param_symbs(self):
@@ -28,8 +27,7 @@ class FirstOrderODESystem(object):
         To be subclassed
         should return e.g.  sympy.symarray('k', 7)
         """
-        return sympy.symarray(self._param_basesymb, self.nk)
-    k = param_symbs
+        return sympy.symarray(self._param_basesymb, self.num_params)
 
     @property
     def param_default_values(self):
@@ -38,7 +36,7 @@ class FirstOrderODESystem(object):
         should return list of same length as self.param_symbs()
         with default values. None represents no default value.
         """
-        return np.zeros(self.nk)
+        return np.zeros(self.num_params)
 
 
     @property
@@ -53,7 +51,7 @@ class FirstOrderODESystem(object):
         pass
 
     def _fmat(self):
-        pass
+        return sympy.Matrix(1, self.num_dep_vars, lambda q, i: self.f[i])
 
     def transform_indep_var_to_log_scale(self):
         pass

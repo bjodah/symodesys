@@ -4,38 +4,21 @@
 # TODO: See if it is best to subclass sympy's codegen or use templates with Django template engine.
 
 
-class Integrator(object):
+class IVP_ODE_Integrator(object):
+    """
     """
 
-    TODO: Check if it is valuable to have taylor expanded version of approximated d/dC (Jac)
-    TODO: Check if it is valuable to have (taylor expanded version of approximated) inv(Jac)
-    """
-
-    def __init__(self, reaction_system, C0, abstol = None, reltol = None, h = None, logarithmic = False):
+    def __init__(self, odesys):
         """
 
         Arguments:
-        - `reaction_system`:
-        - `C0`:
-        - `h`:
-        - `abstol`:
-        - `reltol`:
-        - `logarithmic`:
+        - `odesys`:
         """
-        self._reaction_system = reaction_system
-        self._C0 = C0
-        self._abstol = abstol
-        self._reltol = reltol
-        self._h = h
-        self._logarithmic = logarithmic
+        self._odesys = odesys
 
-    def write_code(self, dest):
+    def compile(self):
         pass
 
-    def compile_code(self):
+    def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None):
         pass
-
-    def integrate(self, t0, tend):
-        pass
-
 

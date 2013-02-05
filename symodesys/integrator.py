@@ -80,7 +80,7 @@ class IVP_Integrator(object):
 
 
 
-    def plot(self, indices = None, interpolate = False):
+    def plot(self, indices = None, interpolate = False, show = True):
         """
         Rudimentary plotting utility for quick inspection of solutions
         """
@@ -89,7 +89,6 @@ class IVP_Integrator(object):
         if interpolate:
             ipx = np.linspace(self.tout[0], self.tout[-1], 1000)
             ipy = np.array([self.get_interpolated(t) for t in ipx])
-        print ipy
         ls = ['-', '--', ':']
         c = 'k b r g m'.split()
         m = 'o s t * d p h'.split()
@@ -106,7 +105,7 @@ class IVP_Integrator(object):
                      marker = mi, ls = lsi, color = ci)
             plt.plot()
         plt.legend()
-        plt.show()
+        if show: plt.show()
 
 
 

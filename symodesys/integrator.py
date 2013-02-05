@@ -52,24 +52,33 @@ class IVP_Integrator(object):
         """
         pass
 
-    def yDyDDy(self):
-        y   = self.yout.tolist()
-        Dy  = [self._odesys.dydt(  t, y[i], self._params) for (i,), t in np.ndenumerate(self.tout)]
-        DDy = [self._odesys.d2ydt2(t, y[i], self._params) for (i,), t in np.ndenumerate(self.tout)]
-        # zip doesnt currently work with PiecewisePolynomial
-        return [[y[i], Dy[i], DDy[i]] for i in range(len(y))]
+    def Dy(self):
+        return np.array([self._odesys.dydt(  t, self.yout[i,:], self._params) for (i,), t \
+               in np.ndenumerate(self.tout)])
+
+    def DDy(self):
+        return np.array([self._odesys.d2ydt2(t, self.yout[i,:], self._params) for (i,), t \
+               in np.ndenumerate(self.tout)])
 
     @cache # never update tout, yout of an instance
     def interpolators(self):
         # BUG HERE
-        return [PiecewisePolynomial(self.tout, self.yDyDDy()[:][:][i]) for i in range(self.yout.shape[1])]
+        Dy = self.Dy()
+        DDy = self.DDy()
+        intrpltrs = []
+        for i in range(self.yout.shape[1]):
+            intrpltrs.append(PiecewisePolynomial(
+                self.tout, [[self.yout[j, i], Dy[j, i], DDy[j, i]] for j \
+                            in range(self.yout.shape[0])], orders = 5))
+        return intrpltrs
 
     def get_interpolated(self, t):
-        if t in self.tout:
-            return self.yout[np.where(t == self.tout),:]
-        else:
-            return [self.interpolators()[i](t) for i in range(self.yout.shape[1])]
-            return self._odesys
+        return [self.interpolators()[i](t) for i in range(self.yout.shape[1])]
+        # if t in self.tout:
+        #     return self.yout[np.where(t == self.tout),:][0,: ]
+        # else:
+
+
 
     def plot(self, indices = None, interpolate = False):
         """
@@ -80,7 +89,7 @@ class IVP_Integrator(object):
         if interpolate:
             ipx = np.linspace(self.tout[0], self.tout[-1], 1000)
             ipy = np.array([self.get_interpolated(t) for t in ipx])
-
+        print ipy
         ls = ['-', '--', ':']
         c = 'k b r g m'.split()
         m = 'o s t * d p h'.split()

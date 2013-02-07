@@ -78,7 +78,10 @@ class IVP_Integrator(object):
         #     return self.yout[np.where(t == self.tout),:][0,: ]
         # else:
 
-
+    def get_yout_by_symb(self, symb):
+        return self.yout.view(
+            dtype = [(str(x), self._dtype) for x \
+                     in self._odesys.dep_var_symbs])[str(symb)][:, 0]
 
     def plot(self, indices = None, interpolate = False, show = True):
         """
@@ -118,6 +121,7 @@ class SciPy_IVP_Integrator(IVP_Integrator):
 
     def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None):
         self._r.set_initial_value(y0)
+        assert len(self._params) == self._odesys.num_params
         self._r.set_f_params(self._params)
         self._r.set_jac_params(self._params)
         if N > 0:

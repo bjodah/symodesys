@@ -16,6 +16,14 @@ class FirstOrderODESystem(object):
     _dep_var_basesymb = 'y'
     _param_basesymb = 'k'
 
+    _attrs_to_cmp = ['indep_var_symb', 'num_dep_vars', 'num_params',
+                     'dep_var_symbs', 'param_symbs', 'f'] # Used for checking equality of class instances
+
+    def __eq__(self, other):
+        for attr in self._attrs_to_cmp:
+            if getattr(self, attr) != getattr(other, attr): return False
+        return True
+
     @property
     def dep_var_symbs(self):
         """

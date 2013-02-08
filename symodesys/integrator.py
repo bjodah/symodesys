@@ -19,14 +19,15 @@ class IVP_Integrator(object):
 
     _dtype = np.float64
 
-    def __init__(self, odesys, params = None):
+    def __init__(self, ivp, params = None):
         """
 
         Arguments:
-        - `odesys`:
-        - `backend`:
+        - `ivp`: IVP instance (initial value problem)
+        - `params`: Dictionary mapping dep. var names to initial values
         """
-        self._odesys = odesys
+        self._ivp = ivp
+        self._odesys = ivp._foodesys
         self._params = params
         self.post_init()
 
@@ -37,7 +38,7 @@ class IVP_Integrator(object):
         pass
 
     def update_params(self, params):
-        self._params = params
+        self._params.update(params)
 
     def compile(self):
         """
@@ -62,7 +63,6 @@ class IVP_Integrator(object):
 
     @cache # never update tout, yout of an instance
     def interpolators(self):
-        # BUG HERE
         Dy = self.Dy()
         DDy = self.DDy()
         intrpltrs = []
@@ -74,9 +74,6 @@ class IVP_Integrator(object):
 
     def get_interpolated(self, t):
         return [self.interpolators()[i](t) for i in range(self.yout.shape[1])]
-        # if t in self.tout:
-        #     return self.yout[np.where(t == self.tout),:][0,: ]
-        # else:
 
     def get_yout_by_symb(self, symb):
         return self.yout.view(

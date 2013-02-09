@@ -15,19 +15,25 @@ from symodesys.helpers import cache
 
 class IVP_Integrator(object):
     """
+    Integrates system of first order differential equations
+    given initial values. Can be used directly with
+    FirstOrderODESystem instance as fo_odesys, but often
+    use of IVP_Problem is advised since it can do partial
+    analytic treatment of problem at hand while preserving
+    the notion of initial value even though some IV might
+    have been reduced to parameters upon analytic reduction.
     """
 
     _dtype = np.float64
 
-    def __init__(self, ivp, params = None):
+    def __init__(self, fo_odesys, params = None):
         """
 
         Arguments:
-        - `ivp`: IVP instance (initial value problem)
+        - `fo_odesys`: FO_ODESYS instance (initial value problem)
         - `params`: Dictionary mapping dep. var names to initial values
         """
-        self._ivp = ivp
-        self._odesys = ivp._foodesys
+        self._fo_odesys = fo_odesys
         self._params = params
         self.post_init()
 
@@ -54,11 +60,11 @@ class IVP_Integrator(object):
         pass
 
     def Dy(self):
-        return np.array([self._odesys.dydt(  t, self.yout[i,:], self._params) for (i,), t \
+        return np.array([self._fo_odesys.dydt(  t, self.yout[i,:], self._params) for (i,), t \
                in np.ndenumerate(self.tout)])
 
     def DDy(self):
-        return np.array([self._odesys.d2ydt2(t, self.yout[i,:], self._params) for (i,), t \
+        return np.array([self._fo_odesys.d2ydt2(t, self.yout[i,:], self._params) for (i,), t \
                in np.ndenumerate(self.tout)])
 
     @cache # never update tout, yout of an instance
@@ -78,7 +84,7 @@ class IVP_Integrator(object):
     def get_yout_by_symb(self, symb):
         return self.yout.view(
             dtype = [(str(x), self._dtype) for x \
-                     in self._odesys.dep_var_symbs])[str(symb)][:, 0]
+                     in self._fo_odesys.dep_var_symbs])[str(symb)][:, 0]
 
     def plot(self, indices = None, interpolate = False, show = True):
         """
@@ -96,7 +102,7 @@ class IVP_Integrator(object):
             mi  = m[i % len(m)]
             lsi = ls[i % len(ls)]
             ci  = c[i % len(c)]
-            lbl = str(self._odesys.dep_var_symbs[i])
+            lbl = str(self._fo_odesys.dep_var_symbs[i])
             if interpolate:
                 plt.plot(ipx, ipy[:, i], label = lbl + ' (interpol.)',
                          marker = 'None', ls = lsi, color = ci)
@@ -107,27 +113,30 @@ class IVP_Integrator(object):
         plt.legend()
         if show: plt.show()
 
+    def init_yout_tout_for_fixed_step_size(self, t0, tend, N):
+        dt = (tend - t0) / (N - 1)
+        self.tout = np.linspace(t0, tend, N)
+        # Handle other dtype for tout here? linspace doesn't support dtype arg..
+        self.yout = np.zeros((N, self._fo_odesys.num_dep_vars), dtype = self._dtype)
+
 
 
 class SciPy_IVP_Integrator(IVP_Integrator):
 
     def post_init(self):
         from scipy.integrate import ode
-        self._r = ode(self._odesys.dydt, self._odesys.dydt_jac)
+        self._r = ode(self._fo_odesys.dydt, self._fo_odesys.dydt_jac)
 
 
     def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None):
         self._r.set_initial_value(y0)
-        assert len(self._params) == self._odesys.num_params
+        assert len(self._params) == self._fo_odesys.num_params
         self._r.set_f_params(self._params)
         self._r.set_jac_params(self._params)
         if N > 0:
             # Fixed stepsize
             self._r.set_integrator('vode', method = 'bdf', with_jacobian = True)
-            dt = (tend - t0) / (N - 1)
-            self.tout = np.linspace(t0, tend, N)
-            # Handle other dtype for tout here? linspace doesn't support dtype arg..
-            self.yout = np.zeros((N, self._odesys.num_dep_vars), dtype = self._dtype)
+            self.init_yout_tout_for_fixed_step_size(t0, tend, N)
             for i, t in enumerate(self.tout):
                 if i == 0:
                     self.yout[i, :] = y0
@@ -150,6 +159,30 @@ class SciPy_IVP_Integrator(IVP_Integrator):
             warnings.resetwarnings()
             self.yout = np.array(yout)
             self.tout = np.array(tout)
+
+
+class Mpmath_IVP_Integrator(IVP_Integrator):
+    """
+    Only for demonstration purposes
+    """
+
+    def post_init(self):
+        pass
+
+    def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None):
+        cb = lambda x, y: self._fo_odesys.dydt(x, y, self._params)
+        self._num_y = sympy.mpmath.odefun(cb, t0, y0, tol = abstol)
+        if N > 0:
+            # Fixed stepsize
+            self.init_yout_tout_for_fixed_step_size(t0, tend, N)
+            for i, t in enumerate(self.tout):
+                if i == 0:
+                    self.yout[i, :] = y0
+                    continue
+                self.yout[i, :] = self._num_y(self.tout[i])
+        else:
+            self.yout = np.array([y0, self._num_y(tend)])
+            self.tout = np.array([t0, tend])
 
 
 

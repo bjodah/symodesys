@@ -10,18 +10,19 @@ class IVP(Problem):
     ``reality'' it is a parameter which is updated
     """
 
-    def __init__(self, foodesys, initial_values, parameters):
+    def __init__(self, fo_odesys, initial_values, parameters):
         """
 
         Arguments:
-        - `foodesys`: First order ODE System
+        - `fo_odesys`: First order ODE System
         - `initial_values`: Dictionary mapping dep. var names to initial values
         """
-        self._foodesys = foodesys
+        self._ori_fo_odesys = fo_odesys
+        self._fo_odesys = fo_odesys
         self._initial_values = initial_values
         self.recursive_analytic_reduction()
 
-    def attempt_analytic_reduction(self, foodesys):
+    def attempt_analytic_reduction(self, fo_odesys):
         """
         Attempt to solve part of first order ode sys
         analytically
@@ -30,13 +31,13 @@ class IVP(Problem):
 
 
     def recursive_analytic_reduction(self):
-        foodesys = self._foodesys
-        old_foodesys = None
-        while (old_foodesys != foodesys):
-            old_foodesys = foodesys
-            foodesys, = self.attempt_analytic_reduction(foodesys)
-        if self._foodesys != foodesys:
-            self._foodesys = foodesys
+        fo_odesys = self._fo_odesys
+        old_fo_odesys = None
+        while (old_fo_odesys != fo_odesys):
+            old_fo_odesys = fo_odesys
+            fo_odesys, = self.attempt_analytic_reduction(fo_odesys)
+        if self._fo_odesys != fo_odesys:
+            self._fo_odesys = fo_odesys
 
 
     def update_initial_values(self, initial_values):

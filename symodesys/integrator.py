@@ -36,7 +36,12 @@ class IVP_Integrator(object):
         - `params`: Dictionary mapping dep. var names to initial values
         """
         self._fo_odesys = fo_odesys
-        self._params = params
+        if params == None:
+            self._params = self._fo_odesys._param_default_values
+        else:
+            for key in params.keys():
+                assert key in self._fo_odesys.param_symbs
+            self._params = params
         self.post_init()
 
     def post_init(self):
@@ -62,14 +67,14 @@ class IVP_Integrator(object):
         pass
 
     def Dy(self):
-        return np.array([self._fo_odesys.dydt(  t, self.yout[i,:], self._params) for (i,), t \
-               in np.ndenumerate(self.tout)])
+        return np.array([self._fo_odesys.dydt(  t, self.yout[i,:], self.params_val_lst) for (i,), t \
+                         in np.ndenumerate(self.tout)])
 
     def DDy(self):
-        return np.array([self._fo_odesys.d2ydt2(t, self.yout[i,:], self._params) for (i,), t \
-               in np.ndenumerate(self.tout)])
+        return np.array([self._fo_odesys.d2ydt2(t, self.yout[i,:], self.params_val_lst) for (i,), t \
+                         in np.ndenumerate(self.tout)])
 
-    @cache # never update tout, yout of an instance
+    @cache # never update tout, yout of an instance, create a new one instead
     def interpolators(self):
         Dy = self.Dy()
         DDy = self.DDy()
@@ -121,7 +126,9 @@ class IVP_Integrator(object):
         # Handle other dtype for tout here? linspace doesn't support dtype arg..
         self.yout = np.zeros((N, self._fo_odesys.num_dep_vars), dtype = self._dtype)
 
-
+    @property
+    def params_val_lst(self):
+        return [self._params[k] for k in self._fo_odesys.param_symbs]
 
 class SciPy_IVP_Integrator(IVP_Integrator):
 
@@ -131,28 +138,30 @@ class SciPy_IVP_Integrator(IVP_Integrator):
 
 
     def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None):
-        self._r.set_initial_value(y0)
+        y0_val_lst = [y0[k] for k in self._fo_odesys.dep_var_func_symbs]
+        self._r.set_initial_value(y0_val_lst)
         assert len(self._params) == self._fo_odesys.num_params
-        self._r.set_f_params(self._params)
-        self._r.set_jac_params(self._params)
+        self._r.set_f_params(self.params_val_lst)
+        self._r.set_jac_params(self.params_val_lst)
         if N > 0:
             # Fixed stepsize
             self._r.set_integrator('vode', method = 'bdf', with_jacobian = True)
             self.init_yout_tout_for_fixed_step_size(t0, tend, N)
             for i, t in enumerate(self.tout):
                 if i == 0:
-                    self.yout[i, :] = y0
+                    self.yout[i, :] = y0_val_lst
                     continue
                 self.yout[i, :] = self._r.integrate(self.tout[i])
                 assert self._r.successful()
         else:
             # Adaptive step size reporting
-            # http://stackoverflow.com/questions/12926393/using-adaptive-step-sizes-with-scipy-integrate-ode
+            # http://stackoverflow.com/questions/12926393/\
+            #   using-adaptive-step-sizes-with-scipy-integrate-ode
             self._r.set_integrator('vode', method = 'bdf', with_jacobian = True, nsteps = 1)
             self._r._integrator.iwork[2] =- 1
             yout, tout= [], []
             warnings.filterwarnings("ignore", category=UserWarning)
-            yout.append(y0)
+            yout.append(y0_val_lst)
             tout.append(t0)
             while self._r.t < tend:
                 self._r.integrate(tend, step=True)
@@ -172,18 +181,19 @@ class Mpmath_IVP_Integrator(IVP_Integrator):
         pass
 
     def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None):
-        cb = lambda x, y: self._fo_odesys.dydt(x, y, self._params)
-        self._num_y = sympy.mpmath.odefun(cb, t0, y0, tol = abstol)
+        y0_val_lst = [y0[k] for k in self._fo_odesys.dep_var_func_symbs]
+        cb = lambda x, y: self._fo_odesys.dydt(x, y, self.params_val_lst)
+        self._num_y = sympy.mpmath.odefun(cb, t0, y0_val_lst, tol = abstol)
         if N > 0:
             # Fixed stepsize
             self.init_yout_tout_for_fixed_step_size(t0, tend, N)
             for i, t in enumerate(self.tout):
                 if i == 0:
-                    self.yout[i, :] = y0
+                    self.yout[i, :] = y0_val_lst
                     continue
                 self.yout[i, :] = self._num_y(self.tout[i])
         else:
-            self.yout = np.array([y0, self._num_y(tend)])
+            self.yout = np.array([y0_val_lst, self._num_y(tend)])
             self.tout = np.array([t0, tend])
 
 

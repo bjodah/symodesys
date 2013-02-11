@@ -21,7 +21,8 @@ class VanDerPolOscillator(FirstOrderODESystem):
     # automatic labeling when plotting:
     dep_var_tokens = 'u v'.split()
     # dep_var_tokens is used to generate sympy.Function()(indep_var) instances
-    param_symbs   = sympy.symbols('mu,')
+    param_tokens = 'mu',
+    #param_symbs   = sympy.symbols('mu,')
 
     @property
     def f(self):
@@ -36,17 +37,21 @@ def main(params):
     """
     """
     vdpo = VanDerPolOscillator()
-    intr = SciPy_IVP_Integrator(vdpo, [mu])
+    vdpo_params = dict([(vdpo[k], v) for k, v in params.iteritems()])
+    intr = SciPy_IVP_Integrator(vdpo, vdpo_params)
+
+    y0 = {vdpo['u']: 1.0, vdpo['v']: 0.0}
 
     int_kwargs = {'abstol': 1e-6,
                   'reltol': 1e-6}
 
     #N = 0 # adaptive stepsize controls output
     N = 100
-    intr.integrate([1.0, 0.0], 0.0, 10.0, N, **int_kwargs)
+    intr.integrate(y0, 0.0, 10.0, N, **int_kwargs)
+    print intr.tout.shape, intr.yout.shape
     intr.plot(interpolate = True)
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    main(params = {'mu': float(sys.argv[1])})
     # args = argument_parser.parse_args()
     # sys.exit(main(**vars(args)))

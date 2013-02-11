@@ -17,22 +17,22 @@ class Decay(FirstOrderODESystem):
 
     # Following two lines are optional but useful for
     # automatic labeling when plotting:
-    dep_var_symbs = sympy.symbols('u'),
-    param_symbs   = sympy.symbols('lambda_u'),
+    dep_var_tokens = 'u',
+    param_tokens   = 'lambda_u',
 
     @property
     def f(self):
-        u, = self.dep_var_symbs
+        u, = self.dep_var_func_symbs
         lambda_u, = self.param_symbs
         return [-lambda_u * u,
                 ]
 
 
-def main(lambda_u):
+def main(params):
     """
     """
-    d = Decay()
-    intr = SciPy_IVP_Integrator(d, [lambda_u])
+    d = Decay(params)
+    intr = SciPy_IVP_Integrator(d)
 
     int_kwargs = {'abstol': 1e-6,
                   'reltol': 1e-6}
@@ -40,13 +40,14 @@ def main(lambda_u):
     N = 0 # adaptive stepsize controls output
     t0 = 0.0
     tend = 10.0
-    u0 = 1.0
+    y0 = {d['u']: 1.0}
 
-    intr.integrate([u0], t0, tend, N, **int_kwargs)
+    intr.integrate(y0, t0, tend, N, **int_kwargs)
 
     plt.subplot(311)
     intr.plot(interpolate = True, show = False)
 
+    lambda_u = params['lambda_u']
     analytic_u = np.exp(-lambda_u*intr.tout)
     plt.subplot(312)
     plt.plot(intr.tout, (intr.yout[:, 0] - analytic_u) / int_kwargs['abstol'],
@@ -59,4 +60,4 @@ def main(lambda_u):
     plt.show()
 
 if __name__ == '__main__':
-    main(float(sys.argv[1]))
+    main({'lambda_u': float(sys.argv[1])})

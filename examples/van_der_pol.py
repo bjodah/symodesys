@@ -19,16 +19,17 @@ class VanDerPolOscillator(FirstOrderODESystem):
 
     # Following two lines are optional but useful for
     # automatic labeling when plotting:
-    dep_var_symbs = sympy.symbols('u v')
+    dep_var_tokens = 'u v'.split()
+    # dep_var_tokens is used to generate sympy.Function()(indep_var) instances
     param_symbs   = sympy.symbols('mu,')
 
     @property
     def f(self):
-        u, v = self.dep_var_symbs
+        u, v = self.dep_var_func_symbs
         mu, = self.param_symbs
-        return [v,
-                -u + mu * v * (1 - u ** 2),
-                ]
+        return {u: v,
+                v: -u + mu*v*(1 - u**2),
+                }
 
 
 def main(params):

@@ -1,6 +1,8 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
-# TODO: Add van der Pool oscillator example and add interfaces
-# to both GSL (CythonGSL or own wrapper?) and SUNDIALS (PySundials or own wrapper?)
+# TODO: Add interfaces to both GSL (CythonGSL or own wrapper?) and
+# SUNDIALS (PySundials or own wrapper?)
 # TODO: See if it is best to subclass sympy's codegen or use templates with Django template engine.
 
 from __future__ import division
@@ -84,7 +86,7 @@ class IVP_Integrator(object):
     def get_yout_by_symb(self, symb):
         return self.yout.view(
             dtype = [(str(x), self._dtype) for x \
-                     in self._fo_odesys.dep_var_symbs])[str(symb)][:, 0]
+                     in self._fo_odesys.dep_var_func_symbs])[str(symb)][:, 0]
 
     def plot(self, indices = None, interpolate = False, show = True):
         """
@@ -102,7 +104,7 @@ class IVP_Integrator(object):
             mi  = m[i % len(m)]
             lsi = ls[i % len(ls)]
             ci  = c[i % len(c)]
-            lbl = str(self._fo_odesys.dep_var_symbs[i])
+            lbl = str(self._fo_odesys.dep_var_func_symbs[i])
             if interpolate:
                 plt.plot(ipx, ipy[:, i], label = lbl + ' (interpol.)',
                          marker = 'None', ls = lsi, color = ci)
@@ -183,9 +185,6 @@ class Mpmath_IVP_Integrator(IVP_Integrator):
         else:
             self.yout = np.array([y0, self._num_y(tend)])
             self.tout = np.array([t0, tend])
-
-
-
 
 
 class GSL_IVP_Integrator(IVP_Integrator):

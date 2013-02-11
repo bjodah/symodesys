@@ -38,7 +38,8 @@ def main(params_by_token):
           }
 
     ivp = IVP(cd, y0)
-    ivp = ivp.recurisive_analytic_reduction()
+    ivp.recurisive_analytic_reduction()
+
 
     intr = SciPy_IVP_Integrator(cd)
     int_kwargs = {'abstol': 1e-6,

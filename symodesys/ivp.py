@@ -1,6 +1,11 @@
+def solve_one_const(f_general_sol, f0, dep_val, const_symb = sympy.symbols('C1')):
+    f0_expr = f_general_sol.rhs.subs({dep_val: 0})
+    const_val = sympy.solve(sympy.Eq(f0_expr, f0), const_symb)[0]
+    return sympy.Eq(f_general_sol.lhs,
+                    f_general_sol.rhs.subs({const_symb: const_val}))
 
 
-class IVP(Problem):
+class IVP(object):
     """
     Initial Value Problem class
 
@@ -19,25 +24,47 @@ class IVP(Problem):
         """
         self._ori_fo_odesys = fo_odesys
         self._fo_odesys = fo_odesys
-        self._initial_values = initial_values
+        self._init_values = initial_values
+        self._init_val_symbs = {}
         self.recursive_analytic_reduction()
-
-    def attempt_analytic_reduction(self, fo_odesys):
-        """
-        Attempt to solve part of first order ode sys
-        analytically
-        """
-        pass
 
 
     def recursive_analytic_reduction(self):
-        fo_odesys = self._fo_odesys
-        old_fo_odesys = None
-        while (old_fo_odesys != fo_odesys):
-            old_fo_odesys = fo_odesys
-            fo_odesys, = self.attempt_analytic_reduction(fo_odesys)
-        if self._fo_odesys != fo_odesys:
-            self._fo_odesys = fo_odesys
+        """
+        Attempts to solve some y's analytically
+        """
+        solved = {}
+        changed_last_loop = True
+        while changed_last_loop:
+            changed_last_loop = False
+            for yi, expr in self._fo_odesys.f.iteritems():
+                if yi in solved: continue
+                # Check to see if it only depends on itself
+                expr = expr.subs(solved)
+                Jacobian_row_off_diag = [expr.diff(m) for m \
+                                         in self.dep_var_func_symbs if m != yi]
+                if all([c == 0 for c in Jacobian_row_off_diag]):
+                    # Attempt solution
+                    rel = sympy.Eq(yi.diff(x), expr)
+                    sol = sympy.dsolve(rel, yi)
+                    # ASSIGN NEW SYMBOL TO INITAL VALUE
+                    self._init_val_symbs[yi] = ###############
+                    sol_init_val = solve_one_const(sol, self._init_val_symbs[yi], x)
+                    solved[yi] = sol_init_val.rhs
+                    changed_last_loop = True
+
+        # Post processing of solutions
+        self._solved = solved
+        for solved_y in solved.keys():
+            self._fo_odesys.f.pop(solved_y)
+            self._fo_odesys.dep_var_func_symbs.pop(
+                self._fo_odesys.dep_var_func_symbs.where(solved_y))
+
+        if len(solved) > 0:
+            new_f = {}
+            for k, v in self._fo_odesys.f.iteritems():
+                new_f[k] = v.subs(solved)
+            self._fo_odesys.f = new_f
 
 
     def update_initial_values(self, initial_values):

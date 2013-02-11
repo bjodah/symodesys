@@ -10,41 +10,19 @@ import matplotlib.pyplot as plt
 from symodesys.firstorder import FirstOrderODESystem
 from symodesys.integrator import SciPy_IVP_Integrator
 
+from coupled_decay import CoupledDecay
+
 # TODO
-# Implement automatic resolution of N - number of chained decays via
+# Verify efficiency of general method compared to special use of
 # Bateman's equations
-
-class CoupledDecay(FirstOrderODESystem):
-
-    # Following two lines are optional but useful for
-    # automatic labeling when plotting:
-    dep_var_tokens = 'u v w'.split()
-    param_tokens   = 'lambda_u lambda_v lambda_w'.split()
-
-    # But when omitted you need to specify the dimsionality of the
-    # system as:
-    #    num_dep_vars = 3
-    #    num_params = 3
-
-
-    @property
-    def f(self):
-        u, v, w= self.dep_var_func_symbs
-        lambda_u, lambda_v, lambda_w = self.param_symbs
-        return {u: -lambda_u * u,
-                v: lambda_u * u - lambda_v * v,
-                w: lambda_v * v - lambda_w * w,
-                }
 
 
 def main(params_by_token):
     """
     """
     cd = CoupledDecay(params_by_token)
+
     u, v, w = cd.dep_var_func_symbs
-    intr = SciPy_IVP_Integrator(cd)
-    int_kwargs = {'abstol': 1e-6,
-                  'reltol': 1e-6}
 
     #N = 0 # adaptive stepsize controls output
     N = 100
@@ -58,6 +36,14 @@ def main(params_by_token):
           cd['v']: v0,
           cd['w']: w0,
           }
+
+    ivp = IVP(cd, y0)
+    ivp = ivp.recurisive_analytic_reduction()
+
+    intr = SciPy_IVP_Integrator(cd)
+    int_kwargs = {'abstol': 1e-6,
+                  'reltol': 1e-6}
+
 
     intr.integrate(y0, t0, tend, N, **int_kwargs)
 

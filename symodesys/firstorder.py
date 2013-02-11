@@ -24,39 +24,53 @@ class FirstOrderODESystem(object):
     #
     param_tokens = None
     _param_basesymb = 'k'
-    param_default_values = None
+    default_params_by_token = None
 
     #_attrs_to_cmp is used for checking equality of class instances
-    _attrs_to_cmp = ['indep_var_symb', 'num_dep_vars', 'num_params',
-                     'dep_var_func_symbs', 'param_symbs', 'f']
+    _attrs_to_cmp = ['indep_var_symb', 'dep_var_func_symbs', 'param_symbs', 'f']
 
     def __eq__(self, other):
         for attr in self._attrs_to_cmp:
             if getattr(self, attr) != getattr(other, attr): return False
         return True
 
-    def __init__(self, params_by_tokens = None):
+    def __init__(self, params_by_token = None):
         self._init_dep_var_tokens()
         self._init_param_tokens()
-        if params_by_tokens == None:
-            params_by_tokens = {}
+
+        if params_by_token == None:
+            params_by_token = {}
         else:
-            for token in params_by_tokens:
-                assert token in self.param_tokens
+            for token in params_by_token:
+                if not token in self.param_tokens: raise KeyError(
+                    'Parameter token ``{}" unknown'.format(token))
 
-        if self.param_default_values == None:
-            self._param_default_values = dict(
-                [(self[k], params_by_tokens.get(k, 0.0)) for k in self.param_tokens])
+        if self.default_params_by_token == None:
+            self.default_params_by_token = {}
+        self.default_params_by_token.update(params_by_token)
 
+    @property
+    def default_params(self):
+        return dict([(self[k], self.default_params_by_token.get(k, 0.0)) for k in self.param_tokens])
 
     def _init_dep_var_tokens(self):
         if self.dep_var_tokens == None:
             self.dep_var_tokens = [self._dep_var_basesymb + str(i) for i in range(self.num_dep_vars)]
+        else:
+            if self.num_dep_vars == None:
+                self.num_dep_vars = len(self.dep_var_tokens)
+            else:
+                assert self.num_dep_vars == len(self.dep_var_tokens)
         assert len(self.dep_var_tokens) == len(set(self.dep_var_tokens))
 
     def _init_param_tokens(self):
         if self.param_tokens == None:
             self.param_tokens = [self._param_basesymb + str(i) for i in range(self.num_params)]
+        else:
+            if self.num_params == None:
+                self.num_params = len(self.param_tokens)
+            else:
+                assert self.num_params == len(self.param_tokens)
         assert len(self.dep_var_tokens) == len(set(self.dep_var_tokens))
 
     def __getitem__(self, key):

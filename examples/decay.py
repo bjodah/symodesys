@@ -24,8 +24,8 @@ class Decay(FirstOrderODESystem):
     def f(self):
         u, = self.dep_var_func_symbs
         lambda_u, = self.param_symbs
-        return [-lambda_u * u,
-                ]
+        return {u: -lambda_u * u,
+                }
 
 
 def main(params):
@@ -60,4 +60,7 @@ def main(params):
     plt.show()
 
 if __name__ == '__main__':
-    main({'lambda_u': float(sys.argv[1])})
+    if len(sys.argv) > 1:
+        main({'lambda_u': float(sys.argv[1])})
+    else:
+        main({'lambda_u': 0.2})

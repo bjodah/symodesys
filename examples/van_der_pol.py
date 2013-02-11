@@ -5,29 +5,17 @@ import sys
 
 import sympy
 
-import matplotlib.pyplot as plt
-
 from symodesys.firstorder import FirstOrderODESystem
 from symodesys.integrator import SciPy_IVP_Integrator
-#from symodesys.command_line import argument_parser
-
 
 class VanDerPolOscillator(FirstOrderODESystem):
 
-    num_dep_vars = 2
-    num_params = 1
-
-    # Following two lines are optional but useful for
-    # automatic labeling when plotting:
     dep_var_tokens = 'u v'.split()
-    # dep_var_tokens is used to generate sympy.Function()(indep_var) instances
     param_tokens = 'mu',
-    #param_symbs   = sympy.symbols('mu,')
 
     @property
     def f(self):
-        u, v = self.dep_var_func_symbs
-        mu, = self.param_symbs
+        u, v, mu = [self[x] for x in 'u v mu'.split()]
         return {u: v,
                 v: -u + mu*v*(1 - u**2),
                 }
@@ -52,6 +40,12 @@ def main(params):
     intr.plot(interpolate = True)
 
 if __name__ == '__main__':
-    main(params = {'mu': float(sys.argv[1])})
+    if len(sys.argv) > 1:
+        mu = float(sys.argv[1])
+    else:
+        mu = 1.0
+
+    main(params = {'mu': mu})
+
     # args = argument_parser.parse_args()
     # sys.exit(main(**vars(args)))

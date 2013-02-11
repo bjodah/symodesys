@@ -28,20 +28,23 @@ class IVP_Integrator(object):
 
     _dtype = np.float64
 
-    def __init__(self, fo_odesys, params = None):
+    def __init__(self, fo_odesys, params_by_symb = None):
         """
 
         Arguments:
         - `fo_odesys`: FO_ODESYS instance (initial value problem)
-        - `params`: Dictionary mapping dep. var names to initial values
+        - `params_by_symb`: Dictionary mapping parameter symbols to parameter values
         """
         self._fo_odesys = fo_odesys
-        if params == None:
-            self._params = self._fo_odesys._param_default_values
-        else:
-            for key in params.keys():
-                assert key in self._fo_odesys.param_symbs
-            self._params = params
+        if params_by_symb == None: params_by_symb = {}
+        for symb in params_by_symb.keys():
+            if not symb in self._fo_odesys.param_symbs:
+                raise KeyError('Parameter symbol {} not in ODE system'.format(symb))
+
+        self._params_by_symb = {}
+        for param_symb in self._fo_odesys.param_symbs:
+            self._params_by_symb[param_symb] = params_by_symb.get(
+                param_symb, self._fo_odesys.default_params[param_symb])
         self.post_init()
 
     def post_init(self):
@@ -51,7 +54,7 @@ class IVP_Integrator(object):
         pass
 
     def update_params(self, params):
-        self._params.update(params)
+        self._params_by_symb.update(params)
 
     def compile(self):
         """
@@ -128,7 +131,7 @@ class IVP_Integrator(object):
 
     @property
     def params_val_lst(self):
-        return [self._params[k] for k in self._fo_odesys.param_symbs]
+        return [self._params_by_symb[k] for k in self._fo_odesys.param_symbs]
 
 class SciPy_IVP_Integrator(IVP_Integrator):
 
@@ -140,7 +143,7 @@ class SciPy_IVP_Integrator(IVP_Integrator):
     def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None):
         y0_val_lst = [y0[k] for k in self._fo_odesys.dep_var_func_symbs]
         self._r.set_initial_value(y0_val_lst)
-        assert len(self._params) == self._fo_odesys.num_params
+        assert len(self._params_by_symb) == self._fo_odesys.num_params
         self._r.set_f_params(self.params_val_lst)
         self._r.set_jac_params(self.params_val_lst)
         if N > 0:

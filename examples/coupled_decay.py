@@ -26,7 +26,6 @@ class CoupledDecay(FirstOrderODESystem):
     #    num_dep_vars = 3
     #    num_params = 3
 
-
     @property
     def f(self):
         u, v, w= self.dep_var_func_symbs
@@ -35,6 +34,13 @@ class CoupledDecay(FirstOrderODESystem):
                 v: lambda_u * u - lambda_v * v,
                 w: lambda_v * v - lambda_w * w,
                 }
+
+def analytic_u(init_vals, lmbs):
+    pass
+
+CoupledDecay.analytic_sols = {'u': analytic_u,
+                              'v': analytic_v,
+                              'w': analytic_w}
 
 
 def main(params_by_token):

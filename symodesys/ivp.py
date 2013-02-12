@@ -24,9 +24,16 @@ class IVP(object):
         """
         self._ori_fo_odesys = fo_odesys
         self._fo_odesys = fo_odesys
-        self._init_values = initial_values
+        self._init_vals = initial_values
         self._init_val_symbs = {}
-        self.recursive_analytic_reduction()
+
+
+    def mk_init_val_symb(self, y):
+        new_symb = sympy.symbols(str(y) + '_init')
+        assert not new_symb == self._fo_odesys.indep_var_symb
+        assert not new_symb in self._fo_odesys.dep_var_func_symbs
+        assert not new_symb in self._fo_odesys.param_symbs
+        return new_symb
 
 
     def recursive_analytic_reduction(self):
@@ -34,6 +41,7 @@ class IVP(object):
         Attempts to solve some y's analytically
         """
         solved = {}
+        new_init_val_param_symbs = []
         changed_last_loop = True
         while changed_last_loop:
             changed_last_loop = False
@@ -48,8 +56,9 @@ class IVP(object):
                     rel = sympy.Eq(yi.diff(x), expr)
                     sol = sympy.dsolve(rel, yi)
                     # ASSIGN NEW SYMBOL TO INITAL VALUE
-                    self._init_val_symbs[yi] = ###############
-                    sol_init_val = solve_one_const(sol, self._init_val_symbs[yi], x)
+                    new_symb = (yi, self.mk_init_val_symb(yi))
+                    new_init_val_param_symbs[yi] = new_symb
+                    sol_init_val = solve_one_const(sol, new_symb, x)
                     solved[yi] = sol_init_val.rhs
                     changed_last_loop = True
 
@@ -66,14 +75,27 @@ class IVP(object):
                 new_f[k] = v.subs(solved)
             self._fo_odesys.f = new_f
 
+        self._init_val_symbs.update(new_init_val_param_symbs)
+        return new_init_val_param_symbs
 
     def update_initial_values(self, initial_values):
         """
 
         """
         for k, v in initial_values.iteritems:
-            if k in self._initial_values:
-                self._initial_values[k] = v:
+            if k in self._init_vals:
+                self._init_vals[k] = v:
             else:
-                raise KeyError('Initial value for {} does not exist')
+                raise KeyError('Initial value for {} does not exist'.format(k))
+
+
+    def wrap_integrator(self, Integrator):
+        intr = Integrator(self._fo_odesys, self._init_val_symbs)
+        def integrate(y0, t0, tend, N, abstol = None, reltol = None, h = None):
+            for k in self._init_val_symbs.keys():
+                y0.pop(k)
+            intr.integrate(y0, t0, tend, N, abstol = None, reltol = None, h = None)
+            intr.yout###
+
+        intr.integrate = integrate
 

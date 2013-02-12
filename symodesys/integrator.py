@@ -66,6 +66,7 @@ class IVP_Integrator(object):
     def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None):
         """
         Should assign to self.tout and self.yout
+        Changes to the signature of this function must be propagated to IVP.wrap_integrators
         """
         pass
 
@@ -99,6 +100,8 @@ class IVP_Integrator(object):
     def plot(self, indices = None, interpolate = False, show = True):
         """
         Rudimentary plotting utility for quick inspection of solutions
+        TODO: move this from here,  make more general to accept mixed ODE sol +
+        analytic y curves
         """
         if indices == None: indices = range(self.yout.shape[1])
 

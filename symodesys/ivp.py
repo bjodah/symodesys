@@ -31,6 +31,8 @@ class IVP(object):
 
     default_N = 100 # used if integrate(..., N = 0, ...) and all analytic sol.
 
+    _dtype = np.float64
+
     def __init__(self, fo_odesys, init_vals,
                  Integrator = SciPy_IVP_Integrator,
                  AnalyticEvalr = SympyEvalr):
@@ -121,17 +123,19 @@ class IVP(object):
                 raise KeyError('Initial value for {} does not exist'.format(k))
 
 
-    def integrate(self, t0, tend, N, h = None, order = 0):
+    def integrate(self, t0, tend, N, h = None, order = 2):
         """
         Integrates the non-analytic odesystem and evaluates the analytic functions
         for the dependent variables (if there are any).
         """
         if len(self._solved) > 0:
             # If we have solved parts analytically
+            a_y0 = {}
             for yi, init_val_symb in self._init_val_symbs.iteritems():
                 a_y0[init_val_symb] = self._init_vals.pop(yi)
             self._analytic_evalr = self._AnalyticEvalr(
-                self._solved.values(), self._fo_odesys.params_by_symb, order = order)
+                self._solved.values(), self._fo_odesys.indep_var_symb,
+                self._fo_odesys.param_vals_by_symb, order = order)
 
         if len(self._init_vals) > 0:
             # If there are any non-analytic equations left
@@ -150,9 +154,8 @@ class IVP(object):
         """
         Unified the output of the numerical and analyitc results.
         """
-        dtype = self._integrator._dtype
         nt = self.tout.shape[0]
-        _yout = np.empty((nt, len(self._ori_dep_var_func_symbs)), dtype)
+        _yout = np.empty((nt, len(self._ori_dep_var_func_symbs)), self._dtype)
         j = 0 # Counter of analytic results
         k = 0 # Counter of numerical results
         for i, yi in enumerate(self._ori_dep_var_func_symbs):
@@ -160,22 +163,52 @@ class IVP(object):
                 _yout[:, i] = self._analytic_evalr.yout[:, j]
                 j += 1
             else:
-                _yout[:, i] = self._integrator.yout[:, k]
-                k += 1
+                if len(self._fo_odesys.dep_var_func_symbs) > 0:
+                    _yout[:, i] = self._integrator.yout[:, k]
+                    k += 1
         return _yout
 
 
     def Dy(self):
-        return np.array(
-            [self._fo_odesys.dydt(
-                t, self.yout[i,:], self._fo_odesys.params_val_lst) for\
-                         (i,), t in np.ndenumerate(self.tout)])
+        nt = self.tout.shape[0]
+        _out = np.empty((nt, len(self._ori_dep_var_func_symbs)), self._dtype)
+        if len(self._fo_odesys.dep_var_func_symbs) > 0:
+            num_dyout = np.array(
+                [self._fo_odesys.dydt(
+                    t, self._integrator.yout[i,:], self._fo_odesys.params_val_lst) for\
+                 (i,), t in np.ndenumerate(self.tout)])
+        j = 0 # Counter of analytic results
+        k = 0 # Counter of numerical results
+        for i, yi in enumerate(self._ori_dep_var_func_symbs):
+            if yi in self._solved:
+                _out[:, i] = self._analytic_evalr.dyout[:, j]
+                j += 1
+            else:
+                if len(self._fo_odesys.dep_var_func_symbs) > 0:
+                    _out[:, i] = num_dyout[:, k]
+                    k += 1
+        return _out
+
 
     def DDy(self):
-        return np.array(
-            [self._fo_odesys.d2ydt2(
-                t, self.yout[i,:], self._fo_odesys.params_val_lst) for\
-                         (i,), t in np.ndenumerate(self.tout)])
+        nt = self.tout.shape[0]
+        _out = np.empty((nt, len(self._ori_dep_var_func_symbs)), self._dtype)
+        if len(self._fo_odesys.dep_var_func_symbs) > 0:
+            num_ddyout = np.array(
+                [self._fo_odesys.d2ydt2(
+                    t, self.yout[i,:], self._fo_odesys.params_val_lst) for\
+                 (i,), t in np.ndenumerate(self.tout)])
+        j = 0 # Counter of analytic results
+        k = 0 # Counter of numerical results
+        for i, yi in enumerate(self._ori_dep_var_func_symbs):
+            if yi in self._solved:
+                _out[:, i] = self._analytic_evalr.ddyout[:, j]
+                j += 1
+            else:
+                if len(self._fo_odesys.dep_var_func_symbs) > 0:
+                    _out[:, i] = num_ddyout[:, k]
+                    k += 1
+        return _out
 
     @cache # never update tout, yout of an instance, create a new one instead
     def interpolators(self):
@@ -194,7 +227,7 @@ class IVP(object):
     def get_yout_by_symb(self, symb):
         return self.yout.view(
             dtype = [(str(x), self._dtype) for x \
-                     in self._ori_fo_odesys.dep_var_func_symbs])[str(symb)][:, 0]
+                     in self._ori_dep_var_func_symbs])[str(symb)][:, 0]
 
     def plot(self, indices = None, interpolate = False, show = True):
         """
@@ -214,7 +247,7 @@ class IVP(object):
             mi  = m[i % len(m)]
             lsi = ls[i % len(ls)]
             ci  = c[i % len(c)]
-            lbl = str(self._fo_odesys.dep_var_func_symbs[i])
+            lbl = str(self._ori_dep_var_func_symbs[i])
             if interpolate:
                 plt.plot(ipx, ipy[:, i], label = lbl + ' (interpol.)',
                          marker = 'None', ls = lsi, color = ci)

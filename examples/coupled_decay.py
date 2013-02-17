@@ -7,50 +7,68 @@ import sympy
 import numpy as np
 import matplotlib.pyplot as plt
 
-from symodesys.firstorder import FirstOrderODESystem
+from symodesys.firstorder import SimpleFirstOrderODESystem
 from symodesys.integrator import SciPy_IVP_Integrator
 
 # TODO
 # Implement automatic resolution of N - number of chained decays via
 # Bateman's equations
 
-class CoupledDecay(FirstOrderODESystem):
+class CoupledDecay(SimpleFirstOrderODESystem):
 
     # Following two lines are optional but useful for
     # automatic labeling when plotting:
     dep_var_tokens = 'u v w'.split()
     param_tokens   = 'lambda_u lambda_v lambda_w'.split()
 
-    # But when omitted you need to specify the dimsionality of the
-    # system as:
-    #    num_dep_vars = 3
-    #    num_params = 3
-
-    @property
-    def f(self):
-        u, v, w= self.dep_var_func_symbs
+    def _init_f(self):
+        u, v, w = self.dep_var_func_symbs
         lambda_u, lambda_v, lambda_w = self.param_symbs
         return {u: -lambda_u * u,
                 v: lambda_u * u - lambda_v * v,
                 w: lambda_v * v - lambda_w * w,
                 }
 
-def analytic_u(init_vals, lmbs):
-    pass
 
-CoupledDecay.analytic_sols = {'u': analytic_u,
-                              'v': analytic_v,
-                              'w': analytic_w}
+    def analytic_u(self, indep_vals, y0):
+        return y0['u'] * np.exp(-self.params_by_token['lambda_u']*indep_vals)
+
+
+    def analytic_v(self, indep_vals, y0):
+        return y0['v'] * np.exp(-self.params_by_token['lambda_v'] * indep_vals) + \
+                 y0['u'] * self.params_by_token['lambda_u'] / \
+                 (self.params_by_token['lambda_v'] - self.params_by_token['lambda_u']) * \
+                 (np.exp(-self.params_by_token['lambda_u']*indep_vals) - \
+                  np.exp( - self.params_by_token['lambda_v'] * indep_vals))
+
+    def analytic_w(self, indep_vals, y0):
+        return y0['w'] * np.exp(-self.params_by_token['lambda_w'] * indep_vals) + \
+                 y0['v'] * self.params_by_token['lambda_v'] / \
+                 (self.params_by_token['lambda_w'] - self.params_by_token['lambda_v']) * \
+                 (np.exp(-self.params_by_token['lambda_v']*indep_vals) - \
+                  np.exp(-self.params_by_token['lambda_w']*indep_vals)) + \
+                 self.params_by_token['lambda_v'] * self.params_by_token['lambda_u'] * \
+                 y0['u'] / (self.params_by_token['lambda_v'] - \
+                            self.params_by_token['lambda_u']) * \
+                 (1 / (self.params_by_token['lambda_w'] - \
+                       self.params_by_token['lambda_u']) * \
+                  (np.exp( - self.params_by_token['lambda_u'] * indep_vals) - \
+                   np.exp( - self.params_by_token['lambda_w'] * indep_vals)) - \
+                  1 / (self.params_by_token['lambda_w'] - \
+                       self.params_by_token['lambda_v']) * \
+                  (np.exp( - self.params_by_token['lambda_v'] * indep_vals) - \
+                   np.exp( - self.params_by_token['lambda_w'] * indep_vals)))
 
 
 def main(params_by_token):
     """
     """
-    cd = CoupledDecay(params_by_token)
+    cd = CoupledDecay()
+    cd.update_params_by_token(params_by_token)
     u, v, w = cd.dep_var_func_symbs
     intr = SciPy_IVP_Integrator(cd)
-    int_kwargs = {'abstol': 1e-6,
-                  'reltol': 1e-6}
+    int_kwargs = {'abstol': 1e-8,
+                  'reltol': 1e-8}
 
     #N = 0 # adaptive stepsize controls output
     N = 100
@@ -76,8 +94,10 @@ def main(params_by_token):
                  v0 * lambda_v / (lambda_w - lambda_v) * \
                  (np.exp(-lambda_v*t) - np.exp(-lambda_w*t)) + \
                  lambda_v * lambda_u * u0 / (lambda_v - lambda_u) * \
-                 (1 / (lambda_w - lambda_u) * (np.exp( - lambda_u * t) - np.exp( - lambda_w * t)) - \
-                  1 / (lambda_w - lambda_v) * (np.exp( - lambda_v * t) - np.exp( - lambda_w * t)))
+                 (1 / (lambda_w - lambda_u) * (np.exp( - lambda_u * t) - \
+                                               np.exp( - lambda_w * t)) - \
+                  1 / (lambda_w - lambda_v) * (np.exp( - lambda_v * t) - \
+                                               np.exp( - lambda_w * t)))
 
     uout = intr.get_yout_by_symb(u)
     vout = intr.get_yout_by_symb(v)

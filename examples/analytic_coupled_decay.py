@@ -50,16 +50,6 @@ def main(params_by_token):
     intr.integrate(y0, t0, tend, N, **int_kwargs)
 
     t = intr.tout
-    analytic_u = u0 * np.exp(-lambda_u*t)
-    analytic_v = v0 * np.exp(-lambda_v * t) + \
-                 u0 * lambda_u / (lambda_v - lambda_u) * \
-                 (np.exp(-lambda_u*t) - np.exp( - lambda_v * t))
-    analytic_w = w0 * np.exp(-lambda_w * t) + \
-                 v0 * lambda_v / (lambda_w - lambda_v) * \
-                 (np.exp(-lambda_v*t) - np.exp(-lambda_w*t)) + \
-                 lambda_v * lambda_u * u0 / (lambda_v - lambda_u) * \
-                 (1 / (lambda_w - lambda_u) * (np.exp( - lambda_u * t) - np.exp( - lambda_w * t)) - \
-                  1 / (lambda_w - lambda_v) * (np.exp( - lambda_v * t) - np.exp( - lambda_w * t)))
 
     uout = intr.get_yout_by_symb(u)
     vout = intr.get_yout_by_symb(v)

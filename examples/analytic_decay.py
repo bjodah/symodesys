@@ -22,6 +22,7 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
     sys.update_params_by_token(param_vals)
 
     y0 = {sys[k]: v for k, v in init_dep_var_vals_by_token.items()}
+    print y0
     ivp = IVP(sys, y0)
 
     # Attempt analytic reduction
@@ -37,12 +38,12 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
 
     analytic_y = sys.analytic_y(t, init_dep_var_vals_by_token)
     plt.subplot(312)
-    plt.plot(t, (y[:, 0] - analytic_y) / ivp._integrator.abstol,
-             label = 'abserr / abstol')
+    plt.plot(t, y[:, 0] - analytic_y,
+             label = 'abserr')
     plt.legend()
     plt.subplot(313)
-    plt.plot(t, (y[:, 0] - analytic_y) / analytic_y / ivp._integrator.reltol,
-             label = 'relerr / reltol')
+    plt.plot(t, (y[:, 0] - analytic_y) / analytic_y,
+             label = 'relerr')
     plt.legend()
     plt.show()
 

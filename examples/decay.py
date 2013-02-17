@@ -9,11 +9,15 @@ import matplotlib.pyplot as plt
 
 from symodesys.firstorder import FirstOrderODESystem
 from symodesys.integrator import SciPy_IVP_Integrator
+from symodesys.ivp import IVP
+
+# TODO: add use of units from Sympys physics module and enter lambda in per s, and give
+#        time intervals in hours
 
 class Decay(FirstOrderODESystem):
 
-    num_dep_vars = 1
-    num_params = 1
+    #num_dep_vars = 1
+    #num_params = 1
 
     # Following two lines are optional but useful for
     # automatic labeling when plotting:
@@ -31,30 +35,33 @@ class Decay(FirstOrderODESystem):
 def main(params):
     """
     """
-    d = Decay(params)
-    intr = SciPy_IVP_Integrator(d)
+    d = Decay()
+    d.update_default_params_by_token(params)
 
-    int_kwargs = {'abstol': 1e-6,
-                  'reltol': 1e-6}
+    y0 = {d['u']: 1.0}
+    ivp = IVP(d, y0, SciPy_IVP_Integrator)
+
+    intgrtn_kwargs = {'abstol': 1e-6,
+                      'reltol': 1e-6}
 
     N = 0 # adaptive stepsize controls output
-    t0 = 0.0
-    tend = 10.0
-    y0 = {d['u']: 1.0}
+    t0 = 0.0 # initial time = 0
+    tend = 10.0 # final time = 10
 
-    intr.integrate(y0, t0, tend, N, **int_kwargs)
+    ivp.integrate(t0, tend, N, **intgrtn_kwargs)
+    t, u = ivp.tout, ivp.yout
 
     plt.subplot(311)
-    intr.plot(interpolate = True, show = False)
+    ivp.plot(interpolate = True, show = False)
 
     lambda_u = params['lambda_u']
-    analytic_u = np.exp(-lambda_u*intr.tout)
+    analytic_u = np.exp(-lambda_u*t)
     plt.subplot(312)
-    plt.plot(intr.tout, (intr.yout[:, 0] - analytic_u) / int_kwargs['abstol'],
+    plt.plot(t, (u[:, 0] - analytic_u) / intgrtn_kwargs['abstol'],
              label = 'abserr / abstol')
     plt.legend()
     plt.subplot(313)
-    plt.plot(intr.tout, (intr.yout[:, 0] - analytic_u) / analytic_u / int_kwargs['reltol'],
+    plt.plot(t, (u[:, 0] - analytic_u) / analytic_u / intgrtn_kwargs['reltol'],
              label = 'relerr / reltol')
     plt.legend()
     plt.show()

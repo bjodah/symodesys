@@ -28,23 +28,13 @@ class IVP_Integrator(object):
 
     _dtype = np.float64
 
-    def __init__(self, fo_odesys, params_by_symb = None):
+    def __init__(self, fo_odesys):
         """
 
         Arguments:
         - `fo_odesys`: FO_ODESYS instance (initial value problem)
-        - `params_by_symb`: Dictionary mapping parameter symbols to parameter values
         """
         self._fo_odesys = fo_odesys
-        if params_by_symb == None: params_by_symb = {}
-        for symb in params_by_symb.keys():
-            if not symb in self._fo_odesys.param_symbs:
-                raise KeyError('Parameter symbol {} not in ODE system'.format(symb))
-
-        self._params_by_symb = {}
-        for param_symb in self._fo_odesys.param_symbs:
-            self._params_by_symb[param_symb] = params_by_symb.get(
-                param_symb, self._fo_odesys.default_params[param_symb])
         self.post_init()
 
     def post_init(self):
@@ -53,8 +43,24 @@ class IVP_Integrator(object):
         """
         pass
 
-    def update_params(self, params):
-        self._params_by_symb.update(params)
+    # def update_params_by_symb(self, params_by_symb = None):
+    #     """
+    #     Arguments:
+    #     - `params_by_symb`: Dictionary mapping parameter symbols to parameter values
+    #     """
+    #     if params_by_symb == None: params_by_symb = {}
+    #     for symb in params_by_symb.keys():
+    #         if not symb in self._fo_odesys.param_symbs:
+    #             raise KeyError('Parameter symbol {} not in ODE system'.format(symb))
+
+    #     self._params_by_symb = {}
+    #     for param_symb in self._fo_odesys.param_symbs:
+    #         self._params_by_symb[param_symb] = params_by_symb.get(
+    #             param_symb, self._fo_odesys.default_params[param_symb])
+
+
+    # def update_params(self, params):
+    #     self._params_by_symb.update(params)
 
     def compile(self):
         """
@@ -63,78 +69,37 @@ class IVP_Integrator(object):
         """
         pass
 
-    def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None):
+    def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None,
+                  order = 0):
         """
         Should assign to self.tout and self.yout
-        Changes to the signature of this function must be propagated to IVP.wrap_integrators
+        - `y0`: Dict mapping indep var symbs to initial values
+        - `t0`: Floating point value of initial value for indep var
+        - `tend`: Integration limit for the IVP (max val of indep var)
+        - `N`: number of output values. N = 0 signals adaptive step size and dynamic
+               allocation of length
+        - `abstol`: absolute tolerance for numerical integrator driver routine
+        - `reltol`: relative tolerance for numerical integrator driver routine
+        - `order`: Up to what order should d^n/dt^n derivatives of y be evaluated
+                   (defaults to 0)
+        Changes to the signature of this function must be propagated to IVP.integrate
         """
         pass
 
-    def Dy(self):
-        return np.array([self._fo_odesys.dydt(  t, self.yout[i,:], self.params_val_lst) for (i,), t \
-                         in np.ndenumerate(self.tout)])
 
-    def DDy(self):
-        return np.array([self._fo_odesys.d2ydt2(t, self.yout[i,:], self.params_val_lst) for (i,), t \
-                         in np.ndenumerate(self.tout)])
-
-    @cache # never update tout, yout of an instance, create a new one instead
-    def interpolators(self):
-        Dy = self.Dy()
-        DDy = self.DDy()
-        intrpltrs = []
-        for i in range(self.yout.shape[1]):
-            intrpltrs.append(PiecewisePolynomial(
-                self.tout, [[self.yout[j, i], Dy[j, i], DDy[j, i]] for j \
-                            in range(self.yout.shape[0])], orders = 5))
-        return intrpltrs
-
-    def get_interpolated(self, t):
-        return [self.interpolators()[i](t) for i in range(self.yout.shape[1])]
-
-    def get_yout_by_symb(self, symb):
-        return self.yout.view(
-            dtype = [(str(x), self._dtype) for x \
-                     in self._fo_odesys.dep_var_func_symbs])[str(symb)][:, 0]
-
-    def plot(self, indices = None, interpolate = False, show = True):
-        """
-        Rudimentary plotting utility for quick inspection of solutions
-        TODO: move this from here,  make more general to accept mixed ODE sol +
-        analytic y curves
-        """
-        if indices == None: indices = range(self.yout.shape[1])
-
-        if interpolate:
-            ipx = np.linspace(self.tout[0], self.tout[-1], 1000)
-            ipy = np.array([self.get_interpolated(t) for t in ipx])
-        ls = ['-', '--', ':']
-        c = 'k b r g m'.split()
-        m = 'o s t * d p h'.split()
-        for i in indices:
-            mi  = m[i % len(m)]
-            lsi = ls[i % len(ls)]
-            ci  = c[i % len(c)]
-            lbl = str(self._fo_odesys.dep_var_func_symbs[i])
-            if interpolate:
-                plt.plot(ipx, ipy[:, i], label = lbl + ' (interpol.)',
-                         marker = 'None', ls = lsi, color = ci)
-                lsi = 'None'
-            plt.plot(self.tout, self.yout[:, i], label = lbl,
-                     marker = mi, ls = lsi, color = ci)
-            plt.plot()
-        plt.legend()
-        if show: plt.show()
-
-    def init_yout_tout_for_fixed_step_size(self, t0, tend, N):
+    def init_yout_tout_for_fixed_step_size(self, t0, tend, N, order = 0):
         dt = (tend - t0) / (N - 1)
         self.tout = np.linspace(t0, tend, N)
         # Handle other dtype for tout here? linspace doesn't support dtype arg..
         self.yout = np.zeros((N, self._fo_odesys.num_dep_vars), dtype = self._dtype)
+        if order > 0:
+            self.dyouy = np.zeros((N, self._fo_odesys.num_dep_vars), dtype = self._dtype)
+        if order > 1:
+            self.ddyouy = np.zeros((N, self._fo_odesys.num_dep_vars), dtype = self._dtype)
 
     @property
     def params_val_lst(self):
-        return [self._params_by_symb[k] for k in self._fo_odesys.param_symbs]
+        return [self._fo_odesys._params_by_symb[k] for k in self._fo_odesys.param_symbs]
 
 class SciPy_IVP_Integrator(IVP_Integrator):
 
@@ -143,7 +108,8 @@ class SciPy_IVP_Integrator(IVP_Integrator):
         self._r = ode(self._fo_odesys.dydt, self._fo_odesys.dydt_jac)
 
 
-    def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None):
+    def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None,
+                  order = 0):
         y0_val_lst = [y0[k] for k in self._fo_odesys.dep_var_func_symbs]
         self._r.set_initial_value(y0_val_lst)
         assert len(self._params_by_symb) == self._fo_odesys.num_params
@@ -152,12 +118,18 @@ class SciPy_IVP_Integrator(IVP_Integrator):
         if N > 0:
             # Fixed stepsize
             self._r.set_integrator('vode', method = 'bdf', with_jacobian = True)
-            self.init_yout_tout_for_fixed_step_size(t0, tend, N)
+            self.init_yout_tout_for_fixed_step_size(t0, tend, N, order)
             for i, t in enumerate(self.tout):
-                if i == 0:
-                    self.yout[i, :] = y0_val_lst
-                    continue
+                # if i == 0:
+                #     self.yout[i, :] = y0_val_lst
+                #     continue
                 self.yout[i, :] = self._r.integrate(self.tout[i])
+                if order > 0:
+                    self.dyout[i, :] = self.dydt(tout[i], self.yout[i, :],
+                                                 self.params_val_lst)
+                if order > 1:
+                    self.ddyout[i,: ] = self.d2ydt2(tout[i], self.yout[i, :],
+                                                 self.params_val_lst)
                 assert self._r.successful()
         else:
             # Adaptive step size reporting

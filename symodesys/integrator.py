@@ -10,10 +10,7 @@ from __future__ import division
 import warnings
 
 import numpy as np
-from scipy.interpolate import PiecewisePolynomial
-import matplotlib.pyplot as plt
 
-from symodesys.helpers import cache
 
 class IVP_Integrator(object):
     """
@@ -27,6 +24,9 @@ class IVP_Integrator(object):
     """
 
     _dtype = np.float64
+
+    abstol = 1e-6 # Default absolute tolerance
+    reltol = 1e-6 # Default relative tolerance
 
     def __init__(self, fo_odesys):
         """
@@ -97,9 +97,6 @@ class IVP_Integrator(object):
         if order > 1:
             self.ddyouy = np.zeros((N, self._fo_odesys.num_dep_vars), dtype = self._dtype)
 
-    @property
-    def params_val_lst(self):
-        return [self._fo_odesys._params_by_symb[k] for k in self._fo_odesys.param_symbs]
 
 class SciPy_IVP_Integrator(IVP_Integrator):
 
@@ -108,13 +105,11 @@ class SciPy_IVP_Integrator(IVP_Integrator):
         self._r = ode(self._fo_odesys.dydt, self._fo_odesys.dydt_jac)
 
 
-    def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None,
-                  order = 0):
+    def integrate(self, y0, t0, tend, N, h = None, order = 0):
         y0_val_lst = [y0[k] for k in self._fo_odesys.dep_var_func_symbs]
-        self._r.set_initial_value(y0_val_lst)
-        assert len(self._params_by_symb) == self._fo_odesys.num_params
-        self._r.set_f_params(self.params_val_lst)
-        self._r.set_jac_params(self.params_val_lst)
+        self._r.set_initial_value(y0_val_lst, t0)
+        self._r.set_f_params(self._fo_odesys.params_val_lst)
+        self._r.set_jac_params(self._fo_odesys.params_val_lst)
         if N > 0:
             # Fixed stepsize
             self._r.set_integrator('vode', method = 'bdf', with_jacobian = True)

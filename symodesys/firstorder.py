@@ -12,62 +12,88 @@ class FirstOrderODESystem(object):
     TODO: add properties(?) for is_autonomous and is_linear
     """
 
-    indep_var_symb = sympy.symbols('t') # ODE implies 1 indep. variable
+    indep_var_symb = None # ODE implies 1 indep. variable, set to sympy.symbol(...)
+    dep_var_func_symbs = None
+    param_symbs = None
+    f = None
+    param_vals_by_symb = None
 
-    num_dep_vars = None # Size of ODE system
-    num_params = None # Number of parameters
 
     #_attrs_to_cmp is used for checking equality of class instances
-    _attrs_to_cmp = ['indep_var_symb', 'dep_var_func_symbs', 'param_symbs', 'f']
+    _attrs_to_cmp = ['indep_var_symb', 'dep_var_func_symbs', 'param_symbs',
+                     'f', 'param_vals_by_symb']
+
+    def __init__(self):
+        # By use of property functions makes overwriting harder
+        # therefore 'indep_var_symb', 'dep_var_func_symbs', 'param_symbs', 'f'
+        # are initialized via instance methods that by default initializes
+        # empty list / dict only if attribute is missing
+        self._init_dep_var_func_symbs()
+        self._init_param_symbs()
+        self._init_f()
+
+    def _init_dep_var_func_symbs(self):
+        """
+        To be subclassed (or add list prop: dep_var_func_symbs)
+
+        should return list of sympy.Function(``token_string'')(self.indep_var) instances
+        The order in this list defines indices in vectors and matrices used by underlying
+        numerical integration.
+        """
+        if self.dep_var_func_symbs == None:
+            self.dep_var_func_symbs = []
+
+    def _init_param_symbs(self):
+        """
+        To be subclassed (or add list prop: param_symbs)
+
+        should return list of sympy.symbols(``token_sting'') instances
+        The order in this list defines indices in vectors and matrices used by underlying
+        numerical integration.
+        (When subclassing, sympy.symarray might be useful.)
+        """
+        if self.param_symbs == None:
+            self.param_symbs = []
+
+    def _init_f(self):
+        """
+        To be subclassed (or add dict prop: f)
+
+        should return a dict of length
+        len(self.dep_var_func_symb) for the first-order derivatives
+        of the self.dep_var_func_symbs (the underived dep_var_func_symb acts as key)
+        expressed solely in numerical constants, sympy function expressions,
+        indep_var_symb, dep_var_func_symbs and param_symbs"""
+        if self.f == None:
+            self.f = {}
+
+    def _init_param_vals_by_symb(self):
+        """
+        To be subclassed (or add dict prop: param_vals_by_symb)
+
+        should return a dict of length
+        len(self.param_symbs) with the numerical values for each
+
+        The values of the parameters are included in this low level
+        both for programmatical convenience (not needing to pass values
+        through between interfaces), but it can also be viewed as part
+        of the ODE system (especially considering special cases when
+        some parameter is 0)
+        """
+        if self.param_vals_by_symb == None:
+            self.param_vals_by_symb = {}
 
     def __eq__(self, other):
         for attr in self._attrs_to_cmp:
             if getattr(self, attr) != getattr(other, attr): return False
         return True
 
-    @property
-    def default_params(self):
-        pass
-
-
-    @property
-    def dep_var_func_symbs(self):
-        """
-        To be subclassed.
-        should return list of sympy.Function(``token_string'')(self.indep_var) instances
-        The order in this list defines indices in vectors and matrices used by underlying
-        numerical integration.
-        """
-        pass
-
-    @property
-    def param_symbs(self):
-        """
-        To be subclassed.
-        should return list of sympy.symbols(``token_sting'') instances
-        The order in this list defines indices in vectors and matrices used by underlying
-        numerical integration.
-        (When subclassing, sympy.symarray might be useful.)
-        """
-        pass
-
-    @property
-    def f(self):
-        """
-        To be subclassed, should return a dict of length
-        len(self.dep_var_func_symb) for the first-order derivatives
-        of the self.dep_var_func_symbs (the underived dep_var_func_symb acts as key)
-        expressed solely in numerical constants, sympy function expressions,
-        indep_var_symb, dep_var_func_symbs and param_symbs
-        """
-        pass
-
     def _fmat(self):
         """
         Transorms the dict mapping dep_var_func_symbs self.f
         """
         return sympy.Matrix(
-            1, self.num_dep_vars,
+            1, len(self.dep_var_func_symbs),
             lambda q, i: self.f[self.dep_var_func_symbs[i]]
             )
 
@@ -79,6 +105,11 @@ class FirstOrderODESystem(object):
         for d in [indep_subs, dep_subs, param_subs]:
             all_subs.update(d)
         return all_subs
+
+    @property
+    def params_val_lst(self):
+        return [self.param_vals_by_symb[k] for k in self.param_symbs]
+
 
     def dydt(self, indep_val, dep_vals, param_vals):
         """
@@ -153,57 +184,29 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
     algorithmatically generated but by user subclassing (of this class).
     """
 
-    # if param_symbs is overlaoded (or param_tokens provided)
-    # num_params is set in self._init_param_tokens, else it must be set here:
+    indep_var_symb = sympy.symbols('t') # ODE implies 1 indep. variable
 
-    # Overload dep_var_tokens to get other names than y0, y1, y2...
-    # set to e.g. ['f', 'g', 'h']
-    # This is useful when manually initializing a FirstOrderODESystem
-    # instance, for algorithmic generation, tokens need not be used
-    # (overload symbs attributes instead)
+    # The following must be provided (string reprs instead of sympy.symbols)
     dep_var_tokens = None
-    _dep_var_basesymb = 'y'
-
-    #
     param_tokens = None
-    _param_basetoken = 'k'
-    default_params_by_token = None
+
+
+    params_by_token = None
 
 
     def __init__(self):
-        self._init_dep_var_tokens()
-        self._init_param_tokens()
+        if self.params_by_token == None:
+            self.params_by_token = {}
+        super(SimpleFirstOrderODESystem, self).__init__()
 
-    def update_default_params_by_token(self, params_by_token):
+    def update_params_by_token(self, params_by_token):
         for token in params_by_token:
             if not token in self.param_tokens: raise KeyError(
                 'Parameter token ``{}" unknown'.format(token))
 
-        if self.default_params_by_token == None:
-            self.default_params_by_token = {}
-        self.default_params_by_token.update(params_by_token)
-
-    def _init_dep_var_tokens(self):
-        if self.dep_var_tokens == None:
-            self.dep_var_tokens = [self._dep_var_basesymb + str(i) for\
-                                   i in range(self.num_dep_vars)]
-        else:
-            if self.num_dep_vars == None:
-                self.num_dep_vars = len(self.dep_var_tokens)
-            else:
-                assert self.num_dep_vars == len(self.dep_var_tokens)
-        assert len(self.dep_var_tokens) == len(set(self.dep_var_tokens))
-
-    def _init_param_tokens(self):
-        if self.param_tokens == None:
-            self.param_tokens = [self._param_basesymb + str(i) for\
-                                 i in range(self.num_params)]
-        else:
-            if self.num_params == None:
-                self.num_params = len(self.param_symbs)
-            else:
-                assert self.num_params == len(self.param_symbs)
-        assert len(self.dep_var_tokens) == len(set(self.dep_var_tokens))
+        if self.params_by_token == None:
+            self.params_by_token = {}
+        self.params_by_token.update(params_by_token)
 
     def __getitem__(self, key):
         """
@@ -211,7 +214,6 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
         and do not want to hardcode the order in the code for item access, it can
         be retrieved using this function
         """
-
         if key in self.dep_var_tokens:
             assert key not in self.param_tokens
             return sympy.Function(key)(self.indep_var_symb)
@@ -221,35 +223,19 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
             raise KeyError('Unknown token')
 
 
-
     # Begin overloading
+
     @property
-    def default_params_by_token(self):
-        return dict([(self[k], self.default_params_by_token[k]) for\
+    def param_vals_by_symb(self):
+        return dict([(self[k], self.params_by_token[k]) for\
                      k in self.param_tokens])
 
-    @property
-    def dep_var_func_symbs(self):
-        """
-        May be subclassed
-        should return list of sympy.Function(``token_string'')(self.indep_var) instances
-        The order in this list defines indices in vectors and matrices used by underlying
-        numerical integration.
-        """
-        return [self[y] for y in self.dep_var_tokens]
+    def _init_dep_var_func_symbs(self):
+        assert self.dep_var_func_symbs == None
+        self.dep_var_func_symbs = [self[y] for y in self.dep_var_tokens]
 
-
-    @property
-    def param_symbs(self):
-        """
-        May be subclassed
-        should return list of sympy.symbols(``token_sting'') instances
-        The order in this list defines indices in vectors and matrices used by underlying
-        numerical integration.
-        (When subclassing, sympy.symarray might be useful.)
-        """
-        return [self[k] for k in self.param_tokens]
+    def _init_param_symbs(self):
+        assert self.param_symbs == None
+        self.param_symbs = [self[k] for k in self.param_tokens]
 
     # End overloading
-
-

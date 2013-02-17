@@ -7,36 +7,10 @@ import sympy
 import numpy as np
 import matplotlib.pyplot as plt
 
-from symodesys.firstorder import SimpleFirstOrderODESystem, FirstOrderODESystem
-#from symodesys.integrator import SciPy_IVP_Integrator
 from symodesys.ivp import IVP
-
-# TODO: add use of units from Sympys physics module and enter lambda in per s, and give
-#        time intervals in hours
-
-u = sympy.symbols('u')
-lambda_u = sympy.symbols('lambda_u')
-
-class LowLevelDecay(FirstOrderODESystem):
-
-    dep_var_symbs = u,
-    param_symbs   = lambda_u,
-    f = {u: -lambda_u * u}
-
-    def analytic_y(self, indep_vals, y0):
-        return y0['u'] * np.exp(-self.param_vals_by_symb[lamba_u]*indep_vals)
+from decay import Decay
 
 
-class Decay(SimpleFirstOrderODESystem):
-
-    dep_var_tokens = 'u',
-    param_tokens   = 'lambda_u',
-
-    def _init_f(self):
-        self.f = {self['u']: -self['lambda_u'] * self['u']}
-
-    def analytic_y(self, indep_vals, y0):
-        return y0['u'] * np.exp(-self.params_by_token['lambda_u']*indep_vals)
 
 
 def plot_numeric_vs_analytic(Sys, indep_var_lim,
@@ -49,6 +23,9 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
 
     y0 = {sys[k]: v for k, v in init_dep_var_vals_by_token.items()}
     ivp = IVP(sys, y0)
+
+    # Attempt analytic reduction
+    print ivp.recursive_analytic_reduction()
 
     t0, tend = indep_var_lim
 

@@ -1,10 +1,15 @@
 from collections import OrderedDict
 
+import numpy as np
+from scipy.interpolate import PiecewisePolynomial
+import matplotlib.pyplot as plt
 import sympy
 
 from symodesys.helpers import SympyEvalr, cache
+from symodesys.integrator import SciPy_IVP_Integrator
 
-def solve_one_const(f_general_sol, f0, dep_val, const_symb = sympy.symbols('C1')):
+def determine_const_val_for_init_val(f_general_sol, f0, dep_val,
+                                     const_symb = sympy.symbols('C1')):
     """
     Helper function for IVP.recursive_analytic_reduction
     """
@@ -27,7 +32,8 @@ class IVP(object):
     default_N = 100 # used if integrate(..., N = 0, ...) and all analytic sol.
 
     def __init__(self, fo_odesys, init_vals,
-                 Integrator, AnalyticEvalr = SympyEvalr):
+                 Integrator = SciPy_IVP_Integrator,
+                 AnalyticEvalr = SympyEvalr):
         """
 
         Arguments:
@@ -61,9 +67,12 @@ class IVP(object):
     def recursive_analytic_reduction(self):
         """
         Attempts to solve some y's analytically
+
+        TODO: recreate possible 2nd order ODE and check solvability
         """
+        x = self._fo_odesys.indep_var_symb
         solved = {}
-        new_init_val_param_symbs = []
+        new_init_val_param_symbs = {}
         changed_last_loop = True
         while changed_last_loop:
             changed_last_loop = False
@@ -72,38 +81,38 @@ class IVP(object):
                 # Check to see if it only depends on itself
                 expr = expr.subs(solved)
                 Jacobian_row_off_diag = [expr.diff(m) for m \
-                                         in self.dep_var_func_symbs if m != yi]
+                                         in self._fo_odesys.dep_var_func_symbs if m != yi]
                 if all([c == 0 for c in Jacobian_row_off_diag]):
                     # Attempt solution (actually: assume success)
                     rel = sympy.Eq(yi.diff(x), expr)
                     sol = sympy.dsolve(rel, yi)
                     # Assign new symbol to inital value
-                    new_symb = (yi, self.mk_init_val_symb(yi))
-                    new_init_val_param_symbs[yi] = new_symb[1]
-                    sol_init_val = solve_one_const(sol, new_symb, x)
+                    new_symb = self.mk_init_val_symb(yi)
+                    new_init_val_param_symbs[yi] = new_symb
+                    sol_init_val = determine_const_val_for_init_val(
+                        sol, new_symb, x)
                     solved[yi] = sol_init_val.rhs
                     changed_last_loop = True
 
         # Post processing of solutions
         self._solved.update(solved)
-        for solved_y in solved.keys():
-            self._fo_odesys.f.pop(solved_y)
-            self._fo_odesys.dep_var_func_symbs.pop(
-                self._fo_odesys.dep_var_func_symbs.where(solved_y))
-
         if len(solved) > 0:
+            new_dep_var_func_symbs = [x for x in self._fo_odesys.dep_var_func_symbs \
+                                      if x not in solved]
             new_f = {}
-            for k, v in self._fo_odesys.f.iteritems():
-                new_f[k] = v.subs(solved)
+            for k in new_dep_var_func_symbs:
+                new_f[k] = self._fo_odesys[k].subs(solved)
+
+            self._fo_odesys.dep_var_func_symbs = new_dep_var_func_symbs
             self._fo_odesys.f = new_f
 
         self._init_val_symbs.update(new_init_val_param_symbs)
         return new_init_val_param_symbs
 
 
-    def update_initial_values(self, initial_values):
+    def update_init_vals(self, init_vals):
         """
-
+        Updates initial values
         """
         for k, v in initial_values.iteritems:
             if k in self._init_vals:
@@ -112,8 +121,7 @@ class IVP(object):
                 raise KeyError('Initial value for {} does not exist'.format(k))
 
 
-    def integrate(self, t0, tend, N, abstol = None, reltol = None, h = None,
-                   order = 0):
+    def integrate(self, t0, tend, N, h = None, order = 0):
         """
         Integrates the non-analytic odesystem and evaluates the analytic functions
         for the dependent variables (if there are any).
@@ -128,8 +136,7 @@ class IVP(object):
         if len(self._init_vals) > 0:
             # If there are any non-analytic equations left
             self._integrator = self._Integrator(self._fo_odesys)
-            self._integrator.integrate(self._init_vals, t0, tend, N, abstol, reltol,
-                                       h, order)
+            self._integrator.integrate(self._init_vals, t0, tend, N, h, order)
             self.tout = self._integrator.tout
         else:
             if N == 0: N = self.default_N
@@ -155,15 +162,20 @@ class IVP(object):
             else:
                 _yout[:, i] = self._integrator.yout[:, k]
                 k += 1
+        return _yout
 
 
     def Dy(self):
-        return np.array([self._fo_odesys.dydt(t, self.yout[i,:], self.params_val_lst) for (i,), t \
-                         in np.ndenumerate(self.tout)])
+        return np.array(
+            [self._fo_odesys.dydt(
+                t, self.yout[i,:], self._fo_odesys.params_val_lst) for\
+                         (i,), t in np.ndenumerate(self.tout)])
 
     def DDy(self):
-        return np.array([self._fo_odesys.d2ydt2(t, self.yout[i,:], self.params_val_lst) for (i,), t \
-                         in np.ndenumerate(self.tout)])
+        return np.array(
+            [self._fo_odesys.d2ydt2(
+                t, self.yout[i,:], self._fo_odesys.params_val_lst) for\
+                         (i,), t in np.ndenumerate(self.tout)])
 
     @cache # never update tout, yout of an instance, create a new one instead
     def interpolators(self):

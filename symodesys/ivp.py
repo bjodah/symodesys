@@ -8,6 +8,8 @@ import sympy
 from symodesys.helpers import SympyEvalr, cache
 from symodesys.integrator import SciPy_IVP_Integrator
 
+# FUTURE: Support uncertainties as parameter inputs
+
 def determine_const_val_for_init_val(f_general_sol, f0, dep_val,
                                      const_symb = sympy.symbols('C1')):
     """
@@ -123,7 +125,7 @@ class IVP(object):
                 raise KeyError('Initial value for {} does not exist'.format(k))
 
 
-    def integrate(self, t0, tend, N, h = None, order = 2):
+    def integrate(self, t0, tend, N = 0, h = None, order = 2):
         """
         Integrates the non-analytic odesystem and evaluates the analytic functions
         for the dependent variables (if there are any).
@@ -229,7 +231,7 @@ class IVP(object):
             dtype = [(str(x), self._dtype) for x \
                      in self._ori_dep_var_func_symbs])[str(symb)][:, 0]
 
-    def plot(self, indices = None, interpolate = False, show = True):
+    def plot(self, indices = None, interpolate = False, show = False):
         """
         Rudimentary plotting utility for quick inspection of solutions
         TODO: move this from here,  make more general to accept mixed ODE sol +

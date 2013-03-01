@@ -32,7 +32,7 @@ class Decay(SimpleFirstOrderODESystem):
     dep_var_tokens = 'u',
     param_tokens   = 'lambda_u',
 
-    def _init_f(self):
+    def init_f(self):
         self.f = {self['u']: -self['lambda_u'] * self['u']}
 
     def analytic_y(self, indep_vals, y0):

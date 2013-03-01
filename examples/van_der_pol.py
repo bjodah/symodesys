@@ -5,39 +5,40 @@ import sys
 
 import sympy
 
-from symodesys.firstorder import FirstOrderODESystem
-from symodesys.integrator import SciPy_IVP_Integrator
+from symodesys.firstorder import SimpleFirstOrderODESystem
+from symodesys.ivp import IVP
 
-class VanDerPolOscillator(FirstOrderODESystem):
+
+class VanDerPolOscillator(SimpleFirstOrderODESystem):
 
     dep_var_tokens = 'u v'.split()
     param_tokens = 'mu',
 
-    @property
-    def f(self):
+    def init_f(self):
         u, v, mu = [self[x] for x in 'u v mu'.split()]
-        return {u: v,
-                v: -u + mu*v*(1 - u**2),
-                }
+        self.f = {u: v,
+                  v: -u + mu*v*(1 - u**2),
+                  }
 
 
 def main(params):
     """
+    Example program integrating an IVP problem of van der Pol oscillator
     """
     vdpo = VanDerPolOscillator()
-    vdpo_params = dict([(vdpo[k], v) for k, v in params.iteritems()])
-    intr = SciPy_IVP_Integrator(vdpo, vdpo_params)
+    vdpo.update_params_by_token(params)
 
     y0 = {vdpo['u']: 1.0, vdpo['v']: 0.0}
+    t0 = 0.0
+    ivp = IVP(vdpo, y0, t0)
 
-    int_kwargs = {'abstol': 1e-6,
-                  'reltol': 1e-6}
+    # TODO: add abstraction layer for _Integrator.abstol etc?
+    ivp._Integrator.abstol = 1e-6
+    ivp._Integrator.reltol = 1e-6
 
-    #N = 0 # adaptive stepsize controls output
     N = 100
-    intr.integrate(y0, 0.0, 10.0, N, **int_kwargs)
-    print intr.tout.shape, intr.yout.shape
-    intr.plot(interpolate = True)
+    ivp.integrate(10.0, N)
+    ivp.plot(interpolate = True, show = True)
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
@@ -47,5 +48,3 @@ if __name__ == '__main__':
 
     main(params = {'mu': mu})
 
-    # args = argument_parser.parse_args()
-    # sys.exit(main(**vars(args)))

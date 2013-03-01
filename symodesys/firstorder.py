@@ -7,10 +7,11 @@ class FirstOrderODESystem(object):
     When the ODE systems equations is generated from user
     data this class is to be subclassed to provide the routines
     described below
-
-    TODO: implement the routines for variable substitution
-    TODO: add properties(?) for is_autonomous and is_linear
     """
+    # TOOD: Change self.f back to a read-only property - this class should act as an
+    #       immutable, create new instances if modifying. (req for __hash__) compare collections.namedtuple
+    # TODO: implement the routines for variable substitution
+    # TODO: add properties(?) for is_autonomous and is_linear
 
     indep_var_symb = None # ODE implies 1 indep. variable, set to sympy.symbol(...)
     dep_var_func_symbs = None

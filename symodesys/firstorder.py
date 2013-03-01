@@ -30,7 +30,7 @@ class FirstOrderODESystem(object):
         # empty list / dict only if attribute is missing
         self._init_dep_var_func_symbs()
         self._init_param_symbs()
-        self._init_f()
+        self.init_f()
 
     def _init_dep_var_func_symbs(self):
         """
@@ -55,11 +55,11 @@ class FirstOrderODESystem(object):
         if self.param_symbs == None:
             self.param_symbs = []
 
-    def _init_f(self):
+    def init_f(self):
         """
         To be subclassed (or add dict prop: f)
 
-        should return a dict of length
+        self.f should return a dict of length
         len(self.dep_var_func_symb) for the first-order derivatives
         of the self.dep_var_func_symbs (the underived dep_var_func_symb acts as key)
         expressed solely in numerical constants, sympy function expressions,
@@ -195,6 +195,8 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
 
 
     def __init__(self):
+        if self.param_tokens == None:
+            self.param_tokens = []
         if self.params_by_token == None:
             self.params_by_token = {}
         super(SimpleFirstOrderODESystem, self).__init__()

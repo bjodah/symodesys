@@ -43,32 +43,6 @@ class IVP_Integrator(object):
         """
         pass
 
-    # def update_params_by_symb(self, params_by_symb = None):
-    #     """
-    #     Arguments:
-    #     - `params_by_symb`: Dictionary mapping parameter symbols to parameter values
-    #     """
-    #     if params_by_symb == None: params_by_symb = {}
-    #     for symb in params_by_symb.keys():
-    #         if not symb in self._fo_odesys.param_symbs:
-    #             raise KeyError('Parameter symbol {} not in ODE system'.format(symb))
-
-    #     self._params_by_symb = {}
-    #     for param_symb in self._fo_odesys.param_symbs:
-    #         self._params_by_symb[param_symb] = params_by_symb.get(
-    #             param_symb, self._fo_odesys.default_params[param_symb])
-
-
-    # def update_params(self, params):
-    #     self._params_by_symb.update(params)
-
-    def compile(self):
-        """
-        To be subclassed.
-        Should set self._compiled = True when done
-        """
-        pass
-
     def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None,
                   order = 0):
         """
@@ -89,13 +63,14 @@ class IVP_Integrator(object):
 
     def init_yout_tout_for_fixed_step_size(self, t0, tend, N, order = 0):
         dt = (tend - t0) / (N - 1)
+        NY = len(self._fo_odesys.dep_var_func_symbs)
         self.tout = np.linspace(t0, tend, N)
         # Handle other dtype for tout here? linspace doesn't support dtype arg..
-        self.yout = np.zeros((N, self._fo_odesys.num_dep_vars), dtype = self._dtype)
+        self.yout = np.zeros((N, NY), dtype = self._dtype)
         if order > 0:
-            self.dyouy = np.zeros((N, self._fo_odesys.num_dep_vars), dtype = self._dtype)
+            self.dyout = np.zeros((N, NY), dtype = self._dtype)
         if order > 1:
-            self.ddyouy = np.zeros((N, self._fo_odesys.num_dep_vars), dtype = self._dtype)
+            self.ddyout = np.zeros((N, NY), dtype = self._dtype)
 
 
 class SciPy_IVP_Integrator(IVP_Integrator):
@@ -108,6 +83,7 @@ class SciPy_IVP_Integrator(IVP_Integrator):
     def integrate(self, y0, t0, tend, N, h = None, order = 0):
         y0_val_lst = [y0[k] for k in self._fo_odesys.dep_var_func_symbs]
         self._r.set_initial_value(y0_val_lst, t0)
+        #if len(self._fo_odesys.params_val_lst) > 0:
         self._r.set_f_params(self._fo_odesys.params_val_lst)
         self._r.set_jac_params(self._fo_odesys.params_val_lst)
         if N > 0:
@@ -115,16 +91,16 @@ class SciPy_IVP_Integrator(IVP_Integrator):
             self._r.set_integrator('vode', method = 'bdf', with_jacobian = True)
             self.init_yout_tout_for_fixed_step_size(t0, tend, N, order)
             for i, t in enumerate(self.tout):
-                # if i == 0:
-                #     self.yout[i, :] = y0_val_lst
-                #     continue
+                if i == 0:
+                    self.yout[i, :] = y0_val_lst
+                    continue
                 self.yout[i, :] = self._r.integrate(self.tout[i])
                 if order > 0:
-                    self.dyout[i, :] = self.dydt(tout[i], self.yout[i, :],
-                                                 self.params_val_lst)
+                    self.dyout[i, :] = self._fo_odesys.dydt(self.tout[i], self.yout[i, :],
+                                                            self._fo_odesys.params_val_lst)
                 if order > 1:
-                    self.ddyout[i,: ] = self.d2ydt2(tout[i], self.yout[i, :],
-                                                 self.params_val_lst)
+                    self.ddyout[i,: ] = self._fo_odesys.d2ydt2(self.tout[i], self.yout[i, :],
+                                                 self._fo_odesys.params_val_lst)
                 assert self._r.successful()
         else:
             # Adaptive step size reporting

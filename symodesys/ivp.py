@@ -35,7 +35,7 @@ class IVP(object):
 
     _dtype = np.float64
 
-    def __init__(self, fo_odesys, init_vals,
+    def __init__(self, fo_odesys, init_vals, t0,
                  Integrator = SciPy_IVP_Integrator,
                  AnalyticEvalr = SympyEvalr):
         """
@@ -49,6 +49,7 @@ class IVP(object):
         """
         self._fo_odesys = fo_odesys
         self._init_vals = init_vals
+        self._indep_var_init_val = t0
         self._Integrator = Integrator
         self._AnalyticEvalr = AnalyticEvalr
 
@@ -125,7 +126,7 @@ class IVP(object):
                 raise KeyError('Initial value for {} does not exist'.format(k))
 
 
-    def integrate(self, t0, tend, N = 0, h = None, order = 2):
+    def integrate(self, tend, N = 0, h = None, order = 2):
         """
         Integrates the non-analytic odesystem and evaluates the analytic functions
         for the dependent variables (if there are any).
@@ -142,11 +143,11 @@ class IVP(object):
         if len(self._init_vals) > 0:
             # If there are any non-analytic equations left
             self._integrator = self._Integrator(self._fo_odesys)
-            self._integrator.integrate(self._init_vals, t0, tend, N, h, order)
+            self._integrator.integrate(self._init_vals, self._indep_var_init_val, tend, N, h, order)
             self.tout = self._integrator.tout
         else:
             if N == 0: N = self.default_N
-            self.tout = np.linspace(t0, tend, N)
+            self.tout = np.linspace(self._indep_var_init_val, tend, N)
 
         if len(self._solved) > 0:
             self._analytic_evalr.eval_for_indep_array(self.tout, a_y0)

@@ -1,6 +1,9 @@
 
 ode.so: ode.c func.c jac.c
-	gcc $^ -O3 -lgsl -lgslcblas -lm -o $@
+	gcc -fpic -O3 -c -Wall ode.c
+	gcc -fpic -O3 -c -Wall func.c
+	gcc -fpic -O3 -c -Wall jac.c
+	ld -shared -soname ode.so -o ode.so -lgsl -lgslcblas -lm -lc $^
 
 main: main.c ode.so
-	gcc $^ -O3 -lgsl -lgslcblas -lm -o $@
+	gcc $^ -O3 -o $@

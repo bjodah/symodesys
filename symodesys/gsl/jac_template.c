@@ -1,9 +1,8 @@
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_matrix.h>
-#include <gsl/gsl_pow_int.h>
 
 // Python Mako template of C file
-// Variables: ${jac} ${dfdt} ${NY}
+// Variables: ${jac} ${dfdt} ${NY} ${cse_jac}
 
 int
 jac (double t, const double y[], double *dfdy, double dfdt[], void *params)
@@ -11,6 +10,23 @@ jac (double t, const double y[], double *dfdy, double dfdt[], void *params)
   double *k = (double *) params;
   gsl_matrix_view dfdy_mat = gsl_matrix_view_array(dfdy, ${NY}, ${NY});
   gsl_matrix *m = &dfdy_mat.matrix;
+
+  /*
+    Define variables for common subexpressions
+   */
+  % for cse_type, cse_token, cse_expr in cse_jac
+        ${cse_type} ${cse_token};
+  % endfor
+
+
+  /*
+    Calculate common subexpressions
+   */
+
+  % for cse_type, cse_token, cse_expr in cse_jac
+        ${cse_token} = ${cse_expr};
+  % endfor
+
 
   /*
     Populate the NY times NY Jacobian matrix

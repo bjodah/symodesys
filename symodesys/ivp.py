@@ -31,6 +31,9 @@ class IVP(object):
     ``reality'' it is a parameter which is updated
     """
 
+    # TODO: instead of self.yout, self.dyout, self.ddyout, ...
+    #         implement self.Yout (3 dimensional, where first dimension is order)
+
     default_N = 100 # used if integrate(..., N = 0, ...) and all analytic sol.
 
     _dtype = np.float64

@@ -1,5 +1,9 @@
+
+# stdlib imports
+import imp
 from functools import wraps
 
+# other imports
 import numpy as np
 
 def cache(f):
@@ -102,3 +106,11 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
              label = 'relerr / reltol')
     plt.legend()
     plt.show()
+
+def import_(filename):
+    """ Imports (cython generated) .so file """
+    path, name = os.path.split(filename)
+    name, ext = os.path.splitext(name)
+    fobj, filename, data = imp.find_module(name, [path])
+    mod = imp.load_module(name, fobj, filename, data)
+    return mod

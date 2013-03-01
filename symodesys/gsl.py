@@ -1,13 +1,20 @@
 
 # symodesys imports
 from symodesys.integrator import IVP_Integrator
+from symodesys.helpers import import_
 
 # stdlib imports
 import tempfile
 from shutil import rmtree
 
 # other imports
-import mako
+from mako.template import Template
+
+
+from distutils.core import setup
+from Cython.Distutils import Extension
+from Cython.Distutils import build_ext
+import cython_gsl
 
 class Genric_Code(object):
     """
@@ -55,29 +62,44 @@ class GSL_Code(object):
     def cse_jac(self):
         pass
 
-
     def __init__(self, fo_odesys, tempdir = None):
         self._fo_odesys = fo_odesys
         self._tempdir = tempdir or tempfile.mkdtemp()
         assert os.path.isdir(self._tempdir)
-        self._generate_code()
         self._write_code()
+
+    def _write_code(self):
+        for k, v in self.templates.iteritems():
+            srcpath = os.path.join(os.path.dirname(self.__file__), v)
+            outpath = os.path.join(self._tempdir, os.paht.basename(v))
+            subs = {s: getattr(self, s) for s in self.subs[k]}
+            template = Template(open(srcpath, 'rt').read())
+            open(outpath, 'wt').write(template.render(**subs))
+
+    def compile_and_import_binary(self):
+        binary_path = self._compile()
+        return import_(binary_path)
+
+    def _compile(self):
+        setup(
+            script_name =  'DUMMY_SCRIPT_NAME',
+            script_args =  ['build_ext',  '--inplace']
+            include_dirs = [cython_gsl.get_include()],
+            cmdclass = {'build_ext': build_ext},
+            ext_modules = [Extension("odeiv",
+                                     ["odeiv.pyx"],
+                                     libraries=cython_gsl.get_libraries(),
+                                     library_dirs=[cython_gsl.get_library_dir()],
+                                     include_dirs=[cython_gsl.get_cython_include_dir()]),
+                           Extension("OdeSystem",
+                                     ["OdeSystem.pyx"],
+                                     libraries=cython_gsl.get_libraries(),
+                                     library_dirs=[cython_gsl.get_library_dir()],
+                                     include_dirs=[cython_gsl.get_cython_include_dir()])]
+            )
 
     def clean(self):
         rmtree(self._tempdir)
-
-    def compile_and_import_binary(self):
-        self._compile()
-
-    def _generate_code()
-        for k, v in self.templates.iteritems():
-            outpath =
-
-    def _write_code(self):
-        open(outpath, 'wt').write(template.render(subs))
-
-    def _compile(self):
-        pass
 
     def __del__(self):
         """ When Generic_Code object is collected by GC self._tempdir is deleted """
@@ -88,47 +110,22 @@ class GSL_IVP_Integrator(IVP_Integrator):
     """
     IVP integrator using GNU Scientific Library routines odeiv2
     """
+
     def post_init(self):
         self._code = GSL_Code(self._fo_odesys)
         self._binary = self._code.compile_and_import_binary()
 
-        from scipy.integrate import ode
-        self._r = ode(self._fo_odesys.dydt, self._fo_odesys.dydt_jac)
-
-
     def integrate(self, y0, t0, tend, N, h = None, order = 0):
         y0_val_lst = [y0[k] for k in self._fo_odesys.dep_var_func_symbs]
-        self._r.set_initial_value(y0_val_lst, t0)
-        self._r.set_f_params(self._fo_odesys.params_val_lst)
-        self._r.set_jac_params(self._fo_odesys.params_val_lst)
         if N > 0:
             # Fixed stepsize
-            self._r.set_integrator('vode', method = 'bdf', with_jacobian = True)
             self.init_yout_tout_for_fixed_step_size(t0, tend, N, order)
-            for i, t in enumerate(self.tout):
-                self.yout[i, :] = self._r.integrate(self.tout[i])
-                if order > 0:
-                    self.dyout[i, :] = self.dydt(tout[i], self.yout[i, :],
-                                                 self.params_val_lst)
-                if order > 1:
-                    self.ddyout[i,: ] = self.d2ydt2(tout[i], self.yout[i, :],
-                                                 self.params_val_lst)
-                assert self._r.successful()
+            # Order give (super)dimensionality of yout
+            h_init = 1e-10 # TODO: find h: max(dydt) = abstol
+            h_max = 0.0 # hmax won't be set if 0.0
+            print_values = False
+            Yout = self._binary.integrate_ode_using_driver_fixed_step(
+                t0, tend, y0_val_lst, N, param_lst, self.abstol, self.reltol,
+                h_init, h_max, print_values)
         else:
-            # Adaptive step size reporting
-            # http://stackoverflow.com/questions/12926393/\
-            #   using-adaptive-step-sizes-with-scipy-integrate-ode
-            self._r.set_integrator('vode', method = 'bdf', with_jacobian = True, nsteps = 1)
-            self._r._integrator.iwork[2] =- 1
-            yout, tout= [], []
-            warnings.filterwarnings("ignore", category=UserWarning)
-            yout.append(y0_val_lst)
-            tout.append(t0)
-            while self._r.t < tend:
-                self._r.integrate(tend, step=True)
-                yout.append(self._r.y)
-                tout.append(self._r.t)
-            warnings.resetwarnings()
-            self.yout = np.array(yout)
-            self.tout = np.array(tout)
-
+            raise NotImplementedError

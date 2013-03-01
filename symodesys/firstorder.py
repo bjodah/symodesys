@@ -88,9 +88,15 @@ class FirstOrderODESystem(object):
             if getattr(self, attr) != getattr(other, attr): return False
         return True
 
+    def __hash__(self):
+        """ ODESystem is taken to be immutable """
+        hashes = [hash(x) for x in self._attrs_to_cmp if x != 'f']
+        fhash = hash(frozenset(self.f.items()))
+        return sum(hashes) + fhash
+
     def _fmat(self):
         """
-        Transorms the dict mapping dep_var_func_symbs self.f
+        Transforms the dict mapping dep_var_func_symbs self.f
         """
         return sympy.Matrix(
             1, len(self.dep_var_func_symbs),

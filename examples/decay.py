@@ -35,21 +35,23 @@ class Decay(SimpleFirstOrderODESystem):
     def init_f(self):
         self.f = {self['u']: -self['lambda_u'] * self['u']}
 
-    def analytic_y(self, indep_vals, y0):
-        return y0['u'] * np.exp(-self.params_by_token['lambda_u']*indep_vals)
+    def analytic_y(self, indep_vals, y0, param_vals):
+        return y0['u'] * np.exp(-param_vals[self['lambda_u']]*indep_vals)
 
 
 def plot_numeric_vs_analytic(Sys, indep_var_lim,
-                             init_dep_var_vals_by_token, param_vals, N = 0):
+                             init_dep_var_vals_by_token,
+                             param_vals, N = 0):
     """
     Integrate
     """
-    sys = Sys()
-    sys.update_params_by_token(param_vals)
+    odesys = Sys()
+    param_vals_by_symb = odesys.get_param_vals_by_symb_from_by_token(
+        param_vals)
 
     y0 = {sys[k]: v for k, v in init_dep_var_vals_by_token.items()}
     t0, tend = indep_var_lim
-    ivp = IVP(sys, y0, t0)
+    ivp = IVP(sys, y0, param_vals_by_symb, t0)
 
     ivp.integrate(tend, N = N)
     t, y = ivp.tout, ivp.yout
@@ -57,7 +59,8 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
     plt.subplot(311)
     ivp.plot(interpolate = True, show = False)
 
-    analytic_y = sys.analytic_y(t, init_dep_var_vals_by_token)
+    analytic_y = odesys.analytic_y(t, init_dep_var_vals_by_token,
+                                param_vals_by_symb)
     plt.subplot(312)
     plt.plot(t, (y[:, 0] - analytic_y) / ivp._integrator.abstol,
              label = 'abserr / abstol')

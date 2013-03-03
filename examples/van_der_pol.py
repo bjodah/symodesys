@@ -26,11 +26,11 @@ def main(params):
     Example program integrating an IVP problem of van der Pol oscillator
     """
     vdpo = VanDerPolOscillator()
-    vdpo.update_params_by_token(params)
+    param_vals_by_symb = vdpo.get_param_vals_by_symb_from_by_token(params)
 
     y0 = {vdpo['u']: 1.0, vdpo['v']: 0.0}
     t0 = 0.0
-    ivp = IVP(vdpo, y0, t0)
+    ivp = IVP(vdpo, y0, param_vals_by_symb, t0)
 
     # TODO: add abstraction layer for _Integrator.abstol etc?
     ivp._Integrator.abstol = 1e-6

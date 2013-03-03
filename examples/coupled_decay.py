@@ -30,41 +30,42 @@ class CoupledDecay(SimpleFirstOrderODESystem):
                   }
 
 
-    def analytic_u(self, indep_vals, y0):
-        return y0[self['u']] * np.exp(-self.params_by_token['lambda_u']*indep_vals)
+    def analytic_u(self, indep_vals, y0, param_vals):
+        return y0[self['u']] * np.exp(-param_vals[self['lambda_u']]*indep_vals)
 
 
-    def analytic_v(self, indep_vals, y0):
-        return y0[self['v']] * np.exp(-self.params_by_token['lambda_v'] * indep_vals) + \
-                 y0[self['u']] * self.params_by_token['lambda_u'] / \
-                 (self.params_by_token['lambda_v'] - self.params_by_token['lambda_u']) * \
-                 (np.exp(-self.params_by_token['lambda_u']*indep_vals) - \
-                  np.exp( - self.params_by_token['lambda_v'] * indep_vals))
+    def analytic_v(self, indep_vals, y0, param_vals):
+        return y0[self['v']] * np.exp(-param_vals[self['lambda_v']] * indep_vals) + \
+                 y0[self['u']] * param_vals[self['lambda_u']] / \
+                 (param_vals[self['lambda_v']] - param_vals[self['lambda_u']]) * \
+                 (np.exp(-param_vals[self['lambda_u']]*indep_vals) - \
+                  np.exp( - param_vals[self['lambda_v']] * indep_vals))
 
-    def analytic_w(self, indep_vals, y0):
-        return y0[self['w']] * np.exp(-self.params_by_token['lambda_w'] * indep_vals) + \
-                 y0[self['v']] * self.params_by_token['lambda_v'] / \
-                 (self.params_by_token['lambda_w'] - self.params_by_token['lambda_v']) * \
-                 (np.exp(-self.params_by_token['lambda_v']*indep_vals) - \
-                  np.exp(-self.params_by_token['lambda_w']*indep_vals)) + \
-                 self.params_by_token['lambda_v'] * self.params_by_token['lambda_u'] * \
-                 y0[self['u']] / (self.params_by_token['lambda_v'] - \
-                            self.params_by_token['lambda_u']) * \
-                 (1 / (self.params_by_token['lambda_w'] - \
-                       self.params_by_token['lambda_u']) * \
-                  (np.exp( - self.params_by_token['lambda_u'] * indep_vals) - \
-                   np.exp( - self.params_by_token['lambda_w'] * indep_vals)) - \
-                  1 / (self.params_by_token['lambda_w'] - \
-                       self.params_by_token['lambda_v']) * \
-                  (np.exp( - self.params_by_token['lambda_v'] * indep_vals) - \
-                   np.exp( - self.params_by_token['lambda_w'] * indep_vals)))
+    def analytic_w(self, indep_vals, y0, param_vals):
+        return y0[self['w']] * np.exp(-param_vals[self['lambda_w']] * indep_vals) + \
+                 y0[self['v']] * param_vals[self['lambda_v']] / \
+                 (param_vals[self['lambda_w']] - param_vals[self['lambda_v']]) * \
+                 (np.exp(-param_vals[self['lambda_v']]*indep_vals) - \
+                  np.exp(-param_vals[self['lambda_w']]*indep_vals)) + \
+                 param_vals[self['lambda_v']] * param_vals[self['lambda_u']] * \
+                 y0[self['u']] / (param_vals[self['lambda_v']] - \
+                            param_vals[self['lambda_u']]) * \
+                 (1 / (param_vals[self['lambda_w']] - \
+                       param_vals[self['lambda_u']]) * \
+                  (np.exp( - param_vals[self['lambda_u']] * indep_vals) - \
+                   np.exp( - param_vals[self['lambda_w']] * indep_vals)) - \
+                  1 / (param_vals[self['lambda_w']] - \
+                       param_vals[self['lambda_v']]) * \
+                  (np.exp( - param_vals[self['lambda_v']] * indep_vals) - \
+                   np.exp( - param_vals[self['lambda_w']] * indep_vals)))
 
 
 def main(params_by_token):
     """
     """
     cd = CoupledDecay()
-    cd.update_params_by_token(params_by_token)
+    param_vals_by_symb = cd.get_param_vals_by_symb_from_by_token(
+        params_by_token)
 
     u, v, w = cd.dep_var_func_symbs
 
@@ -79,7 +80,7 @@ def main(params_by_token):
           cd['w']: w0,
           }
 
-    ivp = IVP(cd, y0, t0)
+    ivp = IVP(cd, y0, param_vals_by_symb, t0)
     ivp._Integrator.abstol = 1e-8
     ivp._Integrator.reltol = 1e-8
 
@@ -89,9 +90,9 @@ def main(params_by_token):
     ivp.integrate(tend, N = N)
 
     t = ivp.tout
-    analytic_u = cd.analytic_u(t, y0)
-    analytic_v = cd.analytic_v(t, y0)
-    analytic_w = cd.analytic_w(t, y0)
+    analytic_u = cd.analytic_u(t, y0, param_vals_by_symb)
+    analytic_v = cd.analytic_v(t, y0, param_vals_by_symb)
+    analytic_w = cd.analytic_w(t, y0, param_vals_by_symb)
 
     uout = ivp.get_yout_by_symb(u)
     vout = ivp.get_yout_by_symb(v)

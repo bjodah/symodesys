@@ -39,14 +39,14 @@ class IVP(object):
 
     _dtype = np.float64
 
-    def __init__(self, fo_odesys, init_vals, t0,
+    def __init__(self, fo_odesys, init_vals, param_vals_by_symb, t0,
                  Integrator = SciPy_IVP_Integrator,
                  AnalyticEvalr = SympyEvalr):
         """
 
         Arguments:
         - `fo_odesys`: First order ODE System
-        - `init_vals`: Dictionary mapping dep. var names to initial values
+        - `init_vals`: Dictionary mapping dep. var symbols to vals at t0
         - `Integrator`: IVP_Integrator class
         - `AnalyticEvalr`: Callback evaluating the analytically solved eq.
                             Defaults to SympyEvalr
@@ -54,6 +54,7 @@ class IVP(object):
         self._fo_odesys = fo_odesys
         self._old_fo_odesys = [] # Save old sys when solving analytically
         self._init_vals = init_vals
+        self._param_vals_by_symb = param_vals_by_symb
         self._indep_var_init_val = t0
         self._Integrator = Integrator
         self._AnalyticEvalr = AnalyticEvalr
@@ -118,7 +119,6 @@ class IVP(object):
             self._old_fo_odesys.append(self._fo_odesys)
             new_fo_odesys = FirstOrderODESystem()
             new_fo_odesys.indep_var_symb = self._fo_odesys.indep_var_symb
-            new_fo_odesys.param_vals_by_symb = self._fo_odesys.param_vals_by_symb
             new_fo_odesys.param_symbs = self._fo_odesys.param_symbs + \
                                         new_init_val_param_symbs.values()
             new_fo_odesys.dep_var_func_symbs = new_dep_var_func_symbs
@@ -142,8 +142,8 @@ class IVP(object):
 
     def integrate(self, tend, N = 0, h = None, order = 2):
         """
-        Integrates the non-analytic odesystem and evaluates the analytic functions
-        for the dependent variables (if there are any).
+        Integrates the non-analytic odesystem and evaluates the
+        analytic functions for the dependent variables (if there are any).
         """
         non_analytic_init_vals = self._init_vals.copy()
         if len(self._solved) > 0:
@@ -155,14 +155,14 @@ class IVP(object):
                 non_analytic_init_vals.pop(yi)
             self._analytic_evalr = self._AnalyticEvalr(
                 self._solved.values(), self._fo_odesys.indep_var_symb,
-                self._fo_odesys.param_vals_by_symb, order = order)
+                self._param_vals_by_symb, order = order)
 
         if len(non_analytic_init_vals) > 0:
             # If there are any non-analytic equations left
             self._integrator = self._Integrator(self._fo_odesys)
             self._integrator.integrate(
-                non_analytic_init_vals, self._indep_var_init_val,
-                tend, N, h, order)
+                non_analytic_init_vals, self._param_vals_by_symb,
+                self._indep_var_init_val, tend, N, h, order)
             self.tout = self._integrator.tout
         else:
             if N == 0: N = self.default_N
@@ -197,7 +197,10 @@ class IVP(object):
         if len(self._fo_odesys.dep_var_func_symbs) > 0:
             num_dyout = np.array(
                 [self._fo_odesys.dydt(
-                    t, self._integrator.yout[i,:], self._fo_odesys.params_val_lst) for\
+                    t, self._integrator.yout[i,:],
+                    self._fo_odesys.param_val_lst(
+                        self._param_vals_by_symb)
+                    ) for\
                  (i,), t in np.ndenumerate(self.tout)])
         j = 0 # Counter of analytic results
         k = 0 # Counter of numerical results
@@ -218,7 +221,8 @@ class IVP(object):
         if len(self._fo_odesys.dep_var_func_symbs) > 0:
             num_ddyout = np.array(
                 [self._fo_odesys.d2ydt2(
-                    t, self.yout[i,:], self._fo_odesys.params_val_lst) for\
+                    t, self.yout[i,:], self._fo_odesys.param_val_lst(
+                        self._param_vals_by_symb)) for\
                  (i,), t in np.ndenumerate(self.tout)])
         j = 0 # Counter of analytic results
         k = 0 # Counter of numerical results

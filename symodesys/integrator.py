@@ -80,12 +80,13 @@ class SciPy_IVP_Integrator(IVP_Integrator):
         self._r = ode(self._fo_odesys.dydt, self._fo_odesys.dydt_jac)
 
 
-    def integrate(self, y0, t0, tend, N, h = None, order = 0):
+    def integrate(self, y0, param_vals_by_symb, t0,
+                  tend, N, h = None, order = 0):
         y0_val_lst = [y0[k] for k in self._fo_odesys.dep_var_func_symbs]
+        param_val_lst = self._fo_odesys.param_val_lst(param_vals_by_symb)
         self._r.set_initial_value(y0_val_lst, t0)
-        #if len(self._fo_odesys.params_val_lst) > 0:
-        self._r.set_f_params(self._fo_odesys.params_val_lst)
-        self._r.set_jac_params(self._fo_odesys.params_val_lst)
+        self._r.set_f_params(param_val_lst)
+        self._r.set_jac_params(param_val_lst)
         if N > 0:
             # Fixed stepsize
             self._r.set_integrator('vode', method = 'bdf', with_jacobian = True)
@@ -96,11 +97,11 @@ class SciPy_IVP_Integrator(IVP_Integrator):
                     continue
                 self.yout[i, :] = self._r.integrate(self.tout[i])
                 if order > 0:
-                    self.dyout[i, :] = self._fo_odesys.dydt(self.tout[i], self.yout[i, :],
-                                                            self._fo_odesys.params_val_lst)
+                    self.dyout[i, :] = self._fo_odesys.dydt(
+                        self.tout[i], self.yout[i, :], param_val_lst)
                 if order > 1:
-                    self.ddyout[i,: ] = self._fo_odesys.d2ydt2(self.tout[i], self.yout[i, :],
-                                                 self._fo_odesys.params_val_lst)
+                    self.ddyout[i,: ] = self._fo_odesys.d2ydt2(
+                        self.tout[i], self.yout[i, :], param_val_lst)
                 assert self._r.successful()
         else:
             # Adaptive step size reporting
@@ -129,9 +130,11 @@ class Mpmath_IVP_Integrator(IVP_Integrator):
     def post_init(self):
         pass
 
-    def integrate(self, y0, t0, tend, N, abstol = None, reltol = None, h = None):
+    def integrate(self, y0, param_vals_by_symb, t0, tend,
+                  N, abstol = None, reltol = None, h = None):
         y0_val_lst = [y0[k] for k in self._fo_odesys.dep_var_func_symbs]
-        cb = lambda x, y: self._fo_odesys.dydt(x, y, self.params_val_lst)
+        param_val_lst = self._fo_odesys.param_val_lst(param_vals_by_symb)
+        cb = lambda x, y: self._fo_odesys.dydt(x, y, param_val_lst)
         self._num_y = sympy.mpmath.odefun(cb, t0, y0_val_lst, tol = abstol)
         if N > 0:
             # Fixed stepsize

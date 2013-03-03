@@ -21,7 +21,8 @@ def main(params_by_token):
     """
     """
     cd = CoupledDecay()
-    cd.update_params_by_token(params_by_token)
+    param_vals_by_symb = cd.get_param_vals_by_symb_from_by_token(
+        params_by_token)
 
     u, v, w = cd.dep_var_func_symbs
 
@@ -38,7 +39,7 @@ def main(params_by_token):
           }
 
     print y0
-    ivp = IVP(cd, y0, t0)
+    ivp = IVP(cd, y0, param_vals_by_symb, t0)
     new_params = ivp.recursive_analytic_reduction()
     print new_params
 
@@ -49,9 +50,9 @@ def main(params_by_token):
 
     t = ivp.tout
     print y0
-    analytic_u = cd.analytic_u(t, y0)
-    analytic_v = cd.analytic_v(t, y0)
-    analytic_w = cd.analytic_w(t, y0)
+    analytic_u = cd.analytic_u(t, y0, param_vals_by_symb)
+    analytic_v = cd.analytic_v(t, y0, param_vals_by_symb)
+    analytic_w = cd.analytic_w(t, y0, param_vals_by_symb)
 
     uout = ivp.get_yout_by_symb(u)
     vout = ivp.get_yout_by_symb(v)

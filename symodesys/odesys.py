@@ -6,33 +6,36 @@ from collections import OrderedDict
 
 class ODESystem(object):
 
-    indep_var_symb = None # ODE implies 1 indep. variable, set to sympy.symbol(...)
+    indep_var_symb = None # ODE implies 1 indep. variable,
+                          #  set to sympy.symbol(...)
     dep_var_func_symbs = None # Set to a list of kind:
-                              #    sympy.Function('name')(self.indep_var_symb)
+                           # sympy.Function('name')(self.indep_var_symb)
     param_symbs = None
     f = None
-    param_vals_by_symb = None
 
     @property
     def is_autonomous(self):
-        for dep_var_func_symb, (order, expr) in self._odeqs_by_indep_var.iteritems():
-            unfunc_subs = {dvfs: sympy.symbol(dvfs.func.__name__) for dvfs \
-                           in self.dep_var_func_symbs}
-            if expr.subs(unfunc_subs).diff(self.indep_var_symb) != 0: return False
+        for dep_var_func_symb, (order, expr) in \
+                self._odeqs_by_indep_var.iteritems():
+            unfunc_subs = {dvfs: sympy.symbol(dvfs.func.__name__) for \
+                           dvfs in self.dep_var_func_symbs}
+            if expr.subs(unfunc_subs).diff(self.indep_var_symb) != 0:
+                return False
         return True
 
     @property
     def is_linear(self):
         # Most easily done for first order system?
-        for dep_var_func_symb, (order, expr) in self._odeqs_by_indep_var.iteritems():
+        for dep_var_func_symb, (order, expr) in \
+                self._odeqs_by_indep_var.iteritems():
             for wrt in self.dep_var_func_symbs:
                 expr = expr.diff(wrt)
 
-            unfunc_subs = {dvfs: sympy.symbol(dvfs.func.__name__) for dvfs \
-                           in self.dep_var_func_symbs}
-            if expr.subs(unfunc_subs).diff(self.indep_var_symb) != 0: return False
-
-        pass
+            unfunc_subs = {dvfs: sympy.symbol(dvfs.func.__name__) for \
+                           dvfs in self.dep_var_func_symbs}
+            if expr.subs(unfunc_subs).diff(self.indep_var_symb) != 0:
+                return False
+        return True
 
     @property
     def is_homogeneous(self):
@@ -43,8 +46,8 @@ class ODESystem(object):
         """
         Returns a list of Sympy Eq instances describing the ODE system
         """
-        return [sympy.Eq(k.diff(self._indep_var_symb, v[0]), v[1]) for k, v in \
-                self._odeqs_by_indep_var.iteritems()]
+        return [sympy.Eq(k.diff(self._indep_var_symb, v[0]), v[1]) for \
+                k, v in self._odeqs_by_indep_var.iteritems()]
 
     def do_sanity_check_of_odeqs(self):
         for fnc, (order, expr) in odeqs_by_indep_var.iteritems():
@@ -57,7 +60,8 @@ class ODESystem(object):
                         if arg.has(check_fnc):
                             if arg.is_Derivative:
                                 fnc, wrt = args[0], args[1:]
-                                assert not len(wrt) > odeqs_by_indep_var[check_fnc][0]
+                                assert not len(wrt) > \
+                                       odeqs_by_indep_var[check_fnc][0]
 
     def __eq__(self, other):
         for attr in self._attrs_to_cmp_for_eq:
@@ -68,8 +72,9 @@ class ODESystem(object):
 
 class AnyOrderODESystem(ODESystem):
 
-    #_attrs_to_cmp_for_eq is used for checking equality of class instances
-    _attrs_to_cmp_for_eq = ['_odeqs_by_indep_var', 'indep_var_symb', 'param_symbs']
+    #_attrs_to_cmp_for_eq is used for checking equality of instances
+    _attrs_to_cmp_for_eq = ['_odeqs_by_indep_var', 'indep_var_symb',
+                            'param_symbs']
 
     # When reducing the order of the system to 1st order
     # a lot of helper variables are introduced. If one do
@@ -94,7 +99,8 @@ class AnyOrderODESystem(ODESystem):
         """
         helpers = {}
         for i in range(1, order):
-            candidate = sympy.Function(str(fnc.func.__name__) + '_h' + str(i))(self._indep_var_symb)
+            candidate = sympy.Function(str(fnc.func.__name__) + '_h' + \
+                                       str(i))(self._indep_var_symb)
             while candidate in self._odeqs_by_indep_var:
                 candidate = candidate + '_h'
             helpers[i] = candidate
@@ -107,12 +113,13 @@ class AnyOrderODESystem(ODESystem):
             self._odeqs_by_indep_var[fnc] = (1, hlpr[1])
             for o in range(1, order - 1):
                 self._odeqs_by_indep_var[hlpr[o]] = (1, hlpr[o + 1])
-            subsd = {sympy.Derivative(fnc, self._indep_var_symb, i): hlpr[i] \
-                          for i in range(1, order)}
-            self._odeqs_by_indep_var[hlpr[order - 1]] = (1, expr.subs(subsd))
-            self._1st_ordr_red_helper_fncs.extend([(fnc, o, expr) for o, expr \
-                                                   in hlpr.iteritems()])
-            # self._odeqs_by_indep_var changed > call this function recursively
+            subsd = {sympy.Derivative(fnc, self._indep_var_symb, i): \
+                     hlpr[i] for i in range(1, order)}
+            self._odeqs_by_indep_var[hlpr[order - 1]] = (
+                1, expr.subs(subsd))
+            self._1st_ordr_red_helper_fncs.extend([
+                (fnc, o, expr) for o, expr in hlpr.iteritems()])
+            # self._odeqs_by_indep_var changed --> call recursively
             self.reduce_to_sys_of_first_order()
             break
 
@@ -144,7 +151,8 @@ class AnyOrderODESystem(ODESystem):
                 if not atom in odeqs_by_indep_var.keys() and \
                        atom != indep_var_symb and not atom.is_Number:
                     param_symbs.add(atom)
-        new_instance = cls(odeqs_by_indep_var, indep_var_symb, param_symbs)
+        new_instance = cls(odeqs_by_indep_var, indep_var_symb,
+                           param_symbs)
         new_instance.do_sanity_check_of_odeqs()
         return new_instance
 

@@ -32,32 +32,24 @@ def plot_numeric_vs_analytic(ODESys,
 
     # Setup
     odesys = ODESys()
-    odesys.update_params_by_token(param_vals)
+    param_vals_by_symb = odesys.get_param_vals_by_symb_from_by_token(
+        param_vals)
 
     t0, tend = indep_var_lim
     y0 = {odesys[k]: v for k, v in init_dep_var_vals_by_token.items()}
 
     # Solve
-    ivp = IVP(odesys, y0, t0)
+    ivp = IVP(odesys, y0, param_vals_by_symb, t0)
     ivp.integrate(tend, N = N)
 
     # Anlyse output
     t, y = ivp.tout, ivp.yout
 
-    plt.subplot(311)
     ivp.plot(interpolate = True, show = False)
     analytic_y = odesys.analytic_y(t, t0, init_dep_var_vals_by_token)
     plot_t = np.linspace(t0, tend, 50)
     plot_ay = odesys.analytic_y(plot_t, t0, init_dep_var_vals_by_token)
-    plt.plot(plot_t, plot_ay, label = 'Analytic')
-
-    plt.subplot(312)
-    plt.plot(t, (y[:, 0] - analytic_y) / ivp._integrator.abstol,
-             label = 'abserr / abstol')
-    plt.legend()
-    plt.subplot(313)
-    plt.plot(t, (y[:, 0] - analytic_y) / analytic_y / ivp._integrator.reltol,
-             label = 'relerr / reltol')
+    plt.plot(plot_t, plot_ay, ls = '--', label = 'Analytic')
     plt.legend()
     plt.show()
 

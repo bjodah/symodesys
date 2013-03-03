@@ -7,7 +7,7 @@ import sympy
 import numpy as np
 import matplotlib.pyplot as plt
 
-from symodesys.firstorder import FirstOrderODESystem
+from symodesys.odesys import FirstOrderODESystem
 from symodesys.ivp import IVP
 
 from coupled_decay import CoupledDecay

@@ -18,12 +18,13 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
     """
     Integrate
     """
-    sys = Sys()
-    sys.update_params_by_token(param_vals)
+    odesys = Sys()
+    param_vals_by_symb = odesys.get_param_vals_by_symb_from_by_token(
+        param_vals)
 
-    y0 = {sys[k]: v for k, v in init_dep_var_vals_by_token.items()}
+    y0 = {odesys[k]: v for k, v in init_dep_var_vals_by_token.items()}
     t0, tend = indep_var_lim
-    ivp = IVP(sys, y0, t0)
+    ivp = IVP(odesys, y0, param_vals_by_symb, t0)
 
     # Attempt analytic reduction
     print ivp.recursive_analytic_reduction()
@@ -34,7 +35,8 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
     plt.subplot(311)
     ivp.plot(interpolate = True, show = False)
 
-    analytic_y = sys.analytic_y(t, init_dep_var_vals_by_token)
+    analytic_y = odesys.analytic_y(
+        t, init_dep_var_vals_by_token, param_vals_by_symb)
     plt.subplot(312)
     plt.plot(t, y[:, 0] - analytic_y,
              label = 'abserr')

@@ -60,7 +60,7 @@ class IVP(object):
         self._AnalyticEvalr = AnalyticEvalr
 
         # Save the original dependent variables symbols:
-        self._ori_dep_var_func_symbs = fo_odesys.dep_var_func_symbs
+        self._ori_dep_var_func_symbs = self._fo_odesys.dep_var_func_symbs
 
         # Init attributes for possible analytically solvable y's
         self._solved_init_val_symbs = {}

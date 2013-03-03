@@ -7,9 +7,8 @@ import sympy
 import numpy as np
 import matplotlib.pyplot as plt
 
-from symodesys.firstorder import SimpleFirstOrderODESystem, FirstOrderODESystem
+from symodesys.odesys import SimpleFirstOrderODESystem
 from symodesys.ivp import IVP
-
 
 class X5(SimpleFirstOrderODESystem):
 

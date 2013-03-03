@@ -7,9 +7,9 @@ import sympy
 import numpy as np
 import matplotlib.pyplot as plt
 
-from symodesys.firstorder import SimpleFirstOrderODESystem, FirstOrderODESystem
-#from symodesys.integrator import SciPy_IVP_Integrator
+from symodesys.odesys import FirstOrderODESystem, SimpleFirstOrderODESystem
 from symodesys.ivp import IVP
+
 
 # TODO: add use of units from Sympys physics module and enter lambda in per s, and give
 #        time intervals in hours
@@ -49,9 +49,9 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
     param_vals_by_symb = odesys.get_param_vals_by_symb_from_by_token(
         param_vals)
 
-    y0 = {sys[k]: v for k, v in init_dep_var_vals_by_token.items()}
+    y0 = {odesys[k]: v for k, v in init_dep_var_vals_by_token.items()}
     t0, tend = indep_var_lim
-    ivp = IVP(sys, y0, param_vals_by_symb, t0)
+    ivp = IVP(odesys, y0, param_vals_by_symb, t0)
 
     ivp.integrate(tend, N = N)
     t, y = ivp.tout, ivp.yout

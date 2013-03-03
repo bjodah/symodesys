@@ -2,20 +2,47 @@
 # stdlib imports
 import imp
 from functools import wraps
+from collections import OrderedDict # for OrderedDefaultdict
 
 # other imports
+import sympy
 import numpy as np
 
 def cache(f):
     data = {}
     @wraps(f)
     def wrapper(*args):
-        if args in data:
-            return data[args]
-        else:
+        if not args in data:
             data[args] = f(*args)
-            return data[args]
+        return data[args]
     return wrapper
+
+class OrderedDefaultdict(OrderedDict):
+    """
+    From http://stackoverflow.com/questions/4126348/how-do-i-rewrite-this-function-to-implement-ordereddict/4127426#4127426
+    """
+
+    def __init__(self, *args, **kwargs):
+        newdefault = None
+        newargs = ()
+        if args:
+            newdefault = args[0]
+            if not (newdefault is None or callable(newdefault)):
+                raise TypeError('first argument must be callable or None')
+            newargs = args[1:]
+        self.default_factory = newdefault
+        super(self.__class__, self).__init__(*newargs, **kwargs)
+
+    def __missing__ (self, key):
+        if self.default_factory is None:
+            raise KeyError(key)
+        self[key] = value = self.default_factory()
+        return value
+
+    def __reduce__(self):  # optional, for pickle support
+        args = self.default_factory if self.default_factory else tuple()
+        return type(self), args, None, None, self.items()
+
 
 class SympyEvalr(object):
     """
@@ -114,3 +141,4 @@ def import_(filename):
     fobj, filename, data = imp.find_module(name, [path])
     mod = imp.load_module(name, fobj, filename, data)
     return mod
+

@@ -3,9 +3,7 @@
 
 import sys
 
-import sympy
-
-from symodesys.firstorder import SimpleFirstOrderODESystem
+from symodesys.odesys import SimpleFirstOrderODESystem
 from symodesys.ivp import IVP
 
 

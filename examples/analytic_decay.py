@@ -22,15 +22,13 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
     sys.update_params_by_token(param_vals)
 
     y0 = {sys[k]: v for k, v in init_dep_var_vals_by_token.items()}
-    print y0
-    ivp = IVP(sys, y0)
+    t0, tend = indep_var_lim
+    ivp = IVP(sys, y0, t0)
 
     # Attempt analytic reduction
     print ivp.recursive_analytic_reduction()
 
-    t0, tend = indep_var_lim
-
-    ivp.integrate(t0, tend, N)
+    ivp.integrate(tend, N = N)
     t, y = ivp.tout, ivp.yout
 
     plt.subplot(311)

@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from symodesys.firstorder import SimpleFirstOrderODESystem
-from symodesys.integrator import SciPy_IVP_Integrator
+from symodesys.ivp import IVP
 
 # TODO
 # Implement automatic resolution of N - number of chained decays via
@@ -21,34 +21,34 @@ class CoupledDecay(SimpleFirstOrderODESystem):
     dep_var_tokens = 'u v w'.split()
     param_tokens   = 'lambda_u lambda_v lambda_w'.split()
 
-    def _init_f(self):
+    def init_f(self):
         u, v, w = self.dep_var_func_symbs
         lambda_u, lambda_v, lambda_w = self.param_symbs
-        return {u: -lambda_u * u,
-                v: lambda_u * u - lambda_v * v,
-                w: lambda_v * v - lambda_w * w,
-                }
+        self.f = {u: -lambda_u * u,
+                  v: lambda_u * u - lambda_v * v,
+                  w: lambda_v * v - lambda_w * w,
+                  }
 
 
     def analytic_u(self, indep_vals, y0):
-        return y0['u'] * np.exp(-self.params_by_token['lambda_u']*indep_vals)
+        return y0[self['u']] * np.exp(-self.params_by_token['lambda_u']*indep_vals)
 
 
     def analytic_v(self, indep_vals, y0):
-        return y0['v'] * np.exp(-self.params_by_token['lambda_v'] * indep_vals) + \
-                 y0['u'] * self.params_by_token['lambda_u'] / \
+        return y0[self['v']] * np.exp(-self.params_by_token['lambda_v'] * indep_vals) + \
+                 y0[self['u']] * self.params_by_token['lambda_u'] / \
                  (self.params_by_token['lambda_v'] - self.params_by_token['lambda_u']) * \
                  (np.exp(-self.params_by_token['lambda_u']*indep_vals) - \
                   np.exp( - self.params_by_token['lambda_v'] * indep_vals))
 
     def analytic_w(self, indep_vals, y0):
-        return y0['w'] * np.exp(-self.params_by_token['lambda_w'] * indep_vals) + \
-                 y0['v'] * self.params_by_token['lambda_v'] / \
+        return y0[self['w']] * np.exp(-self.params_by_token['lambda_w'] * indep_vals) + \
+                 y0[self['v']] * self.params_by_token['lambda_v'] / \
                  (self.params_by_token['lambda_w'] - self.params_by_token['lambda_v']) * \
                  (np.exp(-self.params_by_token['lambda_v']*indep_vals) - \
                   np.exp(-self.params_by_token['lambda_w']*indep_vals)) + \
                  self.params_by_token['lambda_v'] * self.params_by_token['lambda_u'] * \
-                 y0['u'] / (self.params_by_token['lambda_v'] - \
+                 y0[self['u']] / (self.params_by_token['lambda_v'] - \
                             self.params_by_token['lambda_u']) * \
                  (1 / (self.params_by_token['lambda_w'] - \
                        self.params_by_token['lambda_u']) * \
@@ -65,13 +65,9 @@ def main(params_by_token):
     """
     cd = CoupledDecay()
     cd.update_params_by_token(params_by_token)
-    u, v, w = cd.dep_var_func_symbs
-    intr = SciPy_IVP_Integrator(cd)
-    int_kwargs = {'abstol': 1e-8,
-                  'reltol': 1e-8}
 
-    #N = 0 # adaptive stepsize controls output
-    N = 100
+    u, v, w = cd.dep_var_func_symbs
+
     t0 = 0.0
     tend = 1.5
     u0 = 7.0
@@ -83,25 +79,23 @@ def main(params_by_token):
           cd['w']: w0,
           }
 
-    intr.integrate(y0, t0, tend, N, **int_kwargs)
+    ivp = IVP(cd, y0, t0)
+    ivp._Integrator.abstol = 1e-8
+    ivp._Integrator.reltol = 1e-8
 
-    t = intr.tout
-    analytic_u = u0 * np.exp(-lambda_u*t)
-    analytic_v = v0 * np.exp(-lambda_v * t) + \
-                 u0 * lambda_u / (lambda_v - lambda_u) * \
-                 (np.exp(-lambda_u*t) - np.exp( - lambda_v * t))
-    analytic_w = w0 * np.exp(-lambda_w * t) + \
-                 v0 * lambda_v / (lambda_w - lambda_v) * \
-                 (np.exp(-lambda_v*t) - np.exp(-lambda_w*t)) + \
-                 lambda_v * lambda_u * u0 / (lambda_v - lambda_u) * \
-                 (1 / (lambda_w - lambda_u) * (np.exp( - lambda_u * t) - \
-                                               np.exp( - lambda_w * t)) - \
-                  1 / (lambda_w - lambda_v) * (np.exp( - lambda_v * t) - \
-                                               np.exp( - lambda_w * t)))
+    #N = 0 # adaptive stepsize controls output
+    N = 100
 
-    uout = intr.get_yout_by_symb(u)
-    vout = intr.get_yout_by_symb(v)
-    wout = intr.get_yout_by_symb(w)
+    ivp.integrate(tend, N = N)
+
+    t = ivp.tout
+    analytic_u = cd.analytic_u(t, y0)
+    analytic_v = cd.analytic_v(t, y0)
+    analytic_w = cd.analytic_w(t, y0)
+
+    uout = ivp.get_yout_by_symb(u)
+    vout = ivp.get_yout_by_symb(v)
+    wout = ivp.get_yout_by_symb(w)
 
     plt.subplot(311)
     #intr.plot(interpolate = False, show = False)
@@ -115,20 +109,20 @@ def main(params_by_token):
 
     plt.subplot(312)
 
-    plt.plot(t, (uout - analytic_u) / int_kwargs['abstol'],
+    plt.plot(t, (uout - analytic_u) / ivp._Integrator.abstol,
              label = 'u abserr / abstol')
-    plt.plot(t, (vout - analytic_v) / int_kwargs['abstol'],
+    plt.plot(t, (vout - analytic_v) / ivp._Integrator.abstol,
              label = 'v abserr / abstol')
-    plt.plot(t, (wout - analytic_w) / int_kwargs['abstol'],
+    plt.plot(t, (wout - analytic_w) / ivp._Integrator.abstol,
              label = 'w abserr / abstol')
     plt.legend()
 
     plt.subplot(313)
-    plt.plot(t, (uout - analytic_u) / analytic_u / int_kwargs['reltol'],
+    plt.plot(t, (uout - analytic_u) / analytic_u / ivp._Integrator.reltol,
              label = 'u relerr / reltol')
-    plt.plot(t, (vout - analytic_v) / analytic_v / int_kwargs['reltol'],
+    plt.plot(t, (vout - analytic_v) / analytic_v / ivp._Integrator.reltol,
              label = 'v relerr / reltol')
-    plt.plot(t, (wout - analytic_w) / analytic_w / int_kwargs['reltol'],
+    plt.plot(t, (wout - analytic_w) / analytic_w / ivp._Integrator.reltol,
              label = 'w relerr / reltol')
     plt.legend()
     plt.show()

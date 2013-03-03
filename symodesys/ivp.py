@@ -7,6 +7,7 @@ import sympy
 
 from symodesys.helpers import SympyEvalr, cache
 from symodesys.integrator import SciPy_IVP_Integrator
+from symodesys.firstorder import FirstOrderODESystem
 
 # FUTURE: Support uncertainties as parameter inputs
 
@@ -51,6 +52,7 @@ class IVP(object):
                             Defaults to SympyEvalr
         """
         self._fo_odesys = fo_odesys
+        self._old_fo_odesys = [] # Save old sys when solving analytically
         self._init_vals = init_vals
         self._indep_var_init_val = t0
         self._Integrator = Integrator
@@ -60,12 +62,12 @@ class IVP(object):
         self._ori_dep_var_func_symbs = fo_odesys.dep_var_func_symbs
 
         # Init attributes for possible analytically solvable y's
-        self._init_val_symbs = {}
+        self._solved_init_val_symbs = {}
         self._solved = OrderedDict()
 
 
     def mk_init_val_symb(self, y):
-        new_symb = sympy.symbols(str(y) + '_init')
+        new_symb = sympy.symbols(y.func.__name__ + '_init')
         assert not new_symb == self._fo_odesys.indep_var_symb
         assert not new_symb in self._fo_odesys.dep_var_func_symbs
         assert not new_symb in self._fo_odesys.param_symbs
@@ -79,7 +81,7 @@ class IVP(object):
         TODO: recreate possible 2nd order ODE and check solvability
         """
         x = self._fo_odesys.indep_var_symb
-        solved = {}
+        solved = OrderedDict()
         new_init_val_param_symbs = {}
         changed_last_loop = True
         while changed_last_loop:
@@ -97,6 +99,7 @@ class IVP(object):
                     # Assign new symbol to inital value
                     new_symb = self.mk_init_val_symb(yi)
                     new_init_val_param_symbs[yi] = new_symb
+                    # This is specific for IVPs:
                     sol_init_val = determine_const_val_for_init_val(
                         sol, new_symb, x)
                     solved[yi] = sol_init_val.rhs
@@ -105,16 +108,24 @@ class IVP(object):
         # Post processing of solutions
         self._solved.update(solved)
         if len(solved) > 0:
-            new_dep_var_func_symbs = [x for x in self._fo_odesys.dep_var_func_symbs \
+            new_dep_var_func_symbs = [
+                x for x in self._fo_odesys.dep_var_func_symbs \
                                       if x not in solved]
             new_f = {}
             for k in new_dep_var_func_symbs:
                 new_f[k] = self._fo_odesys[k].subs(solved)
 
-            self._fo_odesys.dep_var_func_symbs = new_dep_var_func_symbs
-            self._fo_odesys.f = new_f
+            self._old_fo_odesys.append(self._fo_odesys)
+            new_fo_odesys = FirstOrderODESystem()
+            new_fo_odesys.indep_var_symb = self._fo_odesys.indep_var_symb
+            new_fo_odesys.param_vals_by_symb = self._fo_odesys.param_vals_by_symb
+            new_fo_odesys.param_symbs = self._fo_odesys.param_symbs + \
+                                        new_init_val_param_symbs.values()
+            new_fo_odesys.dep_var_func_symbs = new_dep_var_func_symbs
+            new_fo_odesys.f = new_f
+            self._fo_odesys = new_fo_odesys
 
-        self._init_val_symbs.update(new_init_val_param_symbs)
+        self._solved_init_val_symbs.update(new_init_val_param_symbs)
         return new_init_val_param_symbs
 
 
@@ -134,19 +145,24 @@ class IVP(object):
         Integrates the non-analytic odesystem and evaluates the analytic functions
         for the dependent variables (if there are any).
         """
+        non_analytic_init_vals = self._init_vals.copy()
         if len(self._solved) > 0:
             # If we have solved parts analytically
             a_y0 = {}
-            for yi, init_val_symb in self._init_val_symbs.iteritems():
-                a_y0[init_val_symb] = self._init_vals.pop(yi)
+            for yi, init_val_symb in \
+                    self._solved_init_val_symbs.iteritems():
+                a_y0[init_val_symb] = self._init_vals[yi]
+                non_analytic_init_vals.pop(yi)
             self._analytic_evalr = self._AnalyticEvalr(
                 self._solved.values(), self._fo_odesys.indep_var_symb,
                 self._fo_odesys.param_vals_by_symb, order = order)
 
-        if len(self._init_vals) > 0:
+        if len(non_analytic_init_vals) > 0:
             # If there are any non-analytic equations left
             self._integrator = self._Integrator(self._fo_odesys)
-            self._integrator.integrate(self._init_vals, self._indep_var_init_val, tend, N, h, order)
+            self._integrator.integrate(
+                non_analytic_init_vals, self._indep_var_init_val,
+                tend, N, h, order)
             self.tout = self._integrator.tout
         else:
             if N == 0: N = self.default_N

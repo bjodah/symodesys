@@ -49,7 +49,6 @@ def plot_numeric_vs_analytic(ODESys,
     analytic_y = odesys.analytic_y(t, t0, init_dep_var_vals_by_token)
     plot_t = np.linspace(t0, tend, 50)
     plot_ay = odesys.analytic_y(plot_t, t0, init_dep_var_vals_by_token)
-    print plot_ay
     plt.plot(plot_t, plot_ay, label = 'Analytic')
 
     plt.subplot(312)

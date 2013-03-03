@@ -8,7 +8,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from symodesys.firstorder import FirstOrderODESystem
-from symodesys.integrator import SciPy_IVP_Integrator
+from symodesys.ivp import IVP
 
 from coupled_decay import CoupledDecay
 
@@ -20,11 +20,11 @@ from coupled_decay import CoupledDecay
 def main(params_by_token):
     """
     """
-    cd = CoupledDecay(params_by_token)
+    cd = CoupledDecay()
+    cd.update_params_by_token(params_by_token)
 
     u, v, w = cd.dep_var_func_symbs
 
-    #N = 0 # adaptive stepsize controls output
     N = 100
     t0 = 0.0
     tend = 1.5
@@ -37,26 +37,27 @@ def main(params_by_token):
           cd['w']: w0,
           }
 
-    ivp = IVP(cd, y0)
-    new_params = ivp.recurisive_analytic_reduction()
+    print y0
+    ivp = IVP(cd, y0, t0)
+    new_params = ivp.recursive_analytic_reduction()
+    print new_params
 
-    intr = ivp.wrap_integrator(SciPy_IVP_Integrator)
-    #intr = SciPy_IVP_Integrator(ivp._fo_odesys, new_params)
+    ivp._Integrator.abstol = 1e-6
+    ivp._Integrator.reltol = 1e-6
 
-    int_kwargs = {'abstol': 1e-6,
-                  'reltol': 1e-6}
+    ivp.integrate(tend, N = N)
 
+    t = ivp.tout
+    print y0
+    analytic_u = cd.analytic_u(t, y0)
+    analytic_v = cd.analytic_v(t, y0)
+    analytic_w = cd.analytic_w(t, y0)
 
-    intr.integrate(y0, t0, tend, N, **int_kwargs)
-
-    t = intr.tout
-
-    uout = intr.get_yout_by_symb(u)
-    vout = intr.get_yout_by_symb(v)
-    wout = intr.get_yout_by_symb(w)
+    uout = ivp.get_yout_by_symb(u)
+    vout = ivp.get_yout_by_symb(v)
+    wout = ivp.get_yout_by_symb(w)
 
     plt.subplot(311)
-    #intr.plot(interpolate = False, show = False)
     plt.plot(t, uout, '*', label = 'Numerical u')
     plt.plot(t, vout, 'o', label = 'Numerical v')
     plt.plot(t, wout, 'd', label = 'Numerical w')
@@ -66,21 +67,20 @@ def main(params_by_token):
     plt.legend()
 
     plt.subplot(312)
-
-    plt.plot(t, (uout - analytic_u) / int_kwargs['abstol'],
+    plt.plot(t, (uout - analytic_u) / ivp._Integrator.abstol,
              label = 'u abserr / abstol')
-    plt.plot(t, (vout - analytic_v) / int_kwargs['abstol'],
+    plt.plot(t, (vout - analytic_v) / ivp._Integrator.abstol,
              label = 'v abserr / abstol')
-    plt.plot(t, (wout - analytic_w) / int_kwargs['abstol'],
+    plt.plot(t, (wout - analytic_w) / ivp._Integrator.abstol,
              label = 'w abserr / abstol')
     plt.legend()
 
     plt.subplot(313)
-    plt.plot(t, (uout - analytic_u) / analytic_u / int_kwargs['reltol'],
+    plt.plot(t, (uout - analytic_u) / analytic_u / ivp._Integrator.reltol,
              label = 'u relerr / reltol')
-    plt.plot(t, (vout - analytic_v) / analytic_v / int_kwargs['reltol'],
+    plt.plot(t, (vout - analytic_v) / analytic_v / ivp._Integrator.reltol,
              label = 'v relerr / reltol')
-    plt.plot(t, (wout - analytic_w) / analytic_w / int_kwargs['reltol'],
+    plt.plot(t, (wout - analytic_w) / analytic_w / ivp._Integrator.reltol,
              label = 'w relerr / reltol')
     plt.legend()
     plt.show()

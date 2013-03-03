@@ -48,11 +48,10 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
     sys.update_params_by_token(param_vals)
 
     y0 = {sys[k]: v for k, v in init_dep_var_vals_by_token.items()}
-    ivp = IVP(sys, y0)
-
     t0, tend = indep_var_lim
+    ivp = IVP(sys, y0, t0)
 
-    ivp.integrate(t0, tend, N)
+    ivp.integrate(tend, N = N)
     t, y = ivp.tout, ivp.yout
 
     plt.subplot(311)

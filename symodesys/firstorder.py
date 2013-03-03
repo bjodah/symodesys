@@ -1,27 +1,23 @@
-import sympy
+from symodesys.odesys import ODESystem
 
 from operator import or_
+from collections import OrderedDict
 
-class FirstOrderODESystem(object):
+import sympy
+
+
+class FirstOrderODESystem(ODESystem):
     """
     When the ODE systems equations is generated from user
     data this class is to be subclassed to provide the routines
     described below
     """
-    # TOOD: Change self.f back to a read-only property - this class should act as an
-    #       immutable, create new instances if modifying. (req for __hash__) compare collections.namedtuple
     # TODO: implement the routines for variable substitution
     # TODO: add properties(?) for is_autonomous and is_linear
 
-    indep_var_symb = None # ODE implies 1 indep. variable, set to sympy.symbol(...)
-    dep_var_func_symbs = None
-    param_symbs = None
-    f = None
-    param_vals_by_symb = None
 
-
-    #_attrs_to_cmp is used for checking equality of class instances
-    _attrs_to_cmp = ['indep_var_symb', 'dep_var_func_symbs', 'param_symbs',
+    #_attrs_to_cmp_for_eq is used for checking equality of class instances
+    _attrs_to_cmp_for_eq = ['indep_var_symb', 'dep_var_func_symbs', 'param_symbs',
                      'f', 'param_vals_by_symb']
 
     def __init__(self):
@@ -32,6 +28,10 @@ class FirstOrderODESystem(object):
         self._init_dep_var_func_symbs()
         self._init_param_symbs()
         self.init_f()
+
+    @property
+    def _odeqs_by_indep_var(self):
+        return OrderedDict((k, (1, self.f[k])) for k in self.dep_var_func_symbs)
 
     def _init_dep_var_func_symbs(self):
         """
@@ -84,16 +84,13 @@ class FirstOrderODESystem(object):
         if self.param_vals_by_symb == None:
             self.param_vals_by_symb = {}
 
-    def __eq__(self, other):
-        for attr in self._attrs_to_cmp:
-            if getattr(self, attr) != getattr(other, attr): return False
-        return True
 
-    def __hash__(self):
-        """ ODESystem is taken to be immutable """
-        hashes = [hash(x) for x in self._attrs_to_cmp if x != 'f']
-        fhash = hash(frozenset(self.f.items()))
-        return sum(hashes) + fhash
+    # NOTE: we don't take ODESystem to be immutable anymore, maybe we need an hashable export?
+    # def __hash__(self):
+    #     """ ODESystem is taken to be immutable """
+    #     hashes = [hash(x) for x in self._attrs_to_cmp if x != 'f']
+    #     fhash = hash(frozenset(self.f.items()))
+    #     return sum(hashes) + fhash
 
     def _fmat(self):
         """
@@ -175,13 +172,6 @@ class FirstOrderODESystem(object):
         # TODO this should be more general than just log_scale: variable subst!
         pass
 
-    @property
-    def eqs(self):
-        """
-        Returns a list of Sympy Eq instances describing the ODE system
-        """
-        return [sympy.Eq(k.diff(self.indep_var_symb), v) for k, v in self.f.iteritems()]
-
 
 class SimpleFirstOrderODESystem(FirstOrderODESystem):
     """
@@ -240,10 +230,14 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
                      k in self.param_tokens])
 
     def _init_dep_var_func_symbs(self):
+        # The assert is there to signal need to subclass if using
+        # SimpleFirstOrderODESystem
         assert self.dep_var_func_symbs == None
         self.dep_var_func_symbs = [self[y] for y in self.dep_var_tokens]
 
     def _init_param_symbs(self):
+        # The assert is there to signal need to subclass if using
+        # SimpleFirstOrderODESystem
         assert self.param_symbs == None
         self.param_symbs = [self[k] for k in self.param_tokens]
 

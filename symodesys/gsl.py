@@ -30,35 +30,35 @@ class GSL_Code(object):
     # Implement hash of fo_odesys and hash of code?
     # Serialization to double check against collision?
 
-    templates = {'dydt' = 'gsl/func_template.c',
+    templates = {'dydt': 'gsl/func_template.c',
                  'dydt_jac': 'gsl/jac_template.c',
                  'ode': 'ode_template.c'}
 
-    subs = {'dydt' = ['f', 'cses'],
+    subs = {'dydt': ['f', 'cses'],
             'dydt_jac': ['jac', 'dfdt', 'NY'],
             'ode': ['NY']}
 
-    @Property
+    @property
     def NY(self):
         return len(self.fo_odesys.dep_var_func_symbs)
 
-    @Property
+    @property
     def dydt(self):
         pass
 
-    @Property
+    @property
     def cse_func(self):
         pass
 
-    @Property
+    @property
     def jac(self):
         pass
 
-    @Property
+    @property
     def dfdt(self):
         pass
 
-    @Property
+    @property
     def cse_jac(self):
         pass
 
@@ -83,7 +83,7 @@ class GSL_Code(object):
     def _compile(self):
         setup(
             script_name =  'DUMMY_SCRIPT_NAME',
-            script_args =  ['build_ext',  '--inplace']
+            script_args =  ['build_ext',  '--inplace'],
             include_dirs = [cython_gsl.get_include()],
             cmdclass = {'build_ext': build_ext},
             ext_modules = [Extension("odeiv",

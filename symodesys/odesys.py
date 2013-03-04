@@ -17,6 +17,10 @@ class ODESystem(object):
        sympy.Function('name')(self.indep_var_symb)
     """
 
+    # For tracking what dep var func symbs are generated upon
+    # order reduction (instantiate as list)
+    _1st_ordr_red_helper_fncs = None
+
     #_attrs_to_cmp_for_eq is used for checking equality of instances
     _attrs_to_cmp_for_eq = ['indep_var_symb', 'param_symbs']
 
@@ -142,8 +146,6 @@ class AnyOrderODESystem(ODESystem):
     # a lot of helper variables are introduced. If one do
     # not want to e.g. plot them, the following list if useful:
 
-    _1st_ordr_red_helper_fncs = None
-
     def __init__(self, odeqs_by_dep_var, indep_var_symb, param_symbs):
         self._odeqs_by_dep_var = odeqs_by_dep_var
         self.indep_var_symb = indep_var_symb
@@ -179,6 +181,8 @@ class AnyOrderODESystem(ODESystem):
         """ Returns a new instance with reduced order (1st) """
         new_odeqs = self.mk_odeqs_by_dep_var()
         _1st_ordr_red_helper_fncs = self._1st_ordr_red_helper_fncs[:]
+        # TODO, revise _1st_ordr_red_helper_fncs format (cur.  len 3 tuple)
+        # and update analytic_harmonic_oscillator.py and IVP.plot()
         for fnc, (order, expr) in self._odeqs_by_dep_var.iteritems():
             if order == 1:
                 new_odeqs[fnc] = ODEExpr(order, expr)
@@ -213,16 +217,25 @@ class FirstOrderODESystem(ODESystem):
     _attrs_to_cmp_for_eq = ODESystem._attrs_to_cmp_for_eq +\
                            ['f', 'dep_var_func_symbs']
 
+    is_first_order = True # no need to check that in this case
+
     # TODO: implement the routines for variable substitution
 
-    def __init__(self):
+    def __init__(self, odesys = None):
         # Using property functions makes overwriting harder therefore
         # 'indep_var_symb', 'dep_var_func_symbs', 'param_symbs', 'f'
         # are initialized via instance methods that by default initializes
         # empty list / dict only if attribute is missing
-        self._init_dep_var_func_symbs()
-        self._init_param_symbs()
-        self.init_f()
+        if odesys != None:
+            assert odesys.is_first_order
+            copy_attrs = ['indep_var_symb', '_1st_ordr_red_helper_fncs',
+                          'dep_var_func_symbs', 'param_symbs', 'f']
+            for attr in copy_attrs:
+                setattr(self, attr, getattr(odesys, attr))
+        else:
+            self._init_dep_var_func_symbs()
+            self._init_param_symbs()
+            self.init_f()
 
     @property
     def _odeqs_by_dep_var(self):

@@ -255,14 +255,18 @@ class IVP(object):
             dtype = [(str(x), self._dtype) for x \
                      in self._ori_dep_var_func_symbs])[str(symb)][:, 0]
 
-    def plot(self, indices = None, interpolate = False, show = False):
+    def plot(self, indices = None, interpolate = False, show = False, skip_helpers = True):
         """
         Rudimentary plotting utility for quick inspection of solutions
         TODO: move this from here,  make more general to accept mixed ODE sol +
         analytic y curves
         """
-        if indices == None: indices = range(self.yout.shape[1])
-
+        if indices == None:
+            indices = range(self.yout.shape[1])
+            if skip_helpers:
+                # Don't plot helper functions used in reduction of order of ode system
+                for hlpr in self._fo_odesys._1st_ordr_red_helper_fncs:
+                    indices.pop(self._ori_dep_var_func_symbs.index(hlpr[2]))
         if interpolate:
             ipx = np.linspace(self.tout[0], self.tout[-1], 1000)
             ipy = np.array([self.get_interpolated(t) for t in ipx])

@@ -6,13 +6,13 @@ import sympy
 
 from collections import namedtuple
 
-ODEEq = namedtuple('ODEEq', 'order expr')
+ODEExpr = namedtuple('ODEExpr', 'order expr')
 
 
 class ODESystem(object):
     """
-    Central to the ODESystem if the attribute _odeqs_by_indep_var
-    which should be an OrderedDefaultdict(ODEEq). The keys in the
+    Central to the ODESystem if the attribute _odeqs_by_dep_var
+    which should be an OrderedDefaultdict(ODEExpr). The keys in the
     dictionary should be of the form:
        sympy.Function('name')(self.indep_var_symb)
     """
@@ -29,12 +29,12 @@ class ODESystem(object):
 
     @property
     def is_first_order(self):
-        return all([v.order == 1 in self._odeqs_by_indep_var.values()])
+        return all([v.order == 1 for v in self._odeqs_by_dep_var.values()])
 
     @property
     def is_autonomous(self):
         for dep_var_func_symb, (order, expr) in \
-                self._odeqs_by_indep_var.iteritems():
+                self._odeqs_by_dep_var.iteritems():
             unfunc_subs = {dvfs: sympy.symbol(dvfs.func.__name__) for \
                            dvfs in self.dep_var_func_symbs}
             if expr.subs(unfunc_subs).diff(self.indep_var_symb) != 0:
@@ -45,7 +45,7 @@ class ODESystem(object):
     def is_linear(self):
         # Most easily done for first order system?
         for dep_var_func_symb, (order, expr) in \
-                self._odeqs_by_indep_var.iteritems():
+                self._odeqs_by_dep_var.iteritems():
             for wrt in self.dep_var_func_symbs:
                 expr = expr.diff(wrt)
 
@@ -60,18 +60,18 @@ class ODESystem(object):
         pass
 
     def do_sanity_check_of_odeqs(self):
-        for fnc, (order, expr) in odeqs_by_indep_var.iteritems():
+        for fnc, (order, expr) in self._odeqs_by_dep_var.iteritems():
             # Sanity check
-            for check_fnc in odeqs_by_indep_var.keys():
+            for check_fnc in self._odeqs_by_dep_var.keys():
                 # Make sure expr don't contain derivatives larger
-                # than in odeqs_by_indep_var order:
+                # than in odeqs_by_dep_var order:
                 if expr.has(check_fnc):
                     for arg in expr.args:
                         if arg.has(check_fnc):
                             if arg.is_Derivative:
                                 fnc, wrt = args[0], args[1:]
                                 assert not len(wrt) > \
-                                       odeqs_by_indep_var[check_fnc][0]
+                                       odeqs_by_dep_var[check_fnc][0]
 
     def __eq__(self, other):
         for attr in self._attrs_to_cmp_for_eq:
@@ -83,9 +83,9 @@ class ODESystem(object):
         """
         Returns a list of Sympy Eq instances describing the ODE system
         """
-        return [sympy.Eq(depvar.diff(self._indep_var_symb, order), expr)\
+        return [sympy.Eq(depvar.diff(self.indep_var_symb, order), expr)\
                 for depvar, (order, expr) in\
-                self._odeqs_by_indep_var.iteritems()]
+                self._odeqs_by_dep_var.iteritems()]
 
     @classmethod
     def from_list_of_eqs(cls, lst):
@@ -96,27 +96,27 @@ class ODESystem(object):
         fncs = []
 
         # independet variable as key, (order, expr) as value
-        odeqs_by_indep_var = OrderedDict()
+        odeqs_by_dep_var = OrderedDefaultdict(ODEExpr)
         indep_var_symb = None
         for eq in lst:
             assert eq.lhs.is_Derivative
             fnc, wrt = eq.lhs.args[0], eq.lhs.args[1:]
-            assert fnc not in odeqs_by_indep_var
+            assert fnc not in odeqs_by_dep_var
             if indep_var_symb == None:
                 assert all([wrt[0] == x for x in wrt]) # No PDEs!
                 indep_var_symb = wrt[0]
             else:
                 assert all([indep_var_symb == x for x in wrt])
-            odeqs_by_indep_var[fnc] = (len(wrt), eq.rhs)
+            odeqs_by_dep_var[fnc] = ODEExpr(len(wrt), eq.rhs)
 
         param_symbs = set()
-        for fnc, (order, expr) in odeqs_by_indep_var.iteritems():
+        for fnc, (order, expr) in odeqs_by_dep_var.iteritems():
             for atom in expr.atoms():
-                if not atom in odeqs_by_indep_var.keys() and \
+                if not atom in odeqs_by_dep_var.keys() and \
                        atom != indep_var_symb and not atom.is_Number:
                     param_symbs.add(atom)
-        new_instance = cls(odeqs_by_indep_var, indep_var_symb,
-                           param_symbs)
+        new_instance = cls(odeqs_by_dep_var, indep_var_symb,
+                           list(param_symbs))
         new_instance.do_sanity_check_of_odeqs()
         return new_instance
 
@@ -124,25 +124,31 @@ class ODESystem(object):
 class AnyOrderODESystem(ODESystem):
 
     _attrs_to_cmp_for_eq = ODESystem._attrs_to_cmp_for_eq +\
-                           ['_odeqs_by_indep_var']
+                           ['_odeqs_by_dep_var']
+
+    @staticmethod
+    def mk_odeqs_by_dep_var():
+        """ Convenience function for instantiating OrderedDefaultdict(ODEExpr) """
+        return OrderedDefaultdict(ODEExpr)
+
 
     # Difference from FirstOrderODESystem
     @property
     def dep_var_func_symbs(self):
-        return self._odeqs_by_indep_var.keys()
+        return self._odeqs_by_dep_var.keys()
 
 
     # When reducing the order of the system to 1st order
     # a lot of helper variables are introduced. If one do
     # not want to e.g. plot them, the following list if useful:
-    _1st_ordr_red_helper_fncs = []
 
+    _1st_ordr_red_helper_fncs = None
 
-
-    def __init__(self, odeqs_by_indep_var, indep_var_symb, param_symbs):
-        self._odeqs_by_indep_var = odeqs_by_indep_var
-        self._indep_var_symb = indep_var_symb
-        self._param_symbs = param_symbs
+    def __init__(self, odeqs_by_dep_var, indep_var_symb, param_symbs):
+        self._odeqs_by_dep_var = odeqs_by_dep_var
+        self.indep_var_symb = indep_var_symb
+        self.param_symbs = param_symbs
+        self._1st_ordr_red_helper_fncs = self._1st_ordr_red_helper_fncs or []
 
     def attempt_analytic_reduction(self):
         pass
@@ -151,8 +157,8 @@ class AnyOrderODESystem(ODESystem):
     @property
     def f(self):
         assert self.is_first_order
-        return OrderedDefaultdict(ODEEq, [\
-            (k, v.expr) for k, v in self._odeqs_by_indep_var.items()])
+        return OrderedDefaultdict(ODEExpr, [\
+            (k, v.expr) for k, v in self._odeqs_by_dep_var.items()])
 
     def get_helper_fnc(self, fnc, order):
         """
@@ -163,28 +169,33 @@ class AnyOrderODESystem(ODESystem):
         helpers = {}
         for i in range(1, order):
             candidate = sympy.Function(str(fnc.func.__name__) + '_h' + \
-                                       str(i))(self._indep_var_symb)
-            while candidate in self._odeqs_by_indep_var:
+                                       str(i))(self.indep_var_symb)
+            while candidate in self._odeqs_by_dep_var:
                 candidate = candidate + '_h'
             helpers[i] = candidate
         return helpers
 
     def reduce_to_sys_of_first_order(self):
-        for fnc, (order, expr) in self._odeqs_by_indep_var.iteritems():
-            if order == 1: continue
+        """ Returns a new instance with reduced order (1st) """
+        new_odeqs = self.mk_odeqs_by_dep_var()
+        _1st_ordr_red_helper_fncs = self._1st_ordr_red_helper_fncs[:]
+        for fnc, (order, expr) in self._odeqs_by_dep_var.iteritems():
+            if order == 1:
+                new_odeqs[fnc] = ODEExpr(order, expr)
+                continue
             hlpr = self.get_helper_fnc(fnc, order)
-            self._odeqs_by_indep_var[fnc] = (1, hlpr[1])
+            new_odeqs[fnc] = ODEExpr(1, hlpr[1])
             for o in range(1, order - 1):
-                self._odeqs_by_indep_var[hlpr[o]] = (1, hlpr[o + 1])
-            subsd = {sympy.Derivative(fnc, self._indep_var_symb, i): \
+               new_odeqs[hlpr[o]] = ODEExpr(1, hlpr[o + 1])
+            subsd = {sympy.Derivative(fnc, self.indep_var_symb, i): \
                      hlpr[i] for i in range(1, order)}
-            self._odeqs_by_indep_var[hlpr[order - 1]] = (
-                1, expr.subs(subsd))
-            self._1st_ordr_red_helper_fncs.extend([
+            new_odeqs[hlpr[order - 1]] = ODEExpr(1, expr.subs(subsd))
+            _1st_ordr_red_helper_fncs.extend([
                 (fnc, o, expr) for o, expr in hlpr.iteritems()])
-            # self._odeqs_by_indep_var changed --> call recursively
-            self.reduce_to_sys_of_first_order()
-            break
+        new_instance = self.__class__(new_odeqs, self.indep_var_symb,
+                                      self.param_symbs[:])
+        new_instance._1st_ordr_red_helper_fncs = _1st_ordr_red_helper_fncs
+        return new_instance
 
 
 class FirstOrderODESystem(ODESystem):
@@ -214,8 +225,8 @@ class FirstOrderODESystem(ODESystem):
         self.init_f()
 
     @property
-    def _odeqs_by_indep_var(self):
-        return OrderedDefaultdict(ODEEq, [(k, ODEEq(1, self.f[k])) for k \
+    def _odeqs_by_dep_var(self):
+        return OrderedDefaultdict(ODEExpr, [(k, ODEExpr(1, self.f[k])) for k \
                            in self.dep_var_func_symbs])
 
     def _init_dep_var_func_symbs(self):

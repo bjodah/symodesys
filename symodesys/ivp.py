@@ -63,6 +63,9 @@ class IVP(object):
         self._ori_dep_var_func_symbs = self._fo_odesys.dep_var_func_symbs
 
         # Init attributes for possible analytically solvable y's
+
+        # TODO move _solved to ODESystem and handle accordingly..
+
         self._solved_init_val_symbs = {}
         self._solved = OrderedDict()
 

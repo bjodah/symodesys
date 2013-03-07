@@ -9,20 +9,26 @@ import matplotlib.pyplot as plt
 
 from symodesys.ivp import IVP
 from symodesys.odesys import AnyOrderODESystem, FirstOrderODESystem
-from harmonic_oscillator import HarmonicOscillator
+
+def HarmonicOscillator():
+    """
+    Returns AnyOrderODESystem instance (mimics a class instantiation)
+    """
+    x = sympy.Symbol('x', real = True)
+    y = sympy.Function('y')(x)
+    k = sympy.Symbol('k', real = True) # Spring constant
+
+    harmonic_oscillator_eq = sympy.Eq(y.diff(x, 2), -k*y)
+    return AnyOrderODESystem.from_list_of_eqs([harmonic_oscillator_eq])
 
 
 def main(init_y, k_val, indep_var_lim, N = 0):
     """
-    Solves a 1D harmonic oscillator analytically
+    Integrate
     """
 
     odesys = HarmonicOscillator()
-    # Below it is obvious we want analytic reduction at very low level
-    solved_odesys = odesys.attempt_analytic_reduction()
 
-    # TODO: FIX EVERYTHING BELOW
-    ########################################
     odesys = odesys.reduce_to_sys_of_first_order()
     hlprs = odesys._1st_ordr_red_helper_fncs
 

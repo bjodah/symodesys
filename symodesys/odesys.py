@@ -1,7 +1,5 @@
-
 from symodesys.helpers import OrderedDefaultdict
 
-# Experimental
 import sympy
 
 from collections import namedtuple
@@ -19,7 +17,11 @@ class ODESystem(object):
 
     # For tracking what dep var func symbs are generated upon
     # order reduction (instantiate as list)
+    # it is useful if one does not want to e.g. plot them
     _1st_ordr_red_helper_fncs = None
+
+    # We need holder for analytically solved parts (instantiate to dict):
+    _solved = None
 
     #_attrs_to_cmp_for_eq is used for checking equality of instances
     _attrs_to_cmp_for_eq = ['indep_var_symb', 'param_symbs']
@@ -30,6 +32,9 @@ class ODESystem(object):
     f = None
 
     dep_var_func_symbs = None
+
+    def __init__(self):
+        self._solved = self._solved or {}
 
     @property
     def is_first_order(self):
@@ -87,9 +92,11 @@ class ODESystem(object):
         """
         Returns a list of Sympy Eq instances describing the ODE system
         """
-        return [sympy.Eq(depvar.diff(self.indep_var_symb, order), expr)\
-                for depvar, (order, expr) in\
-                self._odeqs_by_dep_var.iteritems()]
+        return [self.eq(depvar) for depvar in self._odeqs_by_dep_var.keys()]
+
+    def eq(self, depvar):
+        order, expr = self._odeqs_by_dep_var[depvar]
+        return sympy.Eq(depvar.diff(self.indep_var_symb, order), expr)
 
     @classmethod
     def from_list_of_eqs(cls, lst):
@@ -114,15 +121,21 @@ class ODESystem(object):
             odeqs_by_dep_var[fnc] = ODEExpr(len(wrt), eq.rhs)
 
         param_symbs = set()
-        for fnc, (order, expr) in odeqs_by_dep_var.iteritems():
-            for atom in expr.atoms():
-                if not atom in odeqs_by_dep_var.keys() and \
-                       atom != indep_var_symb and not atom.is_Number:
-                    param_symbs.add(atom)
+        for order, expr in odeqs_by_dep_var.values():
+            param_symbs.add(get_new_params(expr, odeqs_by_dep_var.keys() + \
+                                           [indep_var_symb]))
         new_instance = cls(odeqs_by_dep_var, indep_var_symb,
                            list(param_symbs))
         new_instance.do_sanity_check_of_odeqs()
         return new_instance
+
+
+def get_new_symbs(expr, known_symbs):
+    new_symbs = set()
+    for atom in expr.atoms():
+        if not atom in known_symbs and not atom.is_Number:
+            new_symbs.add(atom)
+    return new_symbs
 
 
 class AnyOrderODESystem(ODESystem):
@@ -142,19 +155,31 @@ class AnyOrderODESystem(ODESystem):
         return self._odeqs_by_dep_var.keys()
 
 
-    # When reducing the order of the system to 1st order
-    # a lot of helper variables are introduced. If one do
-    # not want to e.g. plot them, the following list if useful:
-
     def __init__(self, odeqs_by_dep_var, indep_var_symb, param_symbs):
         self._odeqs_by_dep_var = odeqs_by_dep_var
         self.indep_var_symb = indep_var_symb
         self.param_symbs = param_symbs
         self._1st_ordr_red_helper_fncs = self._1st_ordr_red_helper_fncs or []
 
-    def attempt_analytic_reduction(self):
-        pass
-        #return {dep_var: expr}
+    @property
+    def known_symbs(self):
+        return [self.indep_var_symb] + self._odeqs_by_dep_var.keys() +\
+               self.param_symbs
+
+    def attempt_analytic_sol(self, depvar, hypoexpr, new_consts):
+        """
+        Checks if provided analytic (similiar to sympy.solvers.ode.checkodesol)
+        expr ``hypoexpr'' solves diff eq of ``depvar'' in odesys. If it does
+        new symbols
+        """
+        eq = self.eq(depvar).subs({depvar: hypoexpr})
+        if bool(eq.doit()):
+            hypoparams = get_new_symbs(hypoexpr, self.known_symbs)
+            self._solved[depvar] = hypoexpr, new_consts
+            return True
+        else:
+            return False
+
 
     @property
     def f(self):

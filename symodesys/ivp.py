@@ -11,15 +11,15 @@ from symodesys.firstorder import FirstOrderODESystem
 
 # FUTURE: Support uncertainties as parameter inputs
 
-def determine_const_val_for_init_val(f_general_sol, f0, dep_val,
+def determine_const_val_for_init_val(expr, y0, indep_val,
                                      const_symb = sympy.symbols('C1')):
     """
     Helper function for IVP.recursive_analytic_reduction
     """
-    f0_expr = f_general_sol.rhs.subs({dep_val: 0})
-    const_val = sympy.solve(sympy.Eq(f0_expr, f0), const_symb)[0]
-    return sympy.Eq(f_general_sol.lhs,
-                    f_general_sol.rhs.subs({const_symb: const_val}))
+    y0_expr = y_general_sol.rhs.subs({indep_val: 0})
+    const_val = sympy.solve(sympy.Eq(y0_expr, y0), const_symb)[0]
+    return sympy.Eq(y_general_sol.lhs,
+                    y_general_sol.rhs.subs({const_symb: const_val}))
 
 
 class IVP(object):
@@ -72,9 +72,7 @@ class IVP(object):
 
     def mk_init_val_symb(self, y):
         new_symb = sympy.symbols(y.func.__name__ + '_init')
-        assert not new_symb == self._fo_odesys.indep_var_symb
-        assert not new_symb in self._fo_odesys.dep_var_func_symbs
-        assert not new_symb in self._fo_odesys.param_symbs
+        assert not new_symb in self._fo_odesys.known_symbs
         return new_symb
 
 
@@ -84,52 +82,19 @@ class IVP(object):
 
         TODO: recreate possible 2nd order ODE and check solvability
         """
-        x = self._fo_odesys.indep_var_symb
-        solved = OrderedDict()
-        new_init_val_param_symbs = {}
-        changed_last_loop = True
-        while changed_last_loop:
-            changed_last_loop = False
-            for yi, expr in self._fo_odesys.f.iteritems():
-                if yi in solved: continue
-                # Check to see if it only depends on itself
-                expr = expr.subs(solved)
-                Jacobian_row_off_diag = [expr.diff(m) for m \
-                                         in self._fo_odesys.dep_var_func_symbs if m != yi]
-                if all([c == 0 for c in Jacobian_row_off_diag]):
-                    # Attempt solution (actually: assume success)
-                    rel = sympy.Eq(yi.diff(x), expr)
-                    sol = sympy.dsolve(rel, yi)
-                    # Assign new symbol to inital value
-                    new_symb = self.mk_init_val_symb(yi)
-                    new_init_val_param_symbs[yi] = new_symb
-                    # This is specific for IVPs:
-                    sol_init_val = determine_const_val_for_init_val(
-                        sol, new_symb, x)
-                    solved[yi] = sol_init_val.rhs
-                    changed_last_loop = True
-
-        # Post processing of solutions
-        self._solved.update(solved)
-        if len(solved) > 0:
-            new_dep_var_func_symbs = [
-                x for x in self._fo_odesys.dep_var_func_symbs \
-                                      if x not in solved]
-            new_f = {}
-            for k in new_dep_var_func_symbs:
-                new_f[k] = self._fo_odesys[k].subs(solved)
-
-            self._old_fo_odesys.append(self._fo_odesys)
-            new_fo_odesys = FirstOrderODESystem()
-            new_fo_odesys.indep_var_symb = self._fo_odesys.indep_var_symb
-            new_fo_odesys.param_symbs = self._fo_odesys.param_symbs + \
-                                        new_init_val_param_symbs.values()
-            new_fo_odesys.dep_var_func_symbs = new_dep_var_func_symbs
-            new_fo_odesys.f = new_f
-            self._fo_odesys = new_fo_odesys
-
-        self._solved_init_val_symbs.update(new_init_val_param_symbs)
-        return new_init_val_param_symbs
+        new_init_val_symbs = [] # For info reporting
+        self._fo_odesys.recursive_analytic_auto_sol()
+        for yi, (expr, sol_symbs) in self._fo_odesys._solved.iteritems():
+            if yi in self._solved_init_vals_symbs: continue
+            assert len(sol_symbs) == 1
+            sol_symb = sol_symbs[0]
+            init_val_symb = self.mk_init_val_symb(yi)
+            sol_init_val = determine_const_val_for_init_val(
+                expr, init_val_symb, self._fo_odesys.indep_var_symb, sol_symb)
+            self._fo_odesys.subs(sol_symb: sol_init_val)
+            self._solved_init_vals_symbs[yi] = init_val_symb
+            new_init_val_symbs.append(init_val_symb)
+            return new_init_val_symbs
 
 
     def update_init_vals(self, init_vals):

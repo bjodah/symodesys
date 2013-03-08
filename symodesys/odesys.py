@@ -2,6 +2,8 @@ from symodesys.helpers import OrderedDefaultdict
 
 import sympy
 
+from functools import reduce
+from operator import add
 from collections import namedtuple
 
 ODEExpr = namedtuple('ODEExpr', 'order expr')
@@ -37,6 +39,22 @@ class ODESystem(object):
         self._solved = self._solved or {}
 
     @property
+    def known_symbs(self):
+        return [self.indep_var_symb] + self._odeqs_by_dep_var.keys() +\
+               self.param_symbs + reduce(add, [
+            sol_symbs for expr, sol_symbs in self._solved.values()])
+
+    def subs(self, subsd):
+        assert all([key in self.known_symbs for key in subsd.keys()])
+        self.indep_var_symb = self.indep_var_symb.subs(subsd)
+        for key in self._odeqs_by_dep_var:
+            self._odeqs_by_dep_var[key].expr = self._odeqs_by_dep_var[key].expr.subs(subsd)
+        for i, param in enumerate(self.param_symbs):
+            self.param_symbs[i] = self.param_symbs[i].subs(subsd)
+        for key, (expr, sol_symbs) in self._solved.iteritems():
+            self._solved[key] = expr.subs(subsd), sol_symbs.subs(subsd)
+
+    @property
     def is_first_order(self):
         return all([v.order == 1 for v in self._odeqs_by_dep_var.values()])
 
@@ -70,7 +88,7 @@ class ODESystem(object):
 
     def do_sanity_check_of_odeqs(self):
         for fnc, (order, expr) in self._odeqs_by_dep_var.iteritems():
-            # Sanity check
+            # Sanity check (indentation level excluded ;-)
             for check_fnc in self._odeqs_by_dep_var.keys():
                 # Make sure expr don't contain derivatives larger
                 # than in odeqs_by_dep_var order:
@@ -95,6 +113,9 @@ class ODESystem(object):
         return [self.eq(depvar) for depvar in self._odeqs_by_dep_var.keys()]
 
     def eq(self, depvar):
+        """
+        Returns a sympy.Eq for diff eq of ``depvar''
+        """
         order, expr = self._odeqs_by_dep_var[depvar]
         return sympy.Eq(depvar.diff(self.indep_var_symb, order), expr)
 
@@ -156,17 +177,14 @@ class AnyOrderODESystem(ODESystem):
 
 
     def __init__(self, odeqs_by_dep_var, indep_var_symb, param_symbs):
+        super(AnyOrderODESystem, self).__init__()
         self._odeqs_by_dep_var = odeqs_by_dep_var
         self.indep_var_symb = indep_var_symb
         self.param_symbs = param_symbs
         self._1st_ordr_red_helper_fncs = self._1st_ordr_red_helper_fncs or []
 
-    @property
-    def known_symbs(self):
-        return [self.indep_var_symb] + self._odeqs_by_dep_var.keys() +\
-               self.param_symbs
 
-    def attempt_analytic_sol(self, depvar, hypoexpr, new_consts):
+    def attempt_analytic_sol(self, depvar, hypoexpr, sol_consts):
         """
         Checks if provided analytic (similiar to sympy.solvers.ode.checkodesol)
         expr ``hypoexpr'' solves diff eq of ``depvar'' in odesys. If it does
@@ -175,7 +193,7 @@ class AnyOrderODESystem(ODESystem):
         eq = self.eq(depvar).subs({depvar: hypoexpr})
         if bool(eq.doit()):
             hypoparams = get_new_symbs(hypoexpr, self.known_symbs)
-            self._solved[depvar] = hypoexpr, new_consts
+            self._solved[depvar] = hypoexpr, sol_consts
             return True
         else:
             return False
@@ -251,10 +269,11 @@ class FirstOrderODESystem(ODESystem):
         # 'indep_var_symb', 'dep_var_func_symbs', 'param_symbs', 'f'
         # are initialized via instance methods that by default initializes
         # empty list / dict only if attribute is missing
+        super(AnyOrderODESystem, self).__init__()
         if odesys != None:
             assert odesys.is_first_order
             copy_attrs = ['indep_var_symb', '_1st_ordr_red_helper_fncs',
-                          'dep_var_func_symbs', 'param_symbs', 'f']
+                          'dep_var_func_symbs', 'param_symbs', 'f', '_solved']
             for attr in copy_attrs:
                 setattr(self, attr, getattr(odesys, attr))
         else:
@@ -266,6 +285,31 @@ class FirstOrderODESystem(ODESystem):
     def _odeqs_by_dep_var(self):
         return OrderedDefaultdict(ODEExpr, [(k, ODEExpr(1, self.f[k])) for k \
                            in self.dep_var_func_symbs])
+
+    def recursive_analytic_auto_sol(self):
+        """
+        Solves equations one by one
+        """
+        changed_last_loop = True
+        # new_y = []
+        while changed_last_loop:
+            changed_last_loop = False
+            for yi, expr in self.f.iteritems():
+                if yi in self._solved: continue
+                # Check to see if it only depends on itself
+                expr = expr.subs(self._solved)
+                Jac_row_off_diag = [expr.diff(m) for m \
+                                         in self.dep_var_func_symbs if m != yi]
+                if all([c == 0 for c in Jac_row_off_diag]):
+                    # Attempt solution (actually: assume success)
+                    rel = sympy.Eq(yi.diff(self.indep_var_symb), expr)
+                    sol = sympy.dsolve(rel, yi)
+                    # Assign new symbol to inital value
+                    sol_symbs = get_new_symbs(sol.rhs, self.known_symbs)
+                    self._solved[yi] = sol_init_val.rhs, sol_symbs
+                    changed_last_loop = True
+                    # new_y.append(yi)
+        # return new_y
 
     def _init_dep_var_func_symbs(self):
         """
@@ -418,10 +462,9 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
     dep_var_tokens = None
     param_tokens = None
 
-    def __init__(self):
-        if self.param_tokens == None:
-            self.param_tokens = []
-        super(SimpleFirstOrderODESystem, self).__init__()
+    def __init__(self, *args, **kwargs):
+        super(SimpleFirstOrderODESystem, self).__init__(*args, **kwargs)
+        self.param_tokens = self.param_tokens or []
 
     def get_param_vals_by_symb_from_by_token(self, param_vals_by_token):
         for token in param_vals_by_token:

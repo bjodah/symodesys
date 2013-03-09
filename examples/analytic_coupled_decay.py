@@ -24,7 +24,7 @@ def main(params_by_token):
     param_vals_by_symb = cd.get_param_vals_by_symb_from_by_token(
         params_by_token)
 
-    u, v, w = cd.dep_var_func_symbs
+    u, v, w = cd['u'], cd['v'], cd['w']
 
     N = 100
     t0 = 0.0

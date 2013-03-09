@@ -22,7 +22,7 @@ class CoupledDecay(SimpleFirstOrderODESystem):
     param_tokens   = 'lambda_u lambda_v lambda_w'.split()
 
     def init_f(self):
-        u, v, w = self.dep_var_func_symbs
+        u, v, w = self['u'], self['v'], self['w']
         lambda_u, lambda_v, lambda_w = self.param_symbs
         self.f = {u: -lambda_u * u,
                   v: lambda_u * u - lambda_v * v,
@@ -67,7 +67,7 @@ def main(params_by_token):
     param_vals_by_symb = cd.get_param_vals_by_symb_from_by_token(
         params_by_token)
 
-    u, v, w = cd.dep_var_func_symbs
+    u, v, w = cd['u'], cd['v'], cd['w']
 
     t0 = 0.0
     tend = 1.5

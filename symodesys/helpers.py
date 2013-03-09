@@ -17,9 +17,22 @@ def cache(f):
         return data[args]
     return wrapper
 
+def subs_set(s, subsd):
+    """
+    Substititues entities in a set ``s'' for matching keys in ``subsd''
+    with corresponding values
+    """
+    t = s.copy()
+    for k, v in subsd.iteritems():
+        if k in s:
+            s.remove(k)
+            s.add(v)
+    return t
+
 class OrderedDefaultdict(OrderedDict):
     """
-    From http://stackoverflow.com/questions/4126348/how-do-i-rewrite-this-function-to-implement-ordereddict/4127426#4127426
+    From http://stackoverflow.com/questions/4126348/\
+    how-do-i-rewrite-this-function-to-implement-ordereddict/4127426#4127426
     """
 
     def __init__(self, *args, **kwargs):
@@ -142,3 +155,9 @@ def import_(filename):
     mod = imp.load_module(name, fobj, filename, data)
     return mod
 
+def get_new_symbs(expr, known_symbs):
+    new_symbs = set()
+    for atom in expr.atoms():
+        if not atom in known_symbs and not atom.is_Number:
+            new_symbs.add(atom)
+    return new_symbs

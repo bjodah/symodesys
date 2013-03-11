@@ -64,7 +64,7 @@ class IVP_Integrator(object):
 
     def init_yout_tout_for_fixed_step_size(self, t0, tend, N, order = 0):
         dt = (tend - t0) / (N - 1)
-        NY = len(self._fo_odesys.non_analytic_depvar)
+        NY = len(self._fo_odesys.non_analytic_depv)
         self.tout = np.linspace(t0, tend, N)
         # Handle other dtype for tout here? linspace doesn't support dtype arg..
         self.yout = np.zeros((N, NY), dtype = self._dtype)
@@ -84,7 +84,7 @@ class SciPy_IVP_Integrator(IVP_Integrator):
     def integrate(self, y0, t0, tend, param_vals_by_symb,
                   N, abstol=None, reltol=None, h=None,
                   order=0):
-        y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depvar]
+        y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
         param_val_lst = self._fo_odesys.param_val_lst(param_vals_by_symb)
         self._r.set_initial_value(y0_val_lst, t0)
         self._r.set_f_params(param_val_lst)
@@ -134,7 +134,7 @@ class Mpmath_IVP_Integrator(IVP_Integrator):
 
     def integrate(self, y0, param_vals_by_symb, t0, tend,
                   N, abstol = None, reltol = None, h = None):
-        y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depvar]
+        y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
         param_val_lst = self._fo_odesys.param_val_lst(param_vals_by_symb)
         cb = lambda x, y: self._fo_odesys.dydt(x, y, param_val_lst)
         self._num_y = sympy.mpmath.odefun(cb, t0, y0_val_lst, tol = abstol)

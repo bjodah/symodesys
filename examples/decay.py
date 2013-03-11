@@ -23,7 +23,7 @@ class LowLevelDecay(FirstOrderODESystem):
     param_symbs   = lambda_u,
     f = {u: -lambda_u * u}
 
-    def analytic_y(self, indep_vals, y0):
+    def analytic_u(self, indep_vals, y0):
         return y0['u'] * np.exp(-self.param_vals_by_symb[lamba_u]*indep_vals)
 
 
@@ -35,7 +35,7 @@ class Decay(SimpleFirstOrderODESystem):
     def init_f(self):
         self.f = {self['u']: -self['lambda_u'] * self['u']}
 
-    def analytic_y(self, indep_vals, y0, param_vals):
+    def analytic_u(self, indep_vals, y0, param_vals):
         return y0['u'] * np.exp(-param_vals[self['lambda_u']]*indep_vals)
 
 
@@ -59,14 +59,14 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
     plt.subplot(311)
     ivp.plot(interpolate = True, show = False)
 
-    analytic_y = odesys.analytic_y(t, init_dep_var_vals_by_token,
+    analytic_u = odesys.analytic_u(t, init_dep_var_vals_by_token,
                                 param_vals_by_symb)
     plt.subplot(312)
-    plt.plot(t, (y[:, 0] - analytic_y) / ivp._integrator.abstol,
+    plt.plot(t, (y[:, 0] - analytic_u) / ivp._integrator.abstol,
              label = 'abserr / abstol')
     plt.legend()
     plt.subplot(313)
-    plt.plot(t, (y[:, 0] - analytic_y) / analytic_y / ivp._integrator.reltol,
+    plt.plot(t, (y[:, 0] - analytic_u) / analytic_u / ivp._integrator.reltol,
              label = 'relerr / reltol')
     plt.legend()
     plt.show()

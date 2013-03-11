@@ -30,19 +30,19 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
     print ivp.recursive_analytic_reduction()
 
     ivp.integrate(tend, N = N)
-    t, y = ivp.tout, ivp.yout
+    t, u = ivp.tout, ivp.yout
 
     plt.subplot(311)
-    ivp.plot(interpolate = True, show = False)
+    ivp.plot()
 
-    analytic_y = odesys.analytic_y(
+    analytic_u = odesys.analytic_u(
         t, init_dep_var_vals_by_token, param_vals_by_symb)
     plt.subplot(312)
-    plt.plot(t, y[:, 0] - analytic_y,
+    plt.plot(t, u[:, 0] - analytic_u,
              label = 'abserr')
     plt.legend()
     plt.subplot(313)
-    plt.plot(t, (y[:, 0] - analytic_y) / analytic_y,
+    plt.plot(t, (u[:, 0] - analytic_u) / analytic_u,
              label = 'relerr')
     plt.legend()
     plt.show()

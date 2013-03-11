@@ -24,26 +24,29 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
 
     y0 = {odesys[k]: v for k, v in init_dep_var_vals_by_token.items()}
     t0, tend = indep_var_lim
-    odesys = odesys.subs(odesys['u']: sympy.log(odesys['u']))
+
+    # Substitute u for v=log(u)
+    odesys = odesys.transform_depv(
+        {odesys['u']: (sympy.symbols('z'), sympy.log(odesys['u']))},
+        {odesys['u']: sympy.exp(sympy.symbols('z'))})
+
     ivp = IVP(odesys, y0, param_vals_by_symb, t0)
-
-    # Attempt analytic reduction
-    print ivp.recursive_analytic_reduction()
-
     ivp.integrate(tend, N = N)
-    t, y = ivp.tout, ivp.yout
+    t, z = ivp.tout, ivp.yout
 
     plt.subplot(311)
     ivp.plot(interpolate = True, show = False)
 
-    analytic_y = odesys.analytic_y(
+    analytic_u = odesys.analytic_u(
         t, init_dep_var_vals_by_token, param_vals_by_symb)
+    analytic_z = np.log(analytic_u)
+
     plt.subplot(312)
-    plt.plot(t, y[:, 0] - analytic_y,
+    plt.plot(t, z[:, 0] - analytic_z,
              label = 'abserr')
     plt.legend()
     plt.subplot(313)
-    plt.plot(t, (y[:, 0] - analytic_y) / analytic_y,
+    plt.plot(t, (z[:, 0] - analytic_z) / analytic_z,
              label = 'relerr')
     plt.legend()
     plt.show()

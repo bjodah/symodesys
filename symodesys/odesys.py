@@ -27,7 +27,7 @@ class ODESystem(object):
     _solved = None
 
     #_attrs_to_cmp_for_eq is used for checking equality of instances
-    _attrs_to_cmp_for_eq = ['indep_var_symb', 'param_symbs']
+    _attrs_to_cmp_for_eq = ['indep_var_symb', 'param_symbs', '_solved']
 
     indep_var_symb = None # ODE implies 1 indep. variable,
                           #  set to sympy.symbol(...)
@@ -81,6 +81,58 @@ class ODESystem(object):
             self.param_symbs[i] = self.param_symbs[i].subs(subsd)
         for key, (expr, sol_symbs) in self._solved.iteritems():
             self._solved[key] = expr.subs(subsd), subs_set(sol_symbs, subsd)
+
+
+    def transform_depvars(self, trnsf, inv_subs):
+        """
+        trnsf: dict mapping old_depvar to tuple of (new_depvar, expr_in_old)
+        inv_subs: dict mapping old_depvar to expression in new_depvar
+        """
+        new_odeqs = OrderedDefaultdict(ODEEq)
+        for old_depvar, (order, old_expr) in self._odeqs_by_dep_var.iteritems():
+            if not old_depvar in trnsf:
+                new_odeqs[old_depvar] = self._odeqs_by_dep_var[old_depvar].subs(inv_subs)
+                continue
+            # Unpack forward transform
+            new_depvar, trnsf_expr = trnsf[old_depvar]
+            eqsd = {eq.lhs: eq.rhs for eq in self.eqs}
+            # Get new diff eq
+            diff_expr = trnsf_expr.diff(self.indep_var_symb, order).subs(eqsd)
+            # Save new diff eq (expressed in new depvar through inv_subs)
+            new_odeqs[new_depvar] = ODEEq(order, diff_expr.subs(inv_subs))
+
+        # Handle solved:
+        new_solved = OrderedDict()
+        for old_depvar, old_expr in self._solved.iteritems():
+            if not old_depvar in trnsf:
+                # Save old analytic expr (expressed in new depvar through inv_subs)
+                new_solved[old_depvar] = old_expr.subs(inv_subs)
+                continue
+            new_depvar, trnsf_expr = trnsf[old_depvar]
+            # Save new analytic expr (expressed in new depvar through inv_subs)
+            new_solved[new_depvar] = old_expr.subs(inv_subs)
+        # Return new instance based on carbon copy of self
+        return self.__class__(self, odeqs=new_odeqs, solved=new_solved)
+
+    def transform_indep(self, new_indep_symb, expr_in_old_indep):
+        new_odeqs = OrderedDefaultdict(ODEEq)
+        for depvar, (order, old_expr) in self._odeqs_by_dep_var.iteritems():
+            new_expr = old_expr / sympy.diff(expr_in_old_indep, self.indep_var_symb, order)
+            new_expr = new_expr.subs({self.indep_var_symb: sympy.solve(
+                new_expr - new_indep_symb, self.indep_var_symb)[0]})
+            new_expr = new_expr.subs({expr_in_old_indep: new_indep_symb})
+            new_odeqs[depvar] = ODEEq(order, new_expr)
+
+        # Handle solved:
+        new_solved = OrderedDict()
+        for depvar, old_expr in self._solved.iteritems():
+            new_expr = old_expr / sympy.diff(expr_in_old_indep, self.indep_var_symb, order)
+            new_expr = new_expr.subs({self.indep_var_symb: sympy.solve(
+                new_expr - new_indep_symb, self.indep_var_symb)[0]})
+            new_expr = new_expr.subs({expr_in_old_indep: new_indep_symb})
+            new_solved[depvar] = new_expr
+        return self.__class__(self, odeqs=new_odeqs, solved=new_solved,
+                              indep_var_symb=new_indep_symb)
 
     @property
     def is_first_order(self):
@@ -191,11 +243,12 @@ class AnyOrderODESystem(ODESystem):
         return OrderedDefaultdict(ODEExpr)
 
 
-    def __init__(self, odeqs_by_dep_var, indep_var_symb, param_symbs):
+    def __init__(self, odeqs_by_dep_var, indep_var_symb, param_symbs, solved):
         super(AnyOrderODESystem, self).__init__()
         self._odeqs_by_dep_var = odeqs_by_dep_var
         self.indep_var_symb = indep_var_symb
         self.param_symbs = param_symbs
+        self._solved = solved
 
     def __getitem__(self, key):
         match = None

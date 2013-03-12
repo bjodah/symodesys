@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+from collections import OrderedDict
 
 import sympy
 import numpy as np
@@ -26,7 +27,7 @@ class LowLevelDecay(FirstOrderODESystem):
 
     dep_var_symbs = u,
     param_symbs   = lambda_u,
-    f = {u: -lambda_u * u}
+    f = OrderedDict([(u, -lambda_u * u)])
 
     def analytic_u(self, indep_vals, y0):
         return y0['u'] * np.exp(-self.param_vals_by_symb[lamba_u]*indep_vals)
@@ -37,8 +38,9 @@ class Decay(SimpleFirstOrderODESystem):
     dep_var_tokens = 'u',
     param_tokens   = 'lambda_u',
 
-    def init_f(self):
-        self.f = {self['u']: -self['lambda_u'] * self['u']}
+    @property
+    def expressions(self):
+        return {self['u']: self['lambda_u'] * self['u']}
 
     def analytic_u(self, indep_vals, y0, param_vals):
         return y0['u'] * np.exp(-param_vals[self['lambda_u']]*indep_vals)

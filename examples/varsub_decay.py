@@ -29,7 +29,7 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
     z = sympy.Function('z')(odesys.indepv)
     u = odesys['u']
     odesys = odesys.transform_depv(
-        {u: (z, sympy.log(u))},
+        {z: sympy.log(u)},
         {u: sympy.exp(z)})
     sympy.pprint(odesys.eqs)
 

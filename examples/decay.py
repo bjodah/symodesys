@@ -14,6 +14,11 @@ from symodesys.ivp import IVP
 # TODO: add use of units from Sympys physics module and enter lambda in per s, and give
 #        time intervals in hours
 
+# TODO: Determine wheter to use:
+#u = sympy.symbols('u')
+#    or
+#u = sympy.Function('u')(indepv)
+
 u = sympy.symbols('u')
 lambda_u = sympy.symbols('lambda_u')
 

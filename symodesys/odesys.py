@@ -267,15 +267,18 @@ class AnyOrderODESystem(ODESystem):
         return OrderedDefaultdict(ODEExpr)
 
     def __getitem__(self, key):
-        match = None
-        for known_symb in self.known_symbs:
-            if str(known_symb) == str(key):
-                if match == None:
-                    match = known_symb
-                else:
-                    raise KeyError('Key ambigous, there are several symbols with same str repr')
-        if match == None:
-            raise KeyError('Key not found: {}'.format(key))
+        if isinstance(key, sympy.Basic):
+            match = None
+            for known_symb in self.known_symbs:
+                if str(known_symb) == str(key):
+                    if match == None:
+                        match = known_symb
+                    else:
+                        raise KeyError('Key ambigous, there are several symbols with same str repr')
+            if match == None:
+                raise KeyError('Key not found: {}'.format(key))
+        else:
+            return self[sympy.Symbol(key)]
         return match
 
 
@@ -361,7 +364,7 @@ class FirstOrderODESystem(ODESystem):
     _canonical_attrs = ['f', 'indepv', 'param_symbs', 'solved', 'frst_red_hlprs']
 
     # TODO: implement the routines for variable substitution
-    # TODO: Decide whether to require `f` to be OrderedDict
+    # TODO: Require `f` to be OrderedDict
 
     def __init__(self, odesys = None, **kwargs):
         # Using property functions makes overwriting harder therefore
@@ -369,7 +372,7 @@ class FirstOrderODESystem(ODESystem):
         # are initialized via instance methods that by default initializes
         # empty list / dict only if attribute is missing
         super(FirstOrderODESystem, self).__init__(odesys, **kwargs)
-        self._initdepv()
+        self._init_depv()
         self._init_param_symbs()
         self.init_f()
         assert self.is_first_order
@@ -378,9 +381,9 @@ class FirstOrderODESystem(ODESystem):
     def all_depv(self):
         return self.depv
 
-    @all_depv.setter
-    def all_depv(self, value):
-        self.depv = value
+    # @all_depv.setter
+    # def all_depv(self, value):
+    #     self.depv = value
 
     @property
     def odeqs(self):
@@ -413,7 +416,7 @@ class FirstOrderODESystem(ODESystem):
                     # new_y.append(yi)
         # return new_y
 
-    def _initdepv(self):
+    def _init_depv(self):
         """
         To be subclassed (or add list prop: dep_var_func_symbs)
 
@@ -441,8 +444,8 @@ class FirstOrderODESystem(ODESystem):
         """
         To be subclassed (or add dict prop: f)
 
-        self.f should return a dict of length
-        len(self._dep_var_func_symb) for the first-order derivatives
+        self.f should return a OrderedDict with the first-order
+        derivatives as values (and dependent sympy name as)
         of the self.depv (the underived dep_var_func_symb
         acts as key) expressed solely in numerical constants, sympy
         function expressions, indepv, dep_var_func_symbs and
@@ -595,7 +598,7 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
         return dict([(self[k], params_by_token[k]) for\
                      k in self.param_tokens])
 
-    def _initdepv(self):
+    def _init_depv(self):
         # The assert is there to signal need to subclass if using
         # SimpleFirstOrderODESystem
         if self.depv == None:

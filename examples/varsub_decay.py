@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 from symodesys.ivp import IVP
 from decay import Decay
 
-
+# TODO: Let IVP do transfm and back-transfm internally + convert PiecewisePolynomial
 
 
 def plot_numeric_vs_analytic(Sys, indep_var_lim,
@@ -28,10 +28,12 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
     # Substitute u for v=log(u)
     z = sympy.Function('z')(odesys.indepv)
     u = odesys['u']
-    odesys = odesys.transform_depv(
-        {z: sympy.log(u)},
-        {u: sympy.exp(z)})
+    trnsfm = {z: sympy.log(u)}
+    inv_trsfm = {u: sympy.exp(z)}
+    odesys = odesys.transform_depv(trnsfm, inv_trsfm)
     sympy.pprint(odesys.eqs)
+    # Convert initial values:
+    y0 = {odesys[dv]: y0[dv] if dv in y0 else trnsfm[dv].subs(y0) for dv in odesys.all_depv}
 
     ivp = IVP(odesys, y0, param_vals_by_symb, t0)
     ivp.integrate(tend, N = N)

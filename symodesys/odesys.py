@@ -28,7 +28,6 @@ class ODESystem(object):
     indepv = None # ODE implies 1 indep. variable,
                           #  set to sympy.symbol(...)
     param_symbs = None
-    f = None
 
 
     #_attrs_to_cmp_for_eq is used for checking equality of instances of ODESystem
@@ -78,16 +77,17 @@ class ODESystem(object):
 
 
     @property
+    def all_depv(self):
+        return self.odeqs.keys()
+
+    @property
     def non_analytic_depv(self):
-        return [x for x in self.odeqs if not x in self.solved]
+        return [x for x in self.all_depv if not x in self.solved]
 
     @property
     def analytic_depv(self):
-        return [x for x in self.odeqs if x in self.solved]
+        return [x for x in self.all_depv if x in self.solved]
 
-    @property
-    def all_depv(self):
-        return self.odeqs.keys()
 
     @property
     def solved_exprs(self):
@@ -106,7 +106,6 @@ class ODESystem(object):
                self.param_symbs + analytic_sol_symbs
 
     def subs(self, subsd):
-        # TODO: fix special cases self.indepv and self.depv
         for key in subsd.keys():
             if not key in self.known_symbs:
                 raise KeyError('Symbol: {} not known in odesys'.format(key))
@@ -310,39 +309,33 @@ class FirstOrderODESystem(ODESystem):
     described below
     """
 
-    depv = None
+    f = None
 
     _attrs_to_cmp_for_eq = ODESystem._attrs_to_cmp_for_eq +\
                            ['f']
 
     _canonical_attrs = ['f', 'indepv', 'param_symbs', 'solved', 'frst_red_hlprs']
 
-    # TODO: implement the routines for variable substitution
-    # TODO: Require `f` to be OrderedDict
 
     def __init__(self, odesys = None, **kwargs):
         # Using property functions makes overwriting harder therefore
-        # 'indepv', 'depv', 'param_symbs', 'f'
+        # 'indepv', 'all_depv', 'param_symbs', 'f'
         # are initialized via instance methods that by default initializes
         # empty list / dict only if attribute is missing
         super(FirstOrderODESystem, self).__init__(odesys, **kwargs)
-        self._init_depv()
         self._init_param_symbs()
-        self.init_f()
+        if self.f == None:
+            self.init_f()
         assert self.is_first_order
 
     @property
     def all_depv(self):
-        return self.depv
-
-    # @all_depv.setter
-    # def all_depv(self, value):
-    #     self.depv = value
+        return self.f.keys()
 
     @property
     def odeqs(self):
         return OrderedDefaultdict(ODEExpr, [(k, ODEExpr(1, self.f[k])) for k \
-                           in self.depv])
+                           in self.all_depv])
 
     def recursive_analytic_auto_sol(self):
         """
@@ -358,7 +351,7 @@ class FirstOrderODESystem(ODESystem):
                 expr = expr.subs({yi: expr for yi, (expr, sol_symbs) \
                                   in self.solved.iteritems()})
                 Jac_row_off_diag = [expr.diff(m) for m \
-                                    in self.depv if m != yi]
+                                    in self.all_depv if m != yi]
                 if all([c == 0 for c in Jac_row_off_diag]):
                     # Attempt solution (actually: assume success)
                     rel = sympy.Eq(yi.diff(self.indepv), expr)
@@ -370,23 +363,12 @@ class FirstOrderODESystem(ODESystem):
                     # new_y.append(yi)
         # return new_y
 
-    def _init_depv(self):
-        """
-        To be subclassed (or add list prop: dep_var_func_symbs)
-
-        should return list of
-          sympy.Function(``token_string'')(self.indep_var) instances
-        The order in this list defines indices in vectors and matrices
-        used by underlying numerical integration.
-        """
-        if self.depv == None:
-            self.depv = []
 
     def _init_param_symbs(self):
         """
         To be subclassed (or add list prop: param_symbs)
 
-        should return list of sympy.symbols(``token_sting'') instances
+        should return list of sympy.symbols(``token_string'') instances
         The order in this list defines indices in vectors and matrices
         used by underlying numerical integration.
         (When subclassing, sympy.symarray might be useful.)
@@ -396,37 +378,28 @@ class FirstOrderODESystem(ODESystem):
 
     def init_f(self):
         """
-        To be subclassed (or add dict prop: f)
+        To be subclassed.
 
-        self.f should return a OrderedDict with the first-order
-        derivatives as values (and dependent sympy name as)
-        of the self.depv (the underived dep_var_func_symb
-        acts as key) expressed solely in numerical constants, sympy
-        function expressions, indepv, dep_var_func_symbs and
-        param_symbs"""
-        if self.f == None:
-            self.f = {}
-
-    # NOTE: we don't take ODESystem to be immutable anymore,
-    #       maybe we need an hashable export?
-    # def __hash__(self):
-    #     """ ODESystem is taken to be immutable """
-    #     hashes = [hash(x) for x in self._attrs_to_cmp if x != 'f']
-    #     fhash = hash(frozenset(self.f.items()))
-    #     return sum(hashes) + fhash
+        *Is only exectuted if and only if self.f != None
+        *self.init_f() must:
+          set self.f to a OrderedDict with the first-order
+          derivatives as values (and dependent variable sympy.Function
+          instances as keys)
+        """
+        self.f = {}
 
     def _fmat(self):
         """
-        Transforms the dict mapping depv self.f
+        Convert self.f to sympy Matrix
         """
         return sympy.Matrix(
-            1, len(self.depv),
-            lambda q, i: self.f[self.depv[i]]
+            1, len(self.all_depv),
+            lambda q, i: self.f[self.all_depv[i]]
             )
 
     def _get_all_num_subs(self, indep_val, dep_vals, param_vals):
         indep_subs = {self.indepv: indep_val}
-        dep_subs = dict(zip(self.depv, dep_vals))
+        dep_subs = dict(zip(self.all_depv, dep_vals))
         param_subs = dict(zip(self.param_symbs, param_vals))
         all_subs = {}
         for d in [indep_subs, dep_subs, param_subs]:
@@ -441,7 +414,7 @@ class FirstOrderODESystem(ODESystem):
         """
         Convenience function for evaluating dydt (f) for
         provided values which is used for substituting the the symbols
-        in self.indepv, self.depv, self._param_symbs
+        in self.indepv, self.all_depv, self._param_symbs
         for provided values of the independent, the dependent and
         parameter variables (with same order)
 
@@ -458,7 +431,7 @@ class FirstOrderODESystem(ODESystem):
         """
         Convenience function for evaluating jacobian of dydt for
         provided values which is used for substituting the the symbols
-        in self.indepv, self.depv,
+        in self.indepv, self.all_depv,
         self._param_symbs for provided values of the independent,
         the dependent and parameter
         variables (provided as dictionaries)
@@ -477,7 +450,7 @@ class FirstOrderODESystem(ODESystem):
         """
         Convenience function for evaluating d2ydt2 (f) for
         provided values which is used for substituting the the symbols
-        in self.indepv, self.depv,
+        in self.indepv, self.all_depv,
         self._param_symbs for provided values of the independent,
         the dependent and parameter variables (provided as dictionaries
 
@@ -494,44 +467,47 @@ class FirstOrderODESystem(ODESystem):
         return [dfdt.subs(all_num_subs) for dfdt in dfdt_lst]
 
 
-    def transform_depv(self, trnsf, inv_trnsf):
+    def transform_depv(self, trnsfm, inv_trnsfm):
         """
-        trnsf: dict mapping old_depv to tuple of (new_depv, expr_in_old)
+        trnsfm: dict mapping old_depv to tuple of (new_depv, expr_in_old)
         inv_subs: dict mapping old_depv to expression in new_depv
         """
-        new_odeqs = OrderedDefaultdict(ODEExpr)
-        for old_depv, (order, old_expr) in self.odeqs.iteritems():
-            if not old_depv in inv_trnsf:
-                new_odeqs[old_depv] = self.odeqs[old_depv].subs(inv_subs)
+        new_f = OrderedDict()
+        for old_depv, old_expr in self.f.iteritems():
+            if not old_depv in inv_trnsfm:
+                new_f[old_depv] = self.f[old_depv].subs(inv_subs)
                 continue
-        for new_depv, rel in trnsf.iteritems():
+        for new_depv, rel in trnsfm.iteritems():
             new_rel = rel.diff(self.indepv)
             eqsd = {eq.lhs: eq.rhs for eq in self.eqs}
             new_expr = new_rel.subs(eqsd)
-            new_expr = new_expr.subs(inv_trnsf)
-            new_odeqs[new_depv] = ODEExpr(1, new_expr)
+            new_expr = new_expr.subs(inv_trnsfm)
+            new_f[new_depv] = new_expr
 
         # Handle solved:
         new_solved = {}
         for old_depv, (old_expr, sol_symbs) in self.solved.iteritems():
-            if not old_depv in trnsf:
+            if not old_depv in trnsfm:
                 # Save old analytic expr (expressed in new depv through inv_subs)
                 new_solved[old_depv] = old_expr.subs(inv_subs), sol_symbs
                 continue
-            new_depv, trnsf_expr = trnsf[old_depv]
+            new_depv, trnsfm_expr = trnsfm[old_depv]
             # Save new analytic expr (expressed in new depv through inv_subs)
             new_solved[new_depv] = old_expr.subs(inv_subs), sol_symbs
         # Return new instance based on carbon copy of self
-        return self.__class__(self, odeqs=new_odeqs, solved=new_solved)
+        print new_f ###
+        new_instance = self.__class__(self, f=new_f, solved=new_solved)
+        print new_instance.f
+        return new_instance
 
     def transform_indep(self, new_indep_symb, expr_in_old_indep):
-        new_odeqs = OrderedDefaultdict(ODEExpr)
-        for depv, (order, old_expr) in self.odeqs.iteritems():
-            new_expr = old_expr / sympy.diff(expr_in_old_indep, self.indepv, order)
+        new_f = OrderedDict()
+        for depv, old_expr in self.f.iteritems():
+            new_expr = old_expr / sympy.diff(expr_in_old_indep, self.indepv)
             new_expr = new_expr.subs({self.indepv: sympy.solve(
                 new_expr - new_indep_symb, self.indepv)[0]})
             new_expr = new_expr.subs({expr_in_old_indep: new_indep_symb})
-            new_odeqs[depv] = ODEExpr(order, new_expr)
+            new_f[depv] = new_expr
 
         # Handle solved:
         new_solved = {}
@@ -541,7 +517,7 @@ class FirstOrderODESystem(ODESystem):
                 new_expr - new_indep_symb, self.indepv)[0]})
             new_expr = new_expr.subs({expr_in_old_indep: new_indep_symb})
             new_solved[depv] = new_expr, sol_symbs
-        return self.__class__(self, odeqs=new_odeqs, solved=new_solved,
+        return self.__class__(self, f=new_f, solved=new_solved,
                               indepv=new_indep_symb)
 
 
@@ -569,7 +545,13 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
         super(SimpleFirstOrderODESystem, self).__init__(*args, **kwargs)
 
     def init_f(self):
-        self.f = OrderedDict([(dv, self.expressions[dv]) for dv in self.depv])
+        # First we need to set the keys (needed when self.expressions()
+        # makes look-ups)
+        self.f = OrderedDict(
+            [(sympy.Function(tok)(self.indepv), None) for\
+                              tok in self.dep_var_tokens])
+        for tok in self.dep_var_tokens:
+            self.f[self[tok]] = self.expressions[self[tok]]
 
     def get_param_vals_by_symb_from_by_token(self, param_vals_by_token):
         """
@@ -586,11 +568,6 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
         return dict([(self[k], params_by_token[k]) for\
                      k in self.param_tokens])
 
-    def _init_depv(self):
-        # The assert is there to signal need to subclass if using
-        # SimpleFirstOrderODESystem
-        if self.depv == None:
-            self.depv = [sympy.Function(y)(self.indepv) for y in self.dep_var_tokens]
 
     def _init_param_symbs(self):
         # The assert is there to signal need to subclass if using

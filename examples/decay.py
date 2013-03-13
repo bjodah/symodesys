@@ -20,7 +20,8 @@ from symodesys.ivp import IVP
 #    or
 #u = sympy.Function('u')(indepv)
 
-u = sympy.symbols('u')
+t = sympy.symbols('t')
+u = sympy.Function('u')(t)
 lambda_u = sympy.symbols('lambda_u')
 
 class LowLevelDecay(FirstOrderODESystem):

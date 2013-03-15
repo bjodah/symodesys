@@ -41,7 +41,7 @@ class Decay(SimpleFirstOrderODESystem):
 
     @property
     def expressions(self):
-        return {self['u']: self['lambda_u'] * self['u']}
+        return {self['u']: self['lambda_u'] * -self['u']}
 
     def analytic_u(self, indep_vals, y0, param_vals):
         return y0['u'] * np.exp(-param_vals[self['lambda_u']]*indep_vals)

@@ -62,7 +62,21 @@ class IVP(object):
 
         # TODO move _solved to ODESystem and handle accordingly..
         self._solved_init_val_symbs = {}
+        self._depv_trnsfm = None
+        self._depv_inv_trnsfm = None
+        self._indepv_trnsfm = None
+        self._indepv_inv_trnsfm = None
 
+
+    def use_internal_depv_trnsfm(self, trnsfm, inv_trnsfm):
+        self._depv_trnsfm = trnsfm
+        self._depv_inv_trnsfm = inv_trnsfm
+        self._fo_odesys.transform_depv(trnsfm, inv_trsfm)
+
+    def use_internal_indepv_trnsfm(self, trnsfm, inv_trnsfm):
+        self._indepv_trnsfm = trnsfm
+        self._indepv_inv_trnsfm = inv_trnsfm
+        self._fo_odesys.transform_indepv(trnsfm, inv_trsfm)
 
     def mk_init_val_symb(self, y):
         new_symb = sympy.symbols(y.func.__name__ + '_init')
@@ -123,6 +137,13 @@ class IVP(object):
             self._analytic_evalr.eval_for_indep_array(
                 self.tout, {self._solved_init_val_symbs[yi]: self._init_vals[yi]\
                             for yi in self._fo_odesys.analytic_depv})
+
+    @property
+    def trajectory(self):
+        """
+        Handles inv_trnsfm
+        """
+        pass
 
     @property
     def yout(self):

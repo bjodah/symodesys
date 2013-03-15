@@ -7,6 +7,7 @@ from collections import OrderedDict # for OrderedDefaultdict
 # other imports
 import sympy
 import numpy as np
+from sympy.utilities.autowrap import autowrap
 
 def cache(f):
     data = {}
@@ -161,3 +162,113 @@ def get_new_symbs(expr, known_symbs):
         if not atom in known_symbs and not atom.is_Number:
             new_symbs.add(atom)
     return new_symbs
+
+
+class PieceWiseShiftedPolyTraj(object):
+    """
+    Class to store a series of piece-wise
+    shifted polynomials
+
+    Note: this does not do fitting, it only
+          solves for one single unique solution
+          Hence possible orders include: 1,3,5,(7),..
+          were 7 and above needs entries in A
+    """
+
+    # The coefficients of the polynomial is determined
+    # for shifted and scaled interval (x: {0,1}) data
+    # is ordered as {y(0),y(1),y'(0),y'(1),y''(0),y''(1)}
+    A = {1: np.array([
+            [1, 0],
+            [1, 1]], dtype = np.float64),
+         3: np.array([
+            [1, 0, 0, 0],
+            [1, 1, 1, 1],
+            [0, 1, 0, 0],
+            [0, 1, 2, 3]], dtype = np.float64),
+         5: np.array([
+            [1, 0, 0, 0,  0,  0],
+            [1, 1, 1, 1,  1,  1],
+            [0, 1, 0, 0,  0,  0],
+            [0, 1, 2, 3,  4,  5],
+            [0, 0, 2, 0,  0,  0],
+            [0, 0, 2, 6, 12, 20]], dtype = np.float64),
+            }
+
+    _xsymb = sympy.Symbol('x', real=True)
+    @property
+    def _coeffsymb(self):
+        [sympy.Symbol('c_' + str(i), real=True) for i in range(self.order + 1)]
+
+    def __init__(self, t, Y):
+        """
+        t = parameter data points
+        Y.shape
+        len(Y[i][0]) === order+1
+        """
+        if isinstance(t, np.ndarray):
+            self.t = t
+        else:
+            self.t = np.array(t)
+        if isinstance(Y, np.ndarray):
+            self.Y = Y
+        else:
+            self.Y = np.array(Y)
+        assert self.Y.shape[0] == len(self.t) - 1
+        self.order = self.Y.shape[1] * 2 - 1
+        self._fit_poly()
+        self._mk_eval()
+
+    def _fit_poly(self):
+        self._coeff_shifted_scaled = np.empty(self.Y.shape)
+        b = np.empty((self.order + 1, 1))
+        for i in range(len(t)-1):
+            for j in range(self.order / 2 + 1):
+                b[j * 2] = self.Y[i, j]
+                b[j * 2 + 1] = self.Y[i + 1, j]
+            self._coeff_shifted_scaled[i,:] = np.linalg.solve(A[self.order], b)
+
+    @property
+    def _coeff_shifted(self):
+        dt = np.diff(self.t)
+        k = 1 / dt
+        coeff_factor = np.vander(k, self.order + 1)
+        return self._coeff_shifted_scaled * coeff_factor[:,::-1]
+
+    @property
+    def _coeff(self):
+        conv_cb, conv_args = self._mk_converter()
+        coeff = np.empty(self._coeff_shifted.shape)
+        for i in range(self._coeff_shifted.shape[1]):
+            coeff[:, i] = conv_vb[i](
+                self.t[:-1], self._coeff_shifted[:, conv_args[i]])
+        return coeff
+
+    @property
+    def _base_poly(self):
+        return sum([self._coeffsymb[i]*self._xsymb**i for i in range(self.order + 1)])
+
+    @cache
+    def _mk_converter(self):
+        c = self._coeffsymb
+        x = self._xsymb
+        x0 = sympy.Symbol('x0', real=True)
+        p = self._base_poly.subs({x: x - x0}).expand()
+        k = []
+        for o in reversed(range(1, self.order + 1)):
+            c = p.coeff(x ** o)
+            k.append(c)
+            p = sum([e for e in p.args if e not in c*x**o])
+        k.appned(p)
+        k = reversed(k)
+        bin_args = [[x0] + [ci for ci in c if ci in ki] for ki in k]
+        bin_cb = [ufuncify(bin_args[i], ki) for i, ki in enumerate(k)]
+        return bin_cb, [[i for i in len(c) if c[i] in ki] for ki in k]
+
+    def _mk_eval(self):
+        coeff = self._coeff
+        poly = self._base_poly.subs(dict(zip(self._coeffsymb, coeff)))
+        self._eval = ufuncify([self._xsymb] + self._coeffsymb, poly)
+
+    def __call__(self, t):
+        return self._eval(t)

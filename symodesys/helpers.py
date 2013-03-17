@@ -7,7 +7,7 @@ from collections import OrderedDict # for OrderedDefaultdict
 # other imports
 import sympy
 import numpy as np
-from sympy.utilities.autowrap import autowrap
+from sympy.utilities.autowrap import autowrap, ufuncify
 
 def cache(f):
     data = {}
@@ -198,7 +198,7 @@ class PieceWiseShiftedPolyTraj(object):
     _xsymb = sympy.Symbol('x', real=True)
     @property
     def _coeffsymb(self):
-        [sympy.Symbol('c_' + str(i), real=True) for i in range(self.order + 1)]
+        return [sympy.Symbol('c_' + str(i), real=True) for i in range(self.order + 1)]
 
     def __init__(self, t, Y):
         """
@@ -214,19 +214,20 @@ class PieceWiseShiftedPolyTraj(object):
             self.Y = Y
         else:
             self.Y = np.array(Y)
-        assert self.Y.shape[0] == len(self.t) - 1
+        assert self.Y.shape[0] == len(self.t)
         self.order = self.Y.shape[1] * 2 - 1
         self._fit_poly()
         self._mk_eval()
 
     def _fit_poly(self):
-        self._coeff_shifted_scaled = np.empty(self.Y.shape)
+        self._coeff_shifted_scaled = np.empty((self.t.shape[0], self.order + 1))
         b = np.empty((self.order + 1, 1))
-        for i in range(len(t)-1):
+        for i in range(len(self.t)-1):
             for j in range(self.order / 2 + 1):
                 b[j * 2] = self.Y[i, j]
                 b[j * 2 + 1] = self.Y[i + 1, j]
-            self._coeff_shifted_scaled[i,:] = np.linalg.solve(A[self.order], b)
+            self._coeff_shifted_scaled[i,:] = np.linalg.solve(
+                self.A[self.order], b).ravel()
 
     @property
     def _coeff_shifted(self):
@@ -240,30 +241,37 @@ class PieceWiseShiftedPolyTraj(object):
         conv_cb, conv_args = self._mk_converter()
         coeff = np.empty(self._coeff_shifted.shape)
         for i in range(self._coeff_shifted.shape[1]):
-            coeff[:, i] = conv_vb[i](
+            print self._coeff_shifted[:, conv_args[i]]
+            coeff[:, i] = conv_cb[i](
                 self.t[:-1], self._coeff_shifted[:, conv_args[i]])
         return coeff
 
     @property
     def _base_poly(self):
-        return sum([self._coeffsymb[i]*self._xsymb**i for i in range(self.order + 1)])
+        return sum([self._coeffsymb[i]*self._xsymb**i for i \
+                    in range(self.order + 1)])
 
-    @cache
-    def _mk_converter(self):
-        c = self._coeffsymb
-        x = self._xsymb
-        x0 = sympy.Symbol('x0', real=True)
-        p = self._base_poly.subs({x: x - x0}).expand()
-        k = []
-        for o in reversed(range(1, self.order + 1)):
-            c = p.coeff(x ** o)
-            k.append(c)
-            p = sum([e for e in p.args if e not in c*x**o])
-        k.appned(p)
-        k = reversed(k)
-        bin_args = [[x0] + [ci for ci in c if ci in ki] for ki in k]
-        bin_cb = [ufuncify(bin_args[i], ki) for i, ki in enumerate(k)]
-        return bin_cb, [[i for i in len(c) if c[i] in ki] for ki in k]
+    # @cache
+    # def _mk_converter(self):
+    #     c = self._coeffsymb
+    #     x = self._xsymb
+    #     x0 = sympy.Symbol('x0', real=True)
+    #     p = self._base_poly.subs({x: x - x0}).expand()
+    #     k = []
+    #     for o in reversed(range(1, self.order + 1)):
+    #         d = p.coeff(x ** o)
+    #         k.append(d)
+    #         p = sum([e for e in p.args if x**o not in e])
+    #     k.append(p)
+    #     print p
+    #     k = list(reversed(k))
+    #     bin_args = [[x0] + [ci for ci in c if ci in ki] for ki in k]
+    #     for i, ki in enumerate(k):
+    #         print bin_args[i]
+    #         print ki
+    #         print ufuncify(bin_args[i], ki)
+    #     bin_cb = [ufuncify(bin_args[i], ki) for i, ki in enumerate(k)]
+    #     return bin_cb, [[i for i in range(len(c)) if c[i] in ki] for ki in k]
 
     def _mk_eval(self):
         coeff = self._coeff
@@ -271,4 +279,5 @@ class PieceWiseShiftedPolyTraj(object):
         self._eval = ufuncify([self._xsymb] + self._coeffsymb, poly)
 
     def __call__(self, t):
-        return self._eval(t)
+        i = np.find(self.t < t) #<--- Fix
+        return self._eval(t, self._coeff[i,:])

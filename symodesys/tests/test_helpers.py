@@ -16,3 +16,6 @@ def manual_PieceWiseShiftedPolyTraj():
     pt1 = PieceWiseShiftedPolyTraj([0, 1.0], [[0, 0], [1, 3]])
     plt.plot(x, y)
     plt.plot(x, pt1(x))
+
+if __name__ == '__main__':
+    test_PieceWiseShiftedPolyTraj()

@@ -21,13 +21,14 @@ class CoupledDecay(SimpleFirstOrderODESystem):
     dep_var_tokens = 'u v w'.split()
     param_tokens   = 'lambda_u lambda_v lambda_w'.split()
 
-    def init_f(self):
+    @property
+    def expressions(self):
         u, v, w = self['u'], self['v'], self['w']
         lambda_u, lambda_v, lambda_w = self.param_symbs
-        self.f = {u: -lambda_u * u,
-                  v: lambda_u * u - lambda_v * v,
-                  w: lambda_v * v - lambda_w * w,
-                  }
+        return {u: -lambda_u * u,
+                v: lambda_u * u - lambda_v * v,
+                w: lambda_v * v - lambda_w * w,
+                }
 
 
     def analytic_u(self, indep_vals, y0, param_vals):

@@ -6,8 +6,10 @@ from symodesys.helpers import import_
 # stdlib imports
 import tempfile
 from shutil import rmtree
+import re
 
 # other imports
+import sympy
 from mako.template import Template
 
 
@@ -22,7 +24,67 @@ class Genric_Code(object):
     returned by FirstOrderODESystem.dydt and FirstOrderODESystem.dydt_jac
     """
 
-    # CSE
+    def __init__(self, fo_odesys):
+        self._fo_odesys = fo_odesys
+
+    @property
+    def cprog_param_symbs(self):
+        """
+        Bridge slight difference in meaning of parameter going from ODESystem
+        to numerical integration routine (analytically solving part of ODESys
+        introduces new 'parameters')
+        """
+        return self._fo_odesys.param_and_sol_symbs
+
+    @property
+    def ccode_func(self):
+        cse_defs, cse_exprs = sympy.cse(self._fo_odesys.values(),
+                                        symbols = sympy.numbered_symbols('cse_'))
+        f_cexprs = [self.arrayify_ccode(sympy.ccode(x)) for x in cse_exprs]
+
+        cse_func = []
+        for var_name, var_expr in cse_defs:
+            c_var_expr = self.arrayify_ccode(sympy.ccode(var_expr))
+            cse_func.append((var_name, c_var_expr))
+
+        return {'cse_func': cses, 'f': f_cexprs}
+
+
+    @property
+    def ccode_jac(self):
+        analytic_y = []
+        analytic_ccode = map(sympy.ccode, self._fo_odesys.solved)
+        analytic_arrayified_ccode = map(self.arrayify_ccode, analytic_ccode)
+        for depv in self._fo_odesys.analytic_depv:
+
+            analytic_y.append(depv.func.__name__, self.arrayify_ccode(
+                self._fo_odesys.solved[depv] = ))
+
+
+        cse_defs, cse_exprs = sympy.cse(self._fo_odesys.values(),
+                                        symbols = sympy.numbered_symbols('cse_'))
+        f_cexprs = [self.arrayify_ccode(sympy.ccode(x)) for x in cse_exprs]
+
+        cse_func = []
+        for var_name, var_expr in cse_defs:
+            c_var_expr = self.arrayify_ccode(sympy.ccode(var_expr))
+            cse_func.append((var_name, c_var_expr))
+
+
+        return {'cse_func': cses, 'f': f_cexprs}
+
+
+
+    def arrayify_ccode(self, ccode):
+        for i, depv in enumerate(self._fo_odesys.non_analytic_depv):
+            ccode = ccode.replace(str(depv), 'y[{}]'.format(i))
+        for i, depv in enumerate(self._fo_odesys.analytic_depv):
+            ccode = ccode.replace(
+                str(depv), depv.func.__name__ + '(t, y, params)')
+        for i, cparam in enumerate(self.cprog_param_symbs):
+            ccode = ccode.replace(str(cparam), 'k[{}]'.format(i))
+        ccode = re.sub('_(\d+)', r'[\1]', ccode)
+        return ccode
 
 
 class GSL_Code(object):
@@ -34,8 +96,8 @@ class GSL_Code(object):
                  'dydt_jac': 'gsl/jac_template.c',
                  'ode': 'ode_template.c'}
 
-    subs = {'dydt': ['f', 'cses'],
-            'dydt_jac': ['jac', 'dfdt', 'NY'],
+    subs = {'dydt': ['f', 'cse_func'],
+            'dydt_jac': ['jac', 'dfdt', 'NY', 'cse_jac'],
             'ode': ['NY']}
 
     @property

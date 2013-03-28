@@ -13,8 +13,10 @@ from symodesys.ivp import IVP
 class X5(SimpleFirstOrderODESystem):
 
     dep_var_tokens = 'y',
-    def init_f(self):
-        self.f = {self['y']: self.indep_var_symb ** 4}
+
+    @property
+    def expressions(self):
+        return {self['y']: self.indepv ** 4}
 
     def analytic_y(self, indep_vals, t0, y0):
         return y0['y'] + indep_vals ** 5 / 5 - t0 ** 5

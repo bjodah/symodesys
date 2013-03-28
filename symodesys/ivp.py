@@ -1,6 +1,10 @@
 from collections import OrderedDict
 
 import numpy as np
+try:
+    import cinterpol
+except ImportError:
+    cinterpol = False
 from scipy.interpolate import PiecewisePolynomial
 import matplotlib.pyplot as plt
 import sympy
@@ -71,7 +75,7 @@ class IVP(object):
     def use_internal_depv_trnsfm(self, trnsfm, inv_trnsfm):
         self._depv_trnsfm = trnsfm
         self._depv_inv_trnsfm = inv_trnsfm
-        self._fo_odesys.transform_depv(trnsfm, inv_trsfm)
+        self._fo_odesys.transform_depv(trnsfm, inv_trnsfm)
 
     def use_internal_indepv_trnsfm(self, trnsfm, inv_trnsfm):
         self._indepv_trnsfm = trnsfm

@@ -95,15 +95,19 @@ class ODESystem(object):
         return [self.solved[yi][0] for yi in self.analytic_depv]
 
     @property
-    def known_symbs(self):
+    def param_and_sol_symbs(self):
         """ Convenience attribute """
         analytic_sol_symbs = set()
         if len(self.solved) > 0:
             for expr, sol_symbs in self.solved.values():
                 analytic_sol_symbs = analytic_sol_symbs.union(sol_symbs)
         analytic_sol_symbs = list(analytic_sol_symbs)
-        return [self.indepv] + self.all_depv +\
-               self.param_symbs + analytic_sol_symbs
+        return self.param_symbs + analytic_sol_symbs
+
+    @property
+    def known_symbs(self):
+        """ Convenience attribute """
+        return [self.indepv] + self.all_depv + self.param_and_sol_symbs
 
     def subs(self, subsd):
         for key in subsd.keys():

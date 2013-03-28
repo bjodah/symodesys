@@ -13,12 +13,12 @@ from decay import Decay
 # TODO: Let IVP do transfm and back-transfm internally + convert PiecewisePolynomial
 
 
-def plot_numeric_vs_analytic(Sys, indep_var_lim,
+def plot_numeric_vs_analytic(ODESys, indep_var_lim,
                              init_dep_var_vals_by_token, param_vals, N = 0):
     """
     Integrate
     """
-    odesys = Sys()
+    odesys = ODESys()
     param_vals_by_symb = odesys.get_param_vals_by_symb_from_by_token(
         param_vals)
 

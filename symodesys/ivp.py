@@ -36,9 +36,11 @@ class IVP(object):
     """
 
     # TODO: instead of self.yout, self.dyout, self.ddyout, ...
-    #         implement self.Yout (3 dimensional, where first dimension is order)
+    #       implement self.Yout (3 dimensional, where
+    #          first dimension is order)
 
-    default_N = 100 # used if integrate(..., N = 0, ...) and all analytic sol.
+    # used if integrate(..., N = 0, ...) and all analytic sol.
+    default_N = 100
 
     _dtype = np.float64
 
@@ -139,8 +141,10 @@ class IVP(object):
 
         if len(self._solved_init_val_symbs) > 0:
             self._analytic_evalr.eval_for_indep_array(
-                self.tout, {self._solved_init_val_symbs[yi]: self._init_vals[yi]\
-                            for yi in self._fo_odesys.analytic_depv})
+                self.tout, {
+                    self._solved_init_val_symbs[yi]: self._init_vals[yi]\
+                    for yi in self._fo_odesys.analytic_depv}
+                )
 
     @property
     def trajectory(self):

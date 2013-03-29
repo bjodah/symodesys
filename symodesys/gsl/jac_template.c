@@ -32,7 +32,7 @@ jac (double t, const double y[], double *dfdy, double dfdt[], void *params)
     Populate the NY times NY Jacobian matrix
    */
 
-  % for i, j, expr in jac
+  % for (i, j), expr in jac
         gsl_matrix_set (m, ${i}, ${j}, ${expr});
   % endfor
 
@@ -41,7 +41,7 @@ jac (double t, const double y[], double *dfdy, double dfdt[], void *params)
     Populate the array dfdt of length NY
    */
 
-  % for i expr in dfdt
+  % for i, expr in dfdt
       dfdt[${i}] = ${expr};
   % endfor
 

@@ -32,7 +32,7 @@ func (double t, const double y[], double f[], void * params)
   /*
     Define variables for common subexpressions
    */
-  % for cse_token, cse_expr in cse_func
+  % for cse_token cse_expr in cse_func
         double ${cse_token};
   % endfor
 
@@ -40,7 +40,7 @@ func (double t, const double y[], double f[], void * params)
     Calculate common subexpressions
    */
 
-  % for cse_token, cse_expr in cse_func
+  % for cse_token cse_expr in cse_func
         ${cse_token} = ${cse_expr};
   % endfor
 
@@ -49,7 +49,7 @@ func (double t, const double y[], double f[], void * params)
    */
 
 
-  % for i, expr in enumerate(f)
+  % for i expr in enumerate(f)
       f[${i}] = ${expr};
   % endfor
 

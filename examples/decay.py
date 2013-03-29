@@ -47,13 +47,13 @@ class Decay(SimpleFirstOrderODESystem):
         return y0['u'] * np.exp(-param_vals[self['lambda_u']]*indep_vals)
 
 
-def plot_numeric_vs_analytic(Sys, indep_var_lim,
+def plot_numeric_vs_analytic(ODESys, indep_var_lim,
                              init_dep_var_vals_by_token,
                              param_vals, N = 0):
     """
     Integrate
     """
-    odesys = Sys()
+    odesys = ODESys()
     param_vals_by_symb = odesys.get_param_vals_by_symb_from_by_token(
         param_vals)
 
@@ -82,7 +82,7 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
 
 if __name__ == '__main__':
     plot_numeric_vs_analytic(
-        Sys = Decay,
+        ODESys = Decay,
         indep_var_lim = (0, 10.0),
         init_dep_var_vals_by_token = {'u': 1.0},
         param_vals = {'lambda_u': 0.2},

@@ -7,7 +7,7 @@ import sympy
 import numpy as np
 import matplotlib.pyplot as plt
 
-from symodesys.firstorder import SimpleFirstOrderODESystem, FirstOrderODESystem
+from symodesys.odesys import SimpleFirstOrderODESystem, FirstOrderODESystem
 from symodesys.ivp import IVP
 from symodesys.gsl import GSL_IVP_Integrator
 
@@ -22,19 +22,21 @@ def plot_numeric_vs_analytic(ODESys,
                              param_vals,
                              N = 0):
     """
-    Run compiled integrator (pointless for such a small ODE but useful for
-    very large systems)
+    Run compiled integrator (pointless for such a small ODE but
+    useful for very large systems)
     """
 
     # Setup
     odesys = ODESys()
-    odesys.update_params_by_token(param_vals)
+    param_vals_by_symb = odesys.get_param_vals_by_symb_from_by_token(
+        param_vals)
 
-    t0, tend = indep_var_lim
     y0 = {odesys[k]: v for k, v in init_dep_var_vals_by_token.items()}
+    t0, tend = indep_var_lim
 
     # Solve
-    ivp = IVP(odesys, y0, t0, Integrator = GSL_IVP_Integrator)
+    ivp = IVP(odesys, y0, param_vals_by_symb, t0,
+              Integrator = GSL_IVP_Integrator)
     ivp.integrate(tend, N = N)
 
     # Anlyse output

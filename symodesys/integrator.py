@@ -28,16 +28,16 @@ class IVP_Integrator(object):
     abstol = 1e-6 # Default absolute tolerance
     reltol = 1e-6 # Default relative tolerance
 
-    def __init__(self, fo_odesys):
+    def __init__(self, fo_odesys, **kwargs):
         """
 
         Arguments:
         - `fo_odesys`: FO_ODESYS instance (initial value problem)
         """
         self._fo_odesys = fo_odesys
-        self.post_init()
+        self.post_init(**kwargs)
 
-    def post_init(self):
+    def post_init(self, **kwargs):
         """
         Subclass for adding initialization steps to init
         """

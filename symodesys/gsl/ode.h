@@ -1,5 +1,5 @@
-#ifndef ODE_H_INCLUDED
-#define ODE_H_INCLUDED
+#ifndef _ODE_H_
+#define _ODE_H_
 
 // http://stackoverflow.com/questions/2740039/ \
 // using-c-preprocessor-to-construct-a-string-literal-for-scanf

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import os
 
 import sympy
 import numpy as np
@@ -36,7 +37,10 @@ def plot_numeric_vs_analytic(ODESys,
 
     # Solve
     ivp = IVP(odesys, y0, param_vals_by_symb, t0,
-              Integrator = GSL_IVP_Integrator)
+              Integrator = GSL_IVP_Integrator,
+              tempdir = os.path.join(os.path.dirname(__file__),
+                                     'codegen_out'),
+              save_temp = True)
     ivp.integrate(tend, N = N)
 
     # Anlyse output

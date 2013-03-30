@@ -1,23 +1,10 @@
 /* #include <stdio.h> */
 #include <gsl/gsl_errno.h>
+#include <math.h>
 
 // Python Mako template of C file
-// Variables: ${f} ${cse_func} ${analytic_y}
+// Variables: f, cse_func
 // CSE tokens: cse_*
-
-  /*
-    Define analytic f
-   */
-
-/* % for y_token, cse_expr in analytic_y */
-/* double */
-/* ${y_token} (double t, const double y[], void * params) */
-/* { */
-/*   double *k = (double *) params; */
-/*   return ${y_epxr} */
-/* } */
-/* % endfor */
-
 
 
 int
@@ -32,7 +19,7 @@ func (double t, const double y[], double f[], void * params)
   /*
     Define variables for common subexpressions
    */
-  % for cse_token cse_expr in cse_func
+  % for cse_token, cse_expr in cse_func:
         double ${cse_token};
   % endfor
 
@@ -40,7 +27,7 @@ func (double t, const double y[], double f[], void * params)
     Calculate common subexpressions
    */
 
-  % for cse_token cse_expr in cse_func
+  % for cse_token, cse_expr in cse_func:
         ${cse_token} = ${cse_expr};
   % endfor
 
@@ -49,7 +36,7 @@ func (double t, const double y[], double f[], void * params)
    */
 
 
-  % for i expr in enumerate(f)
+  % for i, expr in enumerate(f):
       f[${i}] = ${expr};
   % endfor
 

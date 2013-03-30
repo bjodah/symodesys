@@ -46,7 +46,7 @@ class IVP(object):
 
     def __init__(self, fo_odesys, init_vals, param_vals_by_symb, t0,
                  Integrator = SciPy_IVP_Integrator,
-                 AnalyticEvalr = SympyEvalr):
+                 AnalyticEvalr = SympyEvalr, **integrator_kwargs):
         """
 
         Arguments:
@@ -62,6 +62,7 @@ class IVP(object):
         self._param_vals_by_symb = param_vals_by_symb
         self._indepv_init_val = t0
         self._Integrator = Integrator
+        self._integrator_kwargs = integrator_kwargs
         self._AnalyticEvalr = AnalyticEvalr
 
         # Init attributes for possible analytically solvable y's
@@ -123,11 +124,10 @@ class IVP(object):
                 self._fo_odesys.indepv,
                 self._param_vals_by_symb, order = order)
 
-        print len(self._solved_init_val_symbs)
-        print len(self._init_vals)
         if len(self._solved_init_val_symbs) < len(self._init_vals):
             # If there are any non-analytic equations left
-            self._integrator = self._Integrator(self._fo_odesys)
+            self._integrator = self._Integrator(self._fo_odesys,
+                                                **self._integrator_kwargs)
             self._integrator.integrate(
                 {yi: self._init_vals[yi] for yi \
                  in self._fo_odesys.non_analytic_depv},

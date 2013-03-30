@@ -5,9 +5,12 @@ from symodesys.helpers import import_
 
 # stdlib imports
 import tempfile
-from shutil import rmtree
+import shutil
 import re
 import os
+from collections import OrderedDict
+from functools import reduce
+from operator import add
 
 # other imports
 import sympy
@@ -25,19 +28,29 @@ class Generic_Code(object):
     returned by FirstOrderODESystem.dydt and FirstOrderODESystem.dydt_jac
     """
 
-    def __init__(self, fo_odesys, tempdir = None):
+    def __init__(self, fo_odesys, tempdir = None, save_temp = False):
         self._fo_odesys = fo_odesys
         self._tempdir = tempdir or tempfile.mkdtemp()
+        self._save_temp = save_temp
+
         assert os.path.isdir(self._tempdir)
+        self._written_files = []
         self._write_code()
 
     def _write_code(self):
+        for path in self.support_files:
+            srcpath = os.path.join(os.path.dirname(__file__), path)
+            dstpath = os.path.join(self._tempdir,
+                         os.path.basename(path).replace('_template', ''))
+            shutil.copy(srcpath, dstpath)
         for k, (path, attr) in self.templates.iteritems():
             srcpath = os.path.join(os.path.dirname(__file__), path)
-            outpath = os.path.join(self._tempdir, os.path.basename(path))
+            outpath = os.path.join(self._tempdir,
+                         os.path.basename(path).replace('_template', ''))
             subs = getattr(self, attr)
             template = Template(open(srcpath, 'rt').read())
             open(outpath, 'wt').write(template.render(**subs))
+            self._written_files.append(outpath)
 
     def compile_and_import_binary(self):
         binary_path = self._compile()
@@ -66,7 +79,9 @@ class Generic_Code(object):
             )
 
     def clean(self):
-        rmtree(self._tempdir)
+        if not self._save_temp:
+            map(os.unlink, self._written_files)
+            #rmtree(self._tempdir) <--- Deletes whole dir
 
     def __del__(self):
         """
@@ -74,6 +89,10 @@ class Generic_Code(object):
         self._tempdir is deleted
         """
         self.clean()
+
+    @property
+    def NY(self):
+        return len(self._fo_odesys.non_analytic_depv)
 
     @property
     def cprog_param_symbs(self):
@@ -101,16 +120,25 @@ class Generic_Code(object):
 
     @property
     def ccode_ode(self):
-        return {'NY': len(self._fo_odesys.non_analytic_depv)}
+        return {'NY': self.NY}
+
+    @property
+    def ccode_main_ex(self):
+        params = [(str(p), 1.0) for p in self.cprog_param_symbs]
+        Y0_COMMA_SEP_STR = ', '.join(['1.0'] * self.NY)
+        return {'NY': self.NY, 'params': params,
+                'Y0_COMMA_SEP_STR': Y0_COMMA_SEP_STR}
 
     @property
     def ccode_jac(self):
-        na_jac = self._fo_odesys.non_analytic_jacobian
+        na_jac = self._fo_odesys.non_analytic_jac
         na_f = self._fo_odesys.non_analytic_f
+        indepv = self._fo_odesys.indepv
 
-        sparse_jac = OrderedDict([
-            ((i, j), expr) for j, expr in enumerate(row) for i, row in \
-            enumerate(na_jac.tolist()) if expr != 0])
+        sparse_jac = OrderedDict(reduce(add, [
+            [((i, j), expr) for j, expr in enumerate(row) if expr != 0]\
+            for i, row in enumerate(na_jac.tolist())
+            ]))
         dfdt = OrderedDict([
             (i, expr) for i, expr in enumerate(
                 [x.diff(indepv) for x in na_f]
@@ -138,7 +166,7 @@ class Generic_Code(object):
 
         return {'cse_jac': cse_jac, 'jac': jac_cexprs,
                 'dfdt': dfdt_cexprs,
-                'NY': len(self._fo_odesys.non_analytic_depv)}
+                'NY': self.NY}
 
 
     def arrayify(self, ccode):
@@ -158,10 +186,14 @@ class GSL_Code(Generic_Code):
     # Implement hash of fo_odesys and hash of code?
     # Serialization to double check against collision?
 
-    templates = {'dydt': ('gsl/func_template.c', 'ccode_func'),
-                 'dydt_jac': ('gsl/jac_template.c', 'ccode_jac'),
-                 'ode': ('ode_template.c', 'ccode_ode')
-                 }
+    support_files = ('gsl/ode.h','gsl/func.h', 'gsl/jac.h')
+
+    templates = {
+        'dydt': ('gsl/func_template.c', 'ccode_func'),
+        'dydt_jac': ('gsl/jac_template.c', 'ccode_jac'),
+        'ode': ('gsl/ode_template.c', 'ccode_ode'),
+        'main_ex': ('gsl/main_ex_template.c', 'ccode_main_ex')
+        }
 
 
 class GSL_IVP_Integrator(IVP_Integrator):
@@ -169,8 +201,10 @@ class GSL_IVP_Integrator(IVP_Integrator):
     IVP integrator using GNU Scientific Library routines odeiv2
     """
 
-    def post_init(self):
-        self._code = GSL_Code(self._fo_odesys)
+    def post_init(self, **kwargs):
+        self._code = GSL_Code(self._fo_odesys,
+                              tempdir = kwargs.get('tempdir', None),
+                              save_temp = kwargs.get('save_temp', False))
         self._binary = self._code.compile_and_import_binary()
 
     def integrate(self, y0, t0, tend, N, h = None, order = 0):

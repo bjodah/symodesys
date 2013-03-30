@@ -11,3 +11,4 @@ TAGS
 */#*#
 */*.so
 */build/
+examples/codegen_out/*

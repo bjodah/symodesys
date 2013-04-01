@@ -8,13 +8,11 @@
 #include "func.h"
 #include "jac.h"
 
-/* Python Mako template of C file */
-/* Variables: NY */
 
 int
-integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_steps,
+integrate_ode_using_driver_fixed_step_print (double t, double t1, double y[], int n_steps,
 			    double h_init, double h_max, double eps_abs,
-			    double eps_rel, void *params, int print_values)
+			    double eps_rel, void *params)
 {
   int i; /* Counter in macro-step loop */
   int j; /* Counter in print loop */
@@ -44,20 +42,16 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
       status = gsl_odeiv2_driver_apply (d, &t, ti, y);
 
       if (status != GSL_SUCCESS)
-	{
-	  printf ("error, return value=%d\n", status);
-	  break;
-	}
-      if (print_values)
-	{
+        {
+          printf ("error, return value=%d\n", status);
+          break;
+        }
 	  printf(STRINGIFY(PRECISION), t);
 	  for (j = 0; j < ${NY}; ++j)
 	    {
 	      printf(" " STRINGIFY(PRECISION), y[j]);
 	    }
 	  printf("\n");
-	}
-
     }
 
   gsl_odeiv2_driver_free (d);

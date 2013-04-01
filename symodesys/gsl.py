@@ -14,11 +14,13 @@ from operator import add
 
 # other imports
 import sympy
+import numpy as np
 from mako.template import Template
 
 
 from distutils.core import setup
-from Cython.Distutils import Extension
+from distutils.extension import Extension
+#from Cython.Distutils import Extension
 from Cython.Distutils import build_ext
 import cython_gsl
 
@@ -35,14 +37,18 @@ class Generic_Code(object):
 
         assert os.path.isdir(self._tempdir)
         self._written_files = []
+        self._source_files = []
         self._write_code()
 
     def _write_code(self):
-        for path in self.support_files:
+        for path in self.copy_files:
             srcpath = os.path.join(os.path.dirname(__file__), path)
             dstpath = os.path.join(self._tempdir,
                          os.path.basename(path).replace('_template', ''))
             shutil.copy(srcpath, dstpath)
+            if path in self._ori_sources:
+                self._source_files.append(dstpath)
+
         for k, (path, attr) in self.templates.iteritems():
             srcpath = os.path.join(os.path.dirname(__file__), path)
             outpath = os.path.join(self._tempdir,
@@ -50,6 +56,8 @@ class Generic_Code(object):
             subs = getattr(self, attr)
             template = Template(open(srcpath, 'rt').read())
             open(outpath, 'wt').write(template.render(**subs))
+            if path in self._ori_sources:
+                self._source_files.append(outpath)
             self._written_files.append(outpath)
 
     def compile_and_import_binary(self):
@@ -64,19 +72,14 @@ class Generic_Code(object):
             cmdclass = {'build_ext': build_ext},
             ext_modules = [
                 Extension(
-                    "odeiv",
-                    ["odeiv.pyx"],
+                    "pyinterface",
+                    self._source_files,
                     libraries=cython_gsl.get_libraries(),
                     library_dirs=[cython_gsl.get_library_dir()],
                     include_dirs=[cython_gsl.get_cython_include_dir()]),
-                Extension(
-                    "OdeSystem",
-                    ["OdeSystem.pyx"],
-                    libraries=cython_gsl.get_libraries(),
-                    library_dirs=[cython_gsl.get_library_dir()],
-                    include_dirs=[cython_gsl.get_cython_include_dir()])
                 ]
             )
+        return "pyinterface.so"
 
     def clean(self):
         if not self._save_temp:
@@ -125,14 +128,16 @@ class Generic_Code(object):
     @property
     def ccode_main_ex(self):
         params = [(str(p), 1.0) for p in self.cprog_param_symbs]
-        Y0_COMMA_SEP_STR = ', '.join(['1.0'] * self.NY)
+        y0 = ', '.join(['1.0'] * self.NY)
+        params = ', '.join(['1.0'] * len(self.cprog_param_symbs))
         return {'NY': self.NY, 'params': params,
-                'Y0_COMMA_SEP_STR': Y0_COMMA_SEP_STR}
+                'Y0_COMMA_SEP_STR': y0,
+                'PARAM_VALS_COMMA_SEP_STR': params}
 
     @property
     def ccode_jac(self):
         na_jac = self._fo_odesys.non_analytic_jac
-        na_f = self._fo_odesys.non_analytic_f
+        na_f = self._fo_odesys.non_analytic_f.values()
         indepv = self._fo_odesys.indepv
 
         sparse_jac = OrderedDict(reduce(add, [
@@ -186,14 +191,18 @@ class GSL_Code(Generic_Code):
     # Implement hash of fo_odesys and hash of code?
     # Serialization to double check against collision?
 
-    support_files = ('gsl/ode.h','gsl/func.h', 'gsl/jac.h')
+
+    copy_files = ('gsl/drivers.c', 'gsl/pyinterface.pyx') + \
+                 ('gsl/drivers.h', 'gsl/func.h', 'gsl/jac.h')
 
     templates = {
         'dydt': ('gsl/func_template.c', 'ccode_func'),
         'dydt_jac': ('gsl/jac_template.c', 'ccode_jac'),
-        'ode': ('gsl/ode_template.c', 'ccode_ode'),
         'main_ex': ('gsl/main_ex_template.c', 'ccode_main_ex')
         }
+
+    _ori_sources = list(copy_files[:2]) + [templates[k][0] for k in ['dydt', 'dydt_jac']]
+
 
 
 class GSL_IVP_Integrator(IVP_Integrator):
@@ -207,17 +216,24 @@ class GSL_IVP_Integrator(IVP_Integrator):
                               save_temp = kwargs.get('save_temp', False))
         self._binary = self._code.compile_and_import_binary()
 
-    def integrate(self, y0, t0, tend, N, h = None, order = 0):
-        y0_val_lst = [y0[k] for k in self._fo_odesys.dep_var_func_symbs]
+    def integrate(self, y0, t0, tend, param_vals_by_symb, N, abstol = None, reltol = None, h = None, order = 0):
+        y0_arr = np.array(
+            [y0[k] for k in self._fo_odesys.non_analytic_depv],
+            dtype = np.float64)
+        cprog_param_vals_by_symb = dict(
+            param_vals_by_symb.items() + \
+            [(k, v) for k, v in y0.items() if k \
+             in self._fo_odesys.analytic_depv])
+        params_arr = np.array([cprog_param_vals_by_symb[k] for k \
+                               in self._code.cprog_param_symbs],
+                              dtype = np.float64)
         if N > 0:
             # Fixed stepsize
             self.init_yout_tout_for_fixed_step_size(t0, tend, N, order)
             # Order give (super)dimensionality of yout
             h_init = 1e-10 # TODO: find h: max(dydt) = abstol
             h_max = 0.0 # hmax won't be set if 0.0
-            print_values = False
-            Yout = self._binary.integrate_ode_using_driver_fixed_step(
-                t0, tend, y0_val_lst, N, param_lst, self.abstol, self.reltol,
-                h_init, h_max, print_values)
+            yout = self._binary.integrate_odeiv2_driver(
+                t0, tend, y0_arr, N, h_init, h_max, self.abstol, self.reltol, params_arr, order)
         else:
             raise NotImplementedError

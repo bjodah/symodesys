@@ -1,10 +1,10 @@
 #include <stdio.h>
 #include <gsl/gsl_errno.h>
 
-#include "ode.h"
+#include "drivers.h"
 
 // Python Mako template of C file
-// Variables: params, NY, Y0_COMMA_SEP_STR
+// Variables: params, NY, Y0_COMMA_SEP_STR, PARAM_VALS_COMMA_SEP_STR
 
 
 int
@@ -14,16 +14,13 @@ main (void)
   double	t	    = 0.0;
   double	t1	    = 10.0;
   double	h	    = 1e-6;
-  double	eps_abs	    = 1e-6;
-  double	eps_rel	    = 1e-6;
-  int		print_values = 1;
-  double        y[${NY}]    = {${Y0_COMMA_SEP_STR}};
-  % for param_token, param_value in params:
-  double ${param_token} = ${param_value};
-  % endfor
+  double	hmax    = 1e-2;
+  double	eps_abs	= 1e-6;
+  double	eps_rel	= 1e-6;
+  double y[]    = {${Y0_COMMA_SEP_STR}};
+  double params[] = {${PARAM_VALS_COMMA_SEP_STR}};
 
-
-  status = integrate_ode(t, t1, y, h, eps_abs, eps_rel, &params, print_values);
+  status = integrate_ode_using_driver_fixed_step_print(t, t1, y, n, h, hmax, eps_abs, eps_rel, &params);
 
   if (status == GSL_SUCCESS)
     {

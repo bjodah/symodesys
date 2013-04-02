@@ -11,7 +11,7 @@ import sympy
 
 from symodesys.helpers import SympyEvalr, cache
 from symodesys.integrator import SciPy_IVP_Integrator
-from symodesys.firstorder import FirstOrderODESystem
+from symodesys.odesys import FirstOrderODESystem
 
 # FUTURE: Support uncertainties as parameter inputs
 

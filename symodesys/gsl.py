@@ -35,7 +35,8 @@ class Generic_Code(object):
         self._tempdir = tempdir or tempfile.mkdtemp()
         self._save_temp = save_temp
 
-        assert os.path.isdir(self._tempdir)
+        if not os.path.isdir(self._tempdir):
+            os.makedirs(self._tempdir)
         self._written_files = []
         self._source_files = []
         self._write_code()

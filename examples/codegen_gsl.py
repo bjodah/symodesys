@@ -41,7 +41,7 @@ def plot_numeric_vs_analytic(ODESys,
               tempdir = os.path.join(os.path.dirname(__file__),
                                      'codegen_out'),
               save_temp = True)
-    ivp.integrate(tend, N = N,order = 0)
+    ivp.integrate(tend, N=N, order=0)
 
     # Anlyse output
     t, y = ivp.tout, ivp.yout

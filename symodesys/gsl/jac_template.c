@@ -1,5 +1,7 @@
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_matrix.h>
+#include <math.h>
+
 
 // Python Mako template of C file
 // Variables: jac, dfdt, NY, cse_jac

@@ -44,7 +44,7 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
   for (i = 0; i < n_steps; ++i)
     {
       /* Macro-step loop */
-      ti = t + dt*(i+1);
+      ti = t + dt;//*(i+1);
       status = gsl_odeiv2_driver_apply (d, &t, ti, y);
 
       if (status != GSL_SUCCESS)
@@ -56,7 +56,7 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
       if (order > 0)
         func(t, y, f, params);
       if (order > 1)
-        jac(t, y, dfdy, dfdt, params);
+        jac(t, y, dfdy->data, dfdt, params);
 
       for (j = 0; j < dim; ++j)
         {
@@ -114,7 +114,7 @@ integrate_ode_using_driver_fixed_step_print(double t, double t1, double y[], int
   for (i = 0; i < n_steps; ++i)
     {
       // Macro-step loop
-      ti = t + dt*(i+1);
+      ti = t + dt;//*(i+1);
       status = gsl_odeiv2_driver_apply (d, &t, ti, y);
 
       if (status != GSL_SUCCESS)

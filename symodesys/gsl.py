@@ -131,7 +131,7 @@ class Generic_Code(object):
         params = [(str(p), 1.0) for p in self.cprog_param_symbs]
         y0 = ', '.join(['1.0'] * self.NY)
         params = ', '.join(['1.0'] * len(self.cprog_param_symbs))
-        return {'NY': self.NY, 'params': params,
+        return {'NY': self.NY,
                 'Y0_COMMA_SEP_STR': y0,
                 'PARAM_VALS_COMMA_SEP_STR': params}
 
@@ -194,7 +194,7 @@ class GSL_Code(Generic_Code):
 
 
     copy_files = ('gsl/drivers.c', 'gsl/pyinterface.pyx') + \
-                 ('gsl/drivers.h', 'gsl/func.h', 'gsl/jac.h')
+                 ('gsl/drivers.h', 'gsl/func.h', 'gsl/jac.h', 'gsl/Makefile')
 
     templates = {
         'dydt': ('gsl/func_template.c', 'ccode_func'),

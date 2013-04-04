@@ -4,13 +4,15 @@
 #include "drivers.h"
 
 // Python Mako template of C file
-// Variables: params, NY, Y0_COMMA_SEP_STR, PARAM_VALS_COMMA_SEP_STR
+// Variables: Y0_COMMA_SEP_STR, PARAM_VALS_COMMA_SEP_STR
 
 
 int
 main (void)
 {
   int status;
+  int n = 10;
+  size_t dim = ${NY};
   double	t	    = 0.0;
   double	t1	    = 10.0;
   double	h	    = 1e-6;
@@ -20,7 +22,8 @@ main (void)
   double y[]    = {${Y0_COMMA_SEP_STR}};
   double params[] = {${PARAM_VALS_COMMA_SEP_STR}};
 
-  status = integrate_ode_using_driver_fixed_step_print(t, t1, y, n, h, hmax, eps_abs, eps_rel, &params);
+  status = integrate_ode_using_driver_fixed_step_print(t, t1, y, n, h, hmax,
+                                                       eps_abs, eps_rel, &params, dim);
 
   if (status == GSL_SUCCESS)
     {

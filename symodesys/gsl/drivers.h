@@ -16,8 +16,8 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
 
 int
 integrate_ode_using_driver_fixed_step_print(double t, double t1, double y[], int n_steps,
-			    double h_init, double h_max, double eps_abs,
-                                            double eps_rel, void *params, size_t dim);
+                                            double h_init, double h_max, double eps_abs,
+                                            double eps_rel, void *params, size_t dim, int order);
 
 
 #endif

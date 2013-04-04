@@ -88,51 +88,38 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
 
 int
 integrate_ode_using_driver_fixed_step_print(double t, double t1, double y[], int n_steps,
-			    double h_init, double h_max, double eps_abs,
-                                            double eps_rel, void *params, size_t dim)
+                                            double h_init, double h_max, double eps_abs,
+                                            double eps_rel, void *params, size_t dim, int order)
 {
-  int i; /* Counter in macro-step loop */
-  int j; /* Counter in print loop */
   int status;
-  double ti;
-  double dt = (t1-t)/(double)n_steps;
-  const gsl_odeiv2_step_type * T = gsl_odeiv2_step_msbdf;
-  gsl_odeiv2_step * s = gsl_odeiv2_step_alloc (T, dim);
-  /* gsl_odeiv2_control * c = gsl_odeiv2_control_y_new (eps_abs, eps_rel); */
-  /* gsl_odeiv2_evolve * e = gsl_odeiv2_evolve_alloc (dim); */
+  int i,j,k;
+  double * tout;
+  double * Yout;
 
-  gsl_odeiv2_system sys = {func, jac, dim, params};
-
-  gsl_odeiv2_driver * d = gsl_odeiv2_driver_alloc_y_new(&sys, gsl_odeiv2_step_msbdf, h_init, eps_abs, eps_rel);
-  gsl_odeiv2_step_set_driver(s, d);
-
-  if (h_max > 0.0)
+  tout = malloc(sizeof(double)*n_steps);
+  Yout = malloc(sizeof(double)*n_steps*dim*(order+1));
+  status = integrate_ode_using_driver_fixed_step(t, t1, y, n_steps, h_init, h_max, eps_abs,
+                                                 eps_rel, params, dim, order, tout, Yout);
+  if (status != GSL_SUCCESS)
     {
-      gsl_odeiv2_driver_set_hmax(d, h_max);
+      return status;
     }
 
   for (i = 0; i < n_steps; ++i)
     {
-      // Macro-step loop
-      ti = t + dt;//*(i+1);
-      status = gsl_odeiv2_driver_apply (d, &t, ti, y);
-
-      if (status != GSL_SUCCESS)
-        {
-          printf ("error, return value=%d\n", status);
-          break;
-        }
-	  printf(STRINGIFY(PRECISION), t);
+	  printf(STRINGIFY(PRECISION), tout[i]);
 	  for (j = 0; j < dim; ++j)
 	    {
-	      printf(" " STRINGIFY(PRECISION), y[j]);
+          for (k = 0; k<=order; ++k)
+            {
+              printf(" " STRINGIFY(PRECISION), Yout[i*dim*(order+1)+j*(order+1)+k]);
+            }
 	    }
 	  printf("\n");
     }
 
-  gsl_odeiv2_driver_free (d);
-  gsl_odeiv2_step_free (s);
-
+  free(tout);
+  free(Yout);
   return status;
 }
 

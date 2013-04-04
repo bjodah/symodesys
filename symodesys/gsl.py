@@ -215,9 +215,17 @@ class GSL_IVP_Integrator(IVP_Integrator):
         self._code = GSL_Code(self._fo_odesys,
                               tempdir = kwargs.get('tempdir', None),
                               save_temp = kwargs.get('save_temp', False))
-        self._binary = self._code.compile_and_import_binary()
+        self._binary = None
 
-    def integrate(self, y0, t0, tend, param_vals_by_symb, N, abstol = None, reltol = None, h = None, order = 0):
+    @property
+    def binary(self):
+        if self._binary == None:
+            self._binary = self._code.compile_and_import_binary()
+        return self._binary
+
+
+    def integrate(self, y0, t0, tend, param_vals_by_symb, N,
+                  abstol = None, reltol = None, h = None, order = 0):
         y0_arr = np.array(
             [y0[k] for k in self._fo_odesys.non_analytic_depv],
             dtype = np.float64)
@@ -234,7 +242,9 @@ class GSL_IVP_Integrator(IVP_Integrator):
             # Order give (super)dimensionality of yout
             h_init = 1e-10 # TODO: find h: max(dydt) = abstol
             h_max = 0.0 # hmax won't be set if 0.0
-            yout = self._binary.integrate_odeiv2_driver(
+            tout, Yout = self._binary.integrate_equidistant_output(
                 t0, tend, y0_arr, N, h_init, h_max, self.abstol, self.reltol, params_arr, order)
+            self.tout = tout
+            self.Yout = Yout
         else:
             raise NotImplementedError

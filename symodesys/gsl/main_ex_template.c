@@ -13,6 +13,7 @@ main (void)
   int status;
   int n = 10;
   size_t dim = ${NY};
+  int order = 2;
   double	t	    = 0.0;
   double	t1	    = 10.0;
   double	h	    = 1e-6;
@@ -23,7 +24,7 @@ main (void)
   double params[] = {${PARAM_VALS_COMMA_SEP_STR}};
 
   status = integrate_ode_using_driver_fixed_step_print(t, t1, y, n, h, hmax,
-                                                       eps_abs, eps_rel, &params, dim);
+                                                       eps_abs, eps_rel, &params, dim, order);
 
   if (status == GSL_SUCCESS)
     {

@@ -62,16 +62,12 @@ class IVP_Integrator(object):
         pass
 
 
-    def init_yout_tout_for_fixed_step_size(self, t0, tend, N, order = 0):
+    def init_Yout_tout_for_fixed_step_size(self, t0, tend, N, order = 0):
         dt = (tend - t0) / (N - 1)
         NY = len(self._fo_odesys.non_analytic_depv)
         self.tout = np.linspace(t0, tend, N)
         # Handle other dtype for tout here? linspace doesn't support dtype arg..
-        self.yout = np.zeros((N, NY), dtype = self._dtype)
-        if order > 0:
-            self.dyout = np.zeros((N, NY), dtype = self._dtype)
-        if order > 1:
-            self.ddyout = np.zeros((N, NY), dtype = self._dtype)
+        self.Yout = np.zeros((N, NY, order + 1), dtype = self._dtype)
 
 
 class SciPy_IVP_Integrator(IVP_Integrator):
@@ -92,18 +88,18 @@ class SciPy_IVP_Integrator(IVP_Integrator):
         if N > 0:
             # Fixed stepsize
             self._r.set_integrator('vode', method = 'bdf', with_jacobian = True)
-            self.init_yout_tout_for_fixed_step_size(t0, tend, N, order)
+            self.init_Yout_tout_for_fixed_step_size(t0, tend, N, order)
             for i, t in enumerate(self.tout):
                 if i == 0:
-                    self.yout[i, :] = y0_val_lst
-                    continue
-                self.yout[i, :] = self._r.integrate(self.tout[i])
+                    self.Yout[i, :, 0] = y0_val_lst
+                else:
+                    self.Yout[i, :, 0] = self._r.integrate(self.tout[i])
                 if order > 0:
-                    self.dyout[i, :] = self._fo_odesys.dydt(
-                        self.tout[i], self.yout[i, :], param_val_lst)
+                    self.Yout[i, :, 1] = self._fo_odesys.dydt(
+                        self.tout[i], self.Yout[i, :, 0], param_val_lst)
                 if order > 1:
-                    self.ddyout[i,: ] = self._fo_odesys.d2ydt2(
-                        self.tout[i], self.yout[i, :], param_val_lst)
+                    self.Yout[i, :, 2] = self._fo_odesys.d2ydt2(
+                        self.tout[i], self.Yout[i, :, 0], param_val_lst)
                 assert self._r.successful()
         else:
             # Adaptive step size reporting
@@ -111,7 +107,7 @@ class SciPy_IVP_Integrator(IVP_Integrator):
             #   using-adaptive-step-sizes-with-scipy-integrate-ode
             self._r.set_integrator('vode', method = 'bdf', with_jacobian = True, nsteps = 1)
             self._r._integrator.iwork[2] =- 1
-            yout, tout= [], []
+            tout, yout, dyout, ddyout = [], [], [], []
             warnings.filterwarnings("ignore", category=UserWarning)
             yout.append(y0_val_lst)
             tout.append(t0)
@@ -119,8 +115,19 @@ class SciPy_IVP_Integrator(IVP_Integrator):
                 self._r.integrate(tend, step=True)
                 yout.append(self._r.y)
                 tout.append(self._r.t)
+                if order > 0:
+                    dyout.append(self._fo_odesys.dydt(
+                        self._r.t, self._r.y, param_val_lst))
+                if order > 1:
+                    ddyout.append(self._fo_odesys.d2ydt2(
+                        self._r.t, self._r.y, param_val_lst))
             warnings.resetwarnings()
-            self.yout = np.array(yout)
+            if order == 0:
+                self.Yout = np.array(yout).reshape((len(yout), 1))
+            elif order == 1:
+                self.Yout = np.vstack(yout, dyout).transpose()
+            else:
+                self.Yout = np.vstack(yout, dyout, ddyout).transpose()
             self.tout = np.array(tout)
 
 
@@ -143,11 +150,11 @@ class Mpmath_IVP_Integrator(IVP_Integrator):
             self.init_yout_tout_for_fixed_step_size(t0, tend, N)
             for i, t in enumerate(self.tout):
                 if i == 0:
-                    self.yout[i, :] = y0_val_lst
+                    self.Yout[i, :, 0] = y0_val_lst
                     continue
-                self.yout[i, :] = self._num_y(self.tout[i])
+                self.Yout[i, :, 0] = self._num_y(self.tout[i])
         else:
-            self.yout = np.array([y0_val_lst, self._num_y(tend)])
+            self.Yout = np.array([y0_val_lst, self._num_y(tend)])
             self.tout = np.array([t0, tend])
 
 

@@ -475,7 +475,7 @@ class FirstOrderODESystem(ODESystem):
         all_subs = self._get_all_num_subs(
             indep_val, dep_vals, param_vals)
         return [[cell.subs(all_subs) for cell in row] for row in \
-                self.non_analytic_jacobian.tolist()]
+                self.non_analytic_jac.tolist()]
 
 
     def d2ydt2(self, indep_val, dep_vals, param_vals):

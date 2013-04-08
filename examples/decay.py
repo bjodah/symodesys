@@ -62,7 +62,7 @@ def plot_numeric_vs_analytic(ODESys, indep_var_lim,
     ivp = IVP(odesys, y0, param_vals_by_symb, t0)
 
     ivp.integrate(tend, N = N)
-    t, y = ivp.tout, ivp.yout
+    t, y = ivp.tout, ivp.Yout[:,:,0]
 
     plt.subplot(311)
     ivp.plot(interpolate = True, show = False)

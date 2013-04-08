@@ -109,26 +109,32 @@ class SciPy_IVP_Integrator(IVP_Integrator):
             self._r._integrator.iwork[2] =- 1
             tout, yout, dyout, ddyout = [], [], [], []
             warnings.filterwarnings("ignore", category=UserWarning)
-            yout.append(y0_val_lst)
-            tout.append(t0)
-            while self._r.t < tend:
-                self._r.integrate(tend, step=True)
-                yout.append(self._r.y)
-                tout.append(self._r.t)
+            # yout.append(np.array(y0_val_lst))
+            # tout.append(t0)
+            keep_going = True
+            while keep_going:
+                keep_going = self._r.t < tend
                 if order > 0:
                     dyout.append(self._fo_odesys.dydt(
                         self._r.t, self._r.y, param_val_lst))
                 if order > 1:
                     ddyout.append(self._fo_odesys.d2ydt2(
                         self._r.t, self._r.y, param_val_lst))
+                self._r.integrate(tend, step=True)
+                yout.append(self._r.y)
+                tout.append(self._r.t)
             warnings.resetwarnings()
+            tout = np.array(tout)
+            yout, dyout, ddyout = map(np.array, (yout, dyout, ddyout))
+            #print tout.shape, yout.shape, dyout.shape, ddyout.shape ###
             if order == 0:
-                self.Yout = np.array(yout).reshape((len(yout), 1))
+                self.Yout = yout.reshape((yout.shape[0], yout.shape[1], 1))
             elif order == 1:
-                self.Yout = np.vstack(yout, dyout).transpose()
+                self.Yout = np.concatenate((yout[...,np.newaxis], dyout[...,np.newaxis]), axis=2)
             else:
-                self.Yout = np.vstack(yout, dyout, ddyout).transpose()
-            self.tout = np.array(tout)
+                self.Yout = np.concatenate((yout[...,np.newaxis], dyout[...,np.newaxis],
+                                           ddyout[...,np.newaxis]), axis=2)
+            self.tout = tout
 
 
 class Mpmath_IVP_Integrator(IVP_Integrator):

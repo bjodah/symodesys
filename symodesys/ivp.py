@@ -2,10 +2,9 @@ from collections import OrderedDict
 
 import numpy as np
 try:
-    import cinterpol
+    from cinterpol import PiecewisePolynomial
 except ImportError:
-    cinterpol = False
-from scipy.interpolate import PiecewisePolynomial
+    from scipy.interpolate import PiecewisePolynomial
 import matplotlib.pyplot as plt
 import sympy
 
@@ -154,78 +153,40 @@ class IVP(object):
         pass
 
     @property
-    def yout(self):
+    def Yout(self):
         """
         Unified the output of the numerical and analyitc results.
         """
-        _yout = np.empty((len(self.tout), len(self._fo_odesys.all_depv)),
-                         self._dtype)
+        _Yout = np.empty((len(self.tout), len(self._fo_odesys.all_depv),
+                          self._integrator.Yout.shape[2]), self._dtype)
         for i, yi in enumerate(self._fo_odesys.all_depv):
             if yi in self._fo_odesys.analytic_depv:
-                _yout[:, i] = self._analytic_evalr.yout[
-                    :, self._fo_odesys.analytic_depv.index(yi)]
+                _yout[:, i, :] = self._analytic_evalr.Yout[
+                    :, self._fo_odesys.analytic_depv.index(yi),:]
             else:
-                _yout[:, i] = self._integrator.yout[
-                    :, self._fo_odesys.non_analytic_depv.index(yi)]
-        return _yout
+                _Yout[:, i, :] = self._integrator.Yout[
+                    :, self._fo_odesys.non_analytic_depv.index(yi),:]
+        return _Yout
 
-    def Dy(self):
-        _out = np.empty((len(self.tout), len(self._fo_odesys.all_depv)),
-                        self._dtype)
-        if len(self._fo_odesys.non_analytic_depv) > 0:
-            num_dyout = np.array(
-                [self._fo_odesys.dydt(
-                    t, self._integrator.yout[i,:],
-                    self._fo_odesys.param_val_lst(
-                        self._param_vals_by_symb)
-                    ) for\
-                 (i,), t in np.ndenumerate(self.tout)])
-        for i, yi in enumerate(self._fo_odesys.all_depv):
-            if yi in self._fo_odesys.analytic_depv:
-                _out[:, i] = self._analytic_evalr.dyout[
-                    :, self._fo_odesys.analytic_depv.index(yi)]
-            else:
-                # if len(self._fo_odesys.all_depv) > 0:
-                _out[:, i] = num_dyout[
-                    :, self._fo_odesys.non_analytic_depv.index(yi)]
-        return _out
-
-
-    def DDy(self):
-        nt = self.tout.shape[0]
-        _out = np.empty((nt, len(self._fo_odesys.all_depv)), self._dtype)
-        if len(self._fo_odesys.non_analytic_depv) > 0:
-            num_ddyout = np.array(
-                [self._fo_odesys.d2ydt2(
-                    t, self.yout[i,:], self._fo_odesys.param_val_lst(
-                        self._param_vals_by_symb)) for\
-                 (i,), t in np.ndenumerate(self.tout)])
-        for i, yi in enumerate(self._fo_odesys.all_depv):
-            if yi in self._fo_odesys.analytic_depv:
-                _out[:, i] = self._analytic_evalr.ddyout[
-                    :, self._fo_odesys.analytic_depv.index(yi)]
-            else:
-                #if len(self._fo_odesys.all_depv) > 0:
-                _out[:, i] = num_ddyout[
-                    :, self._fo_odesys.non_analytic_depv.index(yi)]
-        return _out
-
-    @cache # never update tout, yout of an instance, create a new one instead
+    @cache # never update tout, Yout of an instance, create a new one instead
     def interpolators(self):
-        Dy = self.Dy()
-        DDy = self.DDy()
         intrpltrs = []
-        for i in range(self.yout.shape[1]):
-            intrpltrs.append(PiecewisePolynomial(
-                self.tout, [[self.yout[j, i], Dy[j, i], DDy[j, i]] for j \
-                            in range(self.yout.shape[0])], orders = 5))
+        for i in range(self.Yout.shape[1]):
+            intrpltrs.append(PiecewisePolynomial(self.tout, self.Yout[:,i,:]))
         return intrpltrs
 
     def get_interpolated(self, t):
-        return [self.interpolators()[i](t) for i in range(self.yout.shape[1])]
+        # ips = self.interpolators()
+        # ipy = []
+        # for i in range(self.Yout.shape[1]):
+        #     ip = ips[i]
+        #     print t
+        #     ipy.append(ip(t))
+        # return ipy
+        return [self.interpolators()[i](t) for i in range(self.Yout.shape[1])]
 
     def get_yout_by_symb(self, symb):
-        return self.yout.view(
+        return self.Yout.view(
             dtype = [(str(x), self._dtype) for x \
                      in self._fo_odesys.all_depv])[str(symb)][:, 0]
 
@@ -236,7 +197,7 @@ class IVP(object):
         analytic y curves
         """
         if indices == None:
-            indices = range(self.yout.shape[1])
+            indices = range(self.Yout.shape[1])
             if skip_helpers:
                 # Don't plot helper functions used in reduction of order of ode system
                 for hlpr in self._fo_odesys.frst_red_hlprs:
@@ -256,7 +217,7 @@ class IVP(object):
                 plt.plot(ipx, ipy[:, i], label = lbl + ' (interpol.)',
                          marker = 'None', ls = lsi, color = ci)
                 lsi = 'None'
-            plt.plot(self.tout, self.yout[:, i], label = lbl,
+            plt.plot(self.tout, self.Yout[:, i, 0], label = lbl,
                      marker = mi, ls = lsi, color = ci)
             plt.plot()
         plt.legend()

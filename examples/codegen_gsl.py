@@ -41,15 +41,14 @@ def plot_numeric_vs_analytic(ODESys,
               tempdir = os.path.join(os.path.dirname(__file__),
                                      'codegen_out'),
               save_temp = True)
-    ivp.integrate(tend, N=N, order=0)
+    ivp.integrate(tend, N=N, order=2)
 
     # Anlyse output
-    t, y = ivp.tout, ivp.yout
-    print t, y
-    analytic_y = odesys.analytic_y(t, t0, init_dep_var_vals_by_token)
+    t, y = ivp.tout, ivp.Yout[:,:,0]
+    print t, ivp.Yout
+
     plot_t = np.linspace(t0, tend, 50)
     plot_ay = odesys.analytic_y(plot_t, t0, init_dep_var_vals_by_token)
-
     ivp.plot(interpolate = True, show = False)
     plt.plot(plot_t, plot_ay, label = 'Analytic')
     plt.legend()
@@ -62,4 +61,4 @@ if __name__ == '__main__':
         indep_var_lim = (0, 5.0),
         init_dep_var_vals_by_token = {'y': 1.0},
         param_vals = {},
-        N = 2)
+        N = 3)

@@ -238,11 +238,11 @@ class GSL_IVP_Integrator(IVP_Integrator):
                               dtype = np.float64)
         if N > 0:
             # Fixed stepsize
-            self.init_yout_tout_for_fixed_step_size(t0, tend, N, order)
+            self.init_Yout_tout_for_fixed_step_size(t0, tend, N, order)
             # Order give (super)dimensionality of yout
             h_init = 1e-10 # TODO: find h: max(dydt) = abstol
             h_max = 0.0 # hmax won't be set if 0.0
-            tout, Yout = self._binary.integrate_equidistant_output(
+            tout, Yout = self.binary.integrate_equidistant_output(
                 t0, tend, y0_arr, N, h_init, h_max, self.abstol, self.reltol, params_arr, order)
             self.tout = tout
             self.Yout = Yout

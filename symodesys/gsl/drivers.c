@@ -21,7 +21,7 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
   double temp;
   int status;
   double ti;
-  double dt = (t1-t)/(double)n_steps;
+  double dt = (t1-t)/(double)(n_steps-1);
   const gsl_odeiv2_step_type * T = gsl_odeiv2_step_msbdf;
   gsl_odeiv2_step * s = gsl_odeiv2_step_alloc (T, dim);
   /* gsl_odeiv2_control * c = gsl_odeiv2_control_y_new (eps_abs, eps_rel); */
@@ -43,15 +43,6 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
 
   for (i = 0; i < n_steps; ++i)
     {
-      /* Macro-step loop */
-      ti = t + dt;//*(i+1);
-      status = gsl_odeiv2_driver_apply (d, &t, ti, y);
-
-      if (status != GSL_SUCCESS)
-        {
-          printf ("error, return value=%d\n", status);
-          break;
-        }
       tout[i] = t;
       if (order > 0)
         func(t, y, f, params);
@@ -73,6 +64,16 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
               Yout[i*dim*(order+1)+j*(order+1)+2] = dfdt[j]+temp;
             }
         }
+      /* Macro-step loop */
+      ti = t + dt;//*(i+1);
+      status = gsl_odeiv2_driver_apply (d, &t, ti, y);
+
+      if (status != GSL_SUCCESS)
+        {
+          printf ("error, return value=%d\n", status);
+          break;
+        }
+
     }
 
   /* Memory management */

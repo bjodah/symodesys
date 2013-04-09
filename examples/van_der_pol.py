@@ -12,11 +12,12 @@ class VanDerPolOscillator(SimpleFirstOrderODESystem):
     dep_var_tokens = 'u v'.split()
     param_tokens = 'mu',
 
-    def init_f(self):
+    @property
+    def expressions(self):
         u, v, mu = [self[x] for x in 'u v mu'.split()]
-        self.f = {u: v,
-                  v: -u + mu*v*(1 - u**2),
-                  }
+        return {u: v,
+                v: -u + mu*v*(1 - u**2),
+                }
 
 
 def main(params):
@@ -24,9 +25,9 @@ def main(params):
     Example program integrating an IVP problem of van der Pol oscillator
     """
     vdpo = VanDerPolOscillator()
-    param_vals_by_symb = vdpo.get_param_vals_by_symb_from_by_token(params)
-
+    params_by_symb = vdpo.val_by_symb_from_token(params)
     y0 = {vdpo['u']: 1.0, vdpo['v']: 0.0}
+
     t0 = 0.0
     ivp = IVP(vdpo, y0, param_vals_by_symb, t0)
 

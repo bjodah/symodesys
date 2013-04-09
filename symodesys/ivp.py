@@ -12,7 +12,7 @@ from symodesys.helpers import SympyEvalr, cache
 from symodesys.integrator import SciPy_IVP_Integrator
 from symodesys.odesys import FirstOrderODESystem
 
-# FUTURE: Support uncertainties as parameter inputs
+# LONG-TERM FUTURE TODO: Support uncertainties as parameter inputs
 
 def determine_const_val_for_init_val(expr, y0, indep_val,
                                      const_symb = sympy.symbols('C1')):
@@ -33,10 +33,6 @@ class IVP(object):
     I.e. the user may still update initial_values, even though in
     ``reality'' it is a parameter which is updated
     """
-
-    # TODO: instead of self.yout, self.dyout, self.ddyout, ...
-    #       implement self.Yout (3 dimensional, where
-    #          first dimension is order)
 
     # used if integrate(..., N = 0, ...) and all analytic sol.
     default_N = 100
@@ -153,42 +149,40 @@ class IVP(object):
         pass
 
     @property
-    def Yout(self):
+    def Yres(self):
         """
         Unified the output of the numerical and analyitc results.
         """
-        _Yout = np.empty((len(self.tout), len(self._fo_odesys.all_depv),
+        _Yres = np.empty((len(self.tout), len(self._fo_odesys.all_depv),
                           self._integrator.Yout.shape[2]), self._dtype)
         for i, yi in enumerate(self._fo_odesys.all_depv):
             if yi in self._fo_odesys.analytic_depv:
-                _yout[:, i, :] = self._analytic_evalr.Yout[
+                _Yres[:, i, :] = self._analytic_evalr.Yout[
                     :, self._fo_odesys.analytic_depv.index(yi),:]
             else:
-                _Yout[:, i, :] = self._integrator.Yout[
+                _Yres[:, i, :] = self._integrator.Yout[
                     :, self._fo_odesys.non_analytic_depv.index(yi),:]
-        return _Yout
+        return _Yres
 
-    @cache # never update tout, Yout of an instance, create a new one instead
+    @cache # never update tout, Yres of an instance, create a new one instead
     def interpolators(self):
         intrpltrs = []
-        for i in range(self.Yout.shape[1]):
-            intrpltrs.append(PiecewisePolynomial(self.tout, self.Yout[:,i,:]))
+        for i in range(self.Yres.shape[1]):
+            intrpltrs.append(PiecewisePolynomial(self.tout, self.Yres[:,i,:]))
         return intrpltrs
 
     def get_interpolated(self, t):
-        # ips = self.interpolators()
-        # ipy = []
-        # for i in range(self.Yout.shape[1]):
-        #     ip = ips[i]
-        #     print t
-        #     ipy.append(ip(t))
-        # return ipy
-        return [self.interpolators()[i](t) for i in range(self.Yout.shape[1])]
+        return np.array([self.interpolators()[i](t) for i in range(self.Yres.shape[1])],
+                        dtype=self._depv_structured_array_dtype)
 
-    def get_yout_by_symb(self, symb):
-        return self.Yout.view(
-            dtype = [(str(x), self._dtype) for x \
-                     in self._fo_odesys.all_depv])[str(symb)][:, 0]
+    @property
+    def _depv_structured_array_dtype(self):
+        return [(str(x), self._dtype) for x \
+                     in self._fo_odesys.all_depv]
+
+    def get_yres_by_symb(self, symb):
+        return self.Yres.view(
+            dtype = self._depv_structured_array_dtype)[str(symb)][:, 0]
 
     def plot(self, indices = None, interpolate = False, show = False, skip_helpers = True):
         """
@@ -197,7 +191,7 @@ class IVP(object):
         analytic y curves
         """
         if indices == None:
-            indices = range(self.Yout.shape[1])
+            indices = range(self.Yres.shape[1])
             if skip_helpers:
                 # Don't plot helper functions used in reduction of order of ode system
                 for hlpr in self._fo_odesys.frst_red_hlprs:
@@ -217,9 +211,8 @@ class IVP(object):
                 plt.plot(ipx, ipy[:, i], label = lbl + ' (interpol.)',
                          marker = 'None', ls = lsi, color = ci)
                 lsi = 'None'
-            plt.plot(self.tout, self.Yout[:, i, 0], label = lbl,
+            plt.plot(self.tout, self.Yres[:, i, 0], label = lbl,
                      marker = mi, ls = lsi, color = ci)
             plt.plot()
         plt.legend()
         if show: plt.show()
-

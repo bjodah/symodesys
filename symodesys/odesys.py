@@ -587,6 +587,12 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
                 'Parameter token ``{}" unknown'.format(token))
         return {self[k]: v for k, v in param_vals_by_token.iteritems()}
 
+    def val_by_symb_from_by_token(self, val_by_token):
+        """
+        Convenience function
+        """
+        return {self[k]: v for k, v in val_by_token.items()}
+
     # Begin overloading
 
     def init_f(self):

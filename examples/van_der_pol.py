@@ -20,24 +20,16 @@ class VanDerPolOscillator(SimpleFirstOrderODESystem):
                 }
 
 
-def main(params):
+def main(y0, params, t0 = 0.0, tend = 10, N = 0):
     """
     Example program integrating an IVP problem of van der Pol oscillator
+    default is adaptive step size (N=0)
     """
     vdpo = VanDerPolOscillator()
-    params_by_symb = vdpo.val_by_symb_from_token(params)
-    y0 = {vdpo['u']: 1.0, vdpo['v']: 0.0}
+    ivp = IVP(vdpo, y0, params, t0, abstol=1e-6, reltol=1e-6)
 
-    t0 = 0.0
-    ivp = IVP(vdpo, y0, param_vals_by_symb, t0)
-
-    # TODO: add abstraction layer for _Integrator.abstol etc?
-    ivp._Integrator.abstol = 1e-6
-    ivp._Integrator.reltol = 1e-6
-
-    N = 100
-    ivp.integrate(10.0, N)
-    ivp.plot(interpolate = True, show = True)
+    ivp.integrate(tend, N)
+    ivp.plot(interpolate = True, datapoints=False, show = True)
 
 if __name__ == '__main__':
     if len(sys.argv) > 1:
@@ -45,5 +37,5 @@ if __name__ == '__main__':
     else:
         mu = 1.0
 
-    main(params = {'mu': mu})
+    main(y0={'u': 1.0, 'v': 0.0}, params = {'mu': mu})
 

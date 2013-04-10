@@ -59,11 +59,11 @@ class ODESolViewer(HasTraits):
 
     def _get_u(self):
         self.run_integration()
-        return self.interpolated_yres['u']
+        return self.interpolated_yres[:,self.ivp.get_index_of_depv('u')]
 
     def _get_v(self):
         self.run_integration()
-        return self.interpolated_yres['v']
+        return self.interpolated_yres[:,self.ivp.get_index_of_depv('v')]
 
     def __init__(self, ivp, indep_var_lim, N):
         super(ODESolViewer, self).__init__()
@@ -74,19 +74,15 @@ class ODESolViewer(HasTraits):
 
     def run_integration(self):
         self.ivp.integrate(self.t_default[-1], N = self.N)
+        print self.ivp.tout[0], self.ivp.tout[-1]
+        print self.t[0], self.t[-1]
         self.interpolated_yres = self.ivp.get_interpolated(self.t)
 
-def get_gui(ODESys, indep_var_lim, depv0_by_token, param_vals, N=0):
-    odesys = ODESys()
-    params_by_symb = odesys.val_by_symb_from_by_token(param_vals)
-    y0_by_symb = odesys.val_by_symb_from_by_token(depv0_by_token)
-
-    t0, tend = indep_var_lim
-    ivp = IVP(odesys, y0_by_symb, params_by_symb, t0)
-    return ODESolViewer(ivp, indep_var_lim, N)
-
+def get_gui(ODESys, y0, params, t0 = 0.0, tend = 10.0, N = 0):
+    ivp = IVP(ODESys(), y0, params, t0)
+    return ODESolViewer(ivp, (t0, tend), N)
 
 if __name__ == '__main__':
-    viewer = get_gui(VanDerPolOscillator, (0.0, 10.0), {'u':1.0, 'v':1.0},
-                     {'mu': 2.5}, N=0)
+    viewer = get_gui(VanDerPolOscillator, {'u':1.0, 'v':1.0}, {'mu': 2.5},
+                     0.0, 10.0, N=0)
     viewer.configure_traits()

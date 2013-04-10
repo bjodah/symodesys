@@ -39,7 +39,7 @@ class IVP(object):
 
     _dtype = np.float64
 
-    def __init__(self, fo_odesys, init_vals, param_vals_by_symb, t0,
+    def __init__(self, fo_odesys, init_vals, param_vals, t0,
                  Integrator = SciPy_IVP_Integrator,
                  AnalyticEvalr = SympyEvalr, **integrator_kwargs):
         """
@@ -53,10 +53,10 @@ class IVP(object):
         """
         self._fo_odesys = fo_odesys
         self._old_fo_odesys = [] # Save old sys when solving analytically
-        self._init_vals = init_vals
-        self._param_vals_by_symb = param_vals_by_symb
+        self._init_vals = fo_odesys.ensure_dictkeys_as_symbs(init_vals)
+        self._param_vals = fo_odesys.ensure_dictkeys_as_symbs(param_vals)
         self._indepv_init_val = t0
-        self._Integrator = Integrator
+        self.Integrator = Integrator
         self._integrator_kwargs = integrator_kwargs
         self._AnalyticEvalr = AnalyticEvalr
 
@@ -117,17 +117,17 @@ class IVP(object):
             self._analytic_evalr = self._AnalyticEvalr(
                 self._fo_odesys.solved_exprs,
                 self._fo_odesys.indepv,
-                self._param_vals_by_symb, order = order)
+                self._param_vals, order = order)
 
         if len(self._solved_init_val_symbs) < len(self._init_vals):
             # If there are any non-analytic equations left
-            self._integrator = self._Integrator(self._fo_odesys,
+            self._integrator = self.Integrator(self._fo_odesys,
                                                 **self._integrator_kwargs)
             self._integrator.integrate(
                 {yi: self._init_vals[yi] for yi \
                  in self._fo_odesys.non_analytic_depv},
                 t0 = self._indepv_init_val, tend = tend,
-                param_vals_by_symb = self._param_vals_by_symb,
+                param_vals = self._param_vals,
                 N = N, h = h, order = order)
             self.tout = self._integrator.tout
         else:
@@ -172,19 +172,13 @@ class IVP(object):
         return intrpltrs
 
     def get_interpolated(self, t):
-        return np.array([self.interpolators()[i](t) for i in range(self.Yres.shape[1])],
-                        dtype=self._depv_structured_array_dtype)
+        return np.array([self.interpolators()[i](t) for i in range(self.Yres.shape[1])])
 
-    @property
-    def _depv_structured_array_dtype(self):
-        return [(str(x), self._dtype) for x \
-                     in self._fo_odesys.all_depv]
+    def get_index_of_depv(self, depvn):
+        return self._fo_odesys.all_depv.index(self._fo_odesys[depvn])
 
-    def get_yres_by_symb(self, symb):
-        return self.Yres.view(
-            dtype = self._depv_structured_array_dtype)[str(symb)][:, 0]
-
-    def plot(self, indices = None, interpolate = False, show = False, skip_helpers = True):
+    def plot(self, indices = None, interpolate = False, datapoints=True,
+             show = False, skip_helpers = True):
         """
         Rudimentary plotting utility for quick inspection of solutions
         TODO: move this from here,  make more general to accept mixed ODE sol +
@@ -198,7 +192,7 @@ class IVP(object):
                     indices.pop(self._fo_odesys.all_depv.index(hlpr[2]))
         if interpolate:
             ipx = np.linspace(self.tout[0], self.tout[-1], 1000)
-            ipy = np.array([self.get_interpolated(t) for t in ipx])
+            ipy = self.get_interpolated(ipx)
         ls = ['-', '--', ':']
         c = 'k b r g m'.split()
         m = 'o s t * d p h'.split()
@@ -208,11 +202,12 @@ class IVP(object):
             ci  = c[i % len(c)]
             lbl = str(self._fo_odesys.all_depv[i])
             if interpolate:
-                plt.plot(ipx, ipy[:, i], label = lbl + ' (interpol.)',
+                plt.plot(ipx, ipy[i,:], label = lbl + ' (interpol.)',
                          marker = 'None', ls = lsi, color = ci)
                 lsi = 'None'
-            plt.plot(self.tout, self.Yres[:, i, 0], label = lbl,
-                     marker = mi, ls = lsi, color = ci)
+            if datapoints:
+                plt.plot(self.tout, self.Yres[:, i, 0], label = lbl,
+                         marker = mi, ls = lsi, color = ci)
             plt.plot()
         plt.legend()
         if show: plt.show()

@@ -1,4 +1,4 @@
-from symodesys.helpers import OrderedDefaultdict, subs_set, get_new_symbs
+from symodesys.helpers import OrderedDefaultdict, subs_set, get_new_symbs, deprecated
 
 import sympy
 
@@ -66,6 +66,7 @@ class ODESystem(object):
                     if match == None:
                         match = known_symb
                     else:
+                        # This place should never be reached
                         raise KeyError(
                             'Key ambigous, there are ' +\
                             'several symbols with same str repr')
@@ -77,6 +78,14 @@ class ODESystem(object):
             except KeyError:
                 return self[sympy.Function(key)(self.indepv)]
         return match
+
+    def ensure_dictkeys_as_symbs(self, val_by_token):
+        """
+        Convenience function for converting dicts with keys of form
+        'y1', 'y2' into sympy.Symbol('y1') through __getitem__ (which
+        also checks existance of y1, y2... etc.)
+        """
+        return {self[k]: v for k, v in val_by_token.items()}
 
 
     @property
@@ -578,6 +587,7 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
         self.param_tokens = self.param_tokens or []
         super(SimpleFirstOrderODESystem, self).__init__(*args, **kwargs)
 
+    @deprecated
     def get_param_vals_by_symb_from_by_token(self, param_vals_by_token):
         """
         Convenience function
@@ -586,12 +596,6 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
             if not token in self.param_tokens: raise KeyError(
                 'Parameter token ``{}" unknown'.format(token))
         return {self[k]: v for k, v in param_vals_by_token.iteritems()}
-
-    def val_by_symb_from_by_token(self, val_by_token):
-        """
-        Convenience function
-        """
-        return {self[k]: v for k, v in val_by_token.items()}
 
     # Begin overloading
 

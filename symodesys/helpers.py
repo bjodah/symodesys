@@ -20,6 +20,15 @@ def cache(f):
         return data[args]
     return wrapper
 
+def deprecated(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        print('This is a deprecation warning regarding: {}'.format(
+            f.__name__))
+        return f(*args, **kwargs)
+    return wrapper
+
+
 def md5_of_file(path):
     md = md5()
     with open(path,'rb') as f:

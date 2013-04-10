@@ -28,6 +28,8 @@ class IVP_Integrator(object):
     abstol = 1e-6 # Default absolute tolerance
     reltol = 1e-6 # Default relative tolerance
 
+    kwargs_attr=['abstol', 'reltol']
+
     def __init__(self, fo_odesys, **kwargs):
         """
 
@@ -35,15 +37,11 @@ class IVP_Integrator(object):
         - `fo_odesys`: FO_ODESYS instance (initial value problem)
         """
         self._fo_odesys = fo_odesys
-        self.post_init(**kwargs)
+        for attr in self.kwargs_attr:
+            if attr in kwargs:
+                setattr(self, attr, kwargs.pop(attr))
 
-    def post_init(self, **kwargs):
-        """
-        Subclass for adding initialization steps to init
-        """
-        pass
-
-    def integrate(self, y0, t0, tend, param_vals_by_symb,
+    def integrate(self, y0, t0, tend, param_vals,
                   N, abstol = None, reltol = None, h = None,
                   order = 0):
         """
@@ -72,16 +70,17 @@ class IVP_Integrator(object):
 
 class SciPy_IVP_Integrator(IVP_Integrator):
 
-    def post_init(self):
+    def __init__(self, fo_odesys, **kwargs):
+        super(SciPy_IVP_Integrator, self).__init__(fo_odesys, **kwargs)
         from scipy.integrate import ode
         self._r = ode(self._fo_odesys.dydt, self._fo_odesys.dydt_jac)
 
 
-    def integrate(self, y0, t0, tend, param_vals_by_symb,
+    def integrate(self, y0, t0, tend, param_vals,
                   N, abstol=None, reltol=None, h=None,
                   order=0):
         y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
-        param_val_lst = self._fo_odesys.param_val_lst(param_vals_by_symb)
+        param_val_lst = self._fo_odesys.param_val_lst(param_vals)
         self._r.set_initial_value(y0_val_lst, t0)
         self._r.set_f_params(param_val_lst)
         self._r.set_jac_params(param_val_lst)
@@ -142,13 +141,10 @@ class Mpmath_IVP_Integrator(IVP_Integrator):
     Only for demonstration purposes
     """
 
-    def post_init(self):
-        pass
-
-    def integrate(self, y0, param_vals_by_symb, t0, tend,
+    def integrate(self, y0, param_vals, t0, tend,
                   N, abstol = None, reltol = None, h = None):
         y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
-        param_val_lst = self._fo_odesys.param_val_lst(param_vals_by_symb)
+        param_val_lst = self._fo_odesys.param_val_lst(param_vals)
         cb = lambda x, y: self._fo_odesys.dydt(x, y, param_val_lst)
         self._num_y = sympy.mpmath.odefun(cb, t0, y0_val_lst, tol = abstol)
         if N > 0:

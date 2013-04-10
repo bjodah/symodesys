@@ -211,7 +211,8 @@ class GSL_IVP_Integrator(IVP_Integrator):
     IVP integrator using GNU Scientific Library routines odeiv2
     """
 
-    def post_init(self, **kwargs):
+    def __init__(self, **kwargs):
+        super(GSL_IVP_Integrator, self).__init__(fo_odesys, **kwargs)
         self._code = GSL_Code(self._fo_odesys,
                               tempdir = kwargs.get('tempdir', None),
                               save_temp = kwargs.get('save_temp', False))

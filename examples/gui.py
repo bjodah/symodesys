@@ -3,6 +3,7 @@
 import numpy as np
 
 from enthought.chaco.api import ArrayPlotData, Plot
+from enthought.chaco.tools.api import PanTool, ZoomTool
 from enthought.enable.component_editor import ComponentEditor
 from enthought.traits.api import HasTraits, Instance, Array, Property, Range, Float, Enum
 from enthought.traits.ui.api import Item, View
@@ -42,11 +43,17 @@ class ODESolViewer(HasTraits):
         self.plotdata.set_data('u', self.u)
         self.plotdata.set_data('v', self.v)
         plot.plot(("t", "u"), color = 'red', type_trait="plot_type", name = 'u')
-        plot.plot(("y", "v"), color = 'blue', type_trait="plot_type", name = 'v')
+        plot.plot(("t", "v"), color = 'blue', type_trait="plot_type", name = 'v')
         plot.legend.visible = True
         plot.title = "van der Pol oscillator"
         plot.x_axis.title = 't'
+
+        # Add pan and zoom to the plot
+        plot.tools.append(PanTool(plot, constrain_key="shift"))
+        zoom = ZoomTool(plot)
+        plot.overlays.append(zoom)
         return plot
+
 
     def _u_changed(self):
         self.plotdata.set_data('u', self._get_u())
@@ -59,11 +66,11 @@ class ODESolViewer(HasTraits):
 
     def _get_u(self):
         self.run_integration()
-        return self.interpolated_yres[:,self.ivp.get_index_of_depv('u')]
+        return self.interpolated_yres[self.ivp.get_index_of_depv('u'),:]
 
     def _get_v(self):
         self.run_integration()
-        return self.interpolated_yres[:,self.ivp.get_index_of_depv('v')]
+        return self.interpolated_yres[self.ivp.get_index_of_depv('v'),:]
 
     def __init__(self, ivp, indep_var_lim, N):
         super(ODESolViewer, self).__init__()
@@ -73,10 +80,11 @@ class ODESolViewer(HasTraits):
         self.run_integration()
 
     def run_integration(self):
+        print("Runnig integration..", newline=False)
         self.ivp.integrate(self.t_default[-1], N = self.N)
-        print self.ivp.tout[0], self.ivp.tout[-1]
-        print self.t[0], self.t[-1]
         self.interpolated_yres = self.ivp.get_interpolated(self.t)
+        print("...DONE! {}".format(','.join([self.s])))
+
 
 def get_gui(ODESys, y0, params, t0 = 0.0, tend = 10.0, N = 0):
     ivp = IVP(ODESys(), y0, params, t0)

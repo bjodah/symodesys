@@ -17,7 +17,9 @@ def cache(f):
     def wrapper(*args):
         if not args in data:
             data[args] = f(*args)
+        data[args]
         return data[args]
+    wrapper.cache_clear = lambda: data.clear()
     return wrapper
 
 def deprecated(f):

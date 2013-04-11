@@ -112,6 +112,8 @@ class IVP(object):
         Integrates the non-analytic odesystem and evaluates the
         analytic functions for the dependent variables (if there are any).
         """
+        self.interpolators.cache_clear()
+        self.Yres.cache_clear()
         if len(self._solved_init_val_symbs) > 0:
             # If we have solved parts analytically
             self._analytic_evalr = self._AnalyticEvalr(
@@ -141,18 +143,18 @@ class IVP(object):
                     for yi in self._fo_odesys.analytic_depv}
                 )
 
-    @property
     def trajectory(self):
         """
         Handles inv_trnsfm
         """
         pass
 
-    @property
+    @cache
     def Yres(self):
         """
         Unified the output of the numerical and analyitc results.
         """
+        if not hasattr(self, 'tout'): return None
         _Yres = np.empty((len(self.tout), len(self._fo_odesys.all_depv),
                           self._integrator.Yout.shape[2]), self._dtype)
         for i, yi in enumerate(self._fo_odesys.all_depv):
@@ -164,15 +166,15 @@ class IVP(object):
                     :, self._fo_odesys.non_analytic_depv.index(yi),:]
         return _Yres
 
-    @cache # never update tout, Yres of an instance, create a new one instead
+    @cache
     def interpolators(self):
         intrpltrs = []
-        for i in range(self.Yres.shape[1]):
-            intrpltrs.append(PiecewisePolynomial(self.tout, self.Yres[:,i,:]))
+        for i in range(self.Yres().shape[1]):
+            intrpltrs.append(PiecewisePolynomial(self.tout, self.Yres()[:,i,:]))
         return intrpltrs
 
     def get_interpolated(self, t):
-        return np.array([self.interpolators()[i](t) for i in range(self.Yres.shape[1])])
+        return np.array([self.interpolators()[i](t) for i in range(self.Yres().shape[1])])
 
     def get_index_of_depv(self, depvn):
         return self._fo_odesys.all_depv.index(self._fo_odesys[depvn])
@@ -185,7 +187,7 @@ class IVP(object):
         analytic y curves
         """
         if indices == None:
-            indices = range(self.Yres.shape[1])
+            indices = range(self.Yres().shape[1])
             if skip_helpers:
                 # Don't plot helper functions used in reduction of order of ode system
                 for hlpr in self._fo_odesys.frst_red_hlprs:
@@ -206,7 +208,7 @@ class IVP(object):
                          marker = 'None', ls = lsi, color = ci)
                 lsi = 'None'
             if datapoints:
-                plt.plot(self.tout, self.Yres[:, i, 0], label = lbl,
+                plt.plot(self.tout, self.Yres()[:, i, 0], label = lbl,
                          marker = mi, ls = lsi, color = ci)
             plt.plot()
         plt.legend()

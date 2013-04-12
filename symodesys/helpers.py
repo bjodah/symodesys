@@ -20,6 +20,7 @@ def cache(f):
         data[args]
         return data[args]
     wrapper.cache_clear = lambda: data.clear()
+    wrapper.cache = data
     return wrapper
 
 def deprecated(f):

@@ -53,8 +53,8 @@ class IVP(object):
         """
         self._fo_odesys = fo_odesys
         self._old_fo_odesys = [] # Save old sys when solving analytically
-        self._init_vals = fo_odesys.ensure_dictkeys_as_symbs(init_vals)
-        self._param_vals = fo_odesys.ensure_dictkeys_as_symbs(param_vals)
+        self.init_vals = init_vals
+        self.param_vals = param_vals
         self._indepv_init_val = t0
         self.Integrator = Integrator
         self._integrator_kwargs = integrator_kwargs
@@ -68,6 +68,23 @@ class IVP(object):
         self._depv_inv_trnsfm = None
         self._indepv_trnsfm = None
         self._indepv_inv_trnsfm = None
+
+
+    @property
+    def init_vals(self):
+        return self._init_vals
+
+    @init_vals.setter
+    def init_vals(self, value):
+        self._init_vals = fo_odesys.ensure_dictkeys_as_symbs(value)
+
+    @property
+    def param_vals(self):
+        return self._param_vals
+
+    @param_vals.setter
+    def param_vals(self, value):
+        self._param_vals = fo_odesys.ensure_dictkeys_as_symbs(value)
 
 
     def use_internal_depv_trnsfm(self, trnsfm, inv_trnsfm):
@@ -119,17 +136,17 @@ class IVP(object):
             self._analytic_evalr = self._AnalyticEvalr(
                 self._fo_odesys.solved_exprs,
                 self._fo_odesys.indepv,
-                self._param_vals, order = order)
+                self.param_vals, order = order)
 
-        if len(self._solved_init_val_symbs) < len(self._init_vals):
+        if len(self._solved_init_val_symbs) < len(self.init_vals):
             # If there are any non-analytic equations left
             self._integrator = self.Integrator(self._fo_odesys,
                                                 **self._integrator_kwargs)
             self._integrator.integrate(
-                {yi: self._init_vals[yi] for yi \
+                {yi: self.init_vals[yi] for yi \
                  in self._fo_odesys.non_analytic_depv},
                 t0 = self._indepv_init_val, tend = tend,
-                param_vals = self._param_vals,
+                param_vals = self.param_vals,
                 N = N, h = h, order = order)
             self.tout = self._integrator.tout
         else:
@@ -139,7 +156,7 @@ class IVP(object):
         if len(self._solved_init_val_symbs) > 0:
             self._analytic_evalr.eval_for_indep_array(
                 self.tout, {
-                    self._solved_init_val_symbs[yi]: self._init_vals[yi]\
+                    self._solved_init_val_symbs[yi]: self.init_vals[yi]\
                     for yi in self._fo_odesys.analytic_depv}
                 )
 

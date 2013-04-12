@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+
+from __future__ import print_function, division
+
 import numpy as np
 
 from enthought.chaco.api import ArrayPlotData, Plot
@@ -72,25 +75,45 @@ class ODESolViewer(HasTraits):
         self.run_integration()
         return self.interpolated_yres[self.ivp.get_index_of_depv('v'),:]
 
-    def __init__(self, ivp, indep_var_lim, N):
+    def __init__(self, ODESys, y0, params, t0, tend, N):
         super(ODESolViewer, self).__init__()
-        self.t_default = np.linspace(indep_var_lim[0], indep_var_lim[1], 100)
-        self.ivp = ivp
+        for k, v in y0.items():
+            if hasattr(self, k+'0'):
+                setattr(self, k+'0', v)
+            else:
+                raise AttributeError('No init cond. {}'.format(k+'0'))
+        for k, v in params.items():
+            pass
+        self.t_default = np.linspace(t0, tend, 500)
+        self.ivp = IVP(ODESys(), y0, params, t0)
         self.N = N
         self.run_integration()
 
+    @property
+    def init_vals(self):
+        return {'u': self.u0, 'v': self.v0}
+
+    @property
+    def param_vals(self):
+        return {'mu': self.mu}
+
     def run_integration(self):
-        print("Runnig integration..", newline=False)
+        print("Runnig integration..", end='')
+        self.ivp.init_vals=self.init_vals
+        self.ivp.param_vals=self.param_vals
         self.ivp.integrate(self.t_default[-1], N = self.N)
         self.interpolated_yres = self.ivp.get_interpolated(self.t)
-        print("...DONE! {}".format(','.join([self.s])))
+        print("...DONE! {}".format(','.join([str(self.ivp.Yres()[-1,0,0]), str(self.ivp.tout[-1])])))
+        print(self.ivp.Yres.cache)
+        print([(id(k), id(v)) for k,v in self.ivp.Yres.cache.items()])
 
-
-def get_gui(ODESys, y0, params, t0 = 0.0, tend = 10.0, N = 0):
-    ivp = IVP(ODESys(), y0, params, t0)
-    return ODESolViewer(ivp, (t0, tend), N)
 
 if __name__ == '__main__':
-    viewer = get_gui(VanDerPolOscillator, {'u':1.0, 'v':1.0}, {'mu': 2.5},
-                     0.0, 10.0, N=0)
+    ODESys=VanDerPolOscillator
+    y0={'u':1.0, 'v':1.0}
+    params={'mu': 2.5},
+    t0=0.0
+    tend=10.0
+    N=0
+    viewer = ODESolViewer(ODESys, y0, params, t0, tend, N)
     viewer.configure_traits()

@@ -15,10 +15,18 @@ def cache(f):
     data = {}
     @wraps(f)
     def wrapper(*args):
-        if not args in data:
-            data[args] = f(*args)
-        data[args]
-        return data[args]
+        hashable_args=[]
+        for x in args:
+            if isinstance(x, dict):
+                hashable_args.append(frozenset(x.items()))
+            elif isinstance(x, list):
+                hashable_args.append(tuple(x))
+            else:
+                hashable_args.append(x)
+        hashable_args = tuple(hashable_args)
+        if not hashable_args in data:
+            data[hashable_args] = f(*args)
+        return data[hashable_args]
     wrapper.cache_clear = lambda: data.clear()
     wrapper.cache = data
     return wrapper

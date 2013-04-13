@@ -76,7 +76,7 @@ class IVP(object):
 
     @init_vals.setter
     def init_vals(self, value):
-        self._init_vals = fo_odesys.ensure_dictkeys_as_symbs(value)
+        self._init_vals = self._fo_odesys.ensure_dictkeys_as_symbs(value)
 
     @property
     def param_vals(self):
@@ -84,7 +84,7 @@ class IVP(object):
 
     @param_vals.setter
     def param_vals(self, value):
-        self._param_vals = fo_odesys.ensure_dictkeys_as_symbs(value)
+        self._param_vals = self._fo_odesys.ensure_dictkeys_as_symbs(value)
 
 
     def use_internal_depv_trnsfm(self, trnsfm, inv_trnsfm):

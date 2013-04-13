@@ -15,8 +15,8 @@ from operator import add
 # other imports
 import sympy
 import numpy as np
-from mako.template import Template
-
+import mako
+import mako.template
 
 from distutils.core import setup
 from distutils.extension import Extension
@@ -32,11 +32,16 @@ class Generic_Code(object):
 
     def __init__(self, fo_odesys, tempdir = None, save_temp = False):
         self._fo_odesys = fo_odesys
-        self._tempdir = tempdir or tempfile.mkdtemp()
+        if tempdir:
+            self._tempdir = tempdir
+        else:
+            self._tempdir = tempfile.mkdtemp()
+            self._remove_tempdir_on_clean = True
         self._save_temp = save_temp
 
         if not os.path.isdir(self._tempdir):
             os.makedirs(self._tempdir)
+            self._remove_tempdir_on_clean = True
         self._written_files = []
         self._source_files = []
         self._write_code()
@@ -55,8 +60,15 @@ class Generic_Code(object):
             outpath = os.path.join(self._tempdir,
                          os.path.basename(path).replace('_template', ''))
             subs = getattr(self, attr)
-            template = Template(open(srcpath, 'rt').read())
-            open(outpath, 'wt').write(template.render(**subs))
+            template = mako.template.Template(open(srcpath, 'rt').read())
+            print template
+            print subs
+            try:
+                rendered = template.render(**subs)
+            except:
+                print mako.exceptions.text_error_template().render()
+                raise
+            open(outpath, 'wt').write(rendered)
             if path in self._ori_sources:
                 self._source_files.append(outpath)
             self._written_files.append(outpath)
@@ -85,7 +97,8 @@ class Generic_Code(object):
     def clean(self):
         if not self._save_temp:
             map(os.unlink, self._written_files)
-            #rmtree(self._tempdir) <--- Deletes whole dir
+            if self._remove_tempdir_on_clean:
+                shutil.rmtree(self._tempdir)
 
     def __del__(self):
         """
@@ -211,7 +224,7 @@ class GSL_IVP_Integrator(IVP_Integrator):
     IVP integrator using GNU Scientific Library routines odeiv2
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, fo_odesys, **kwargs):
         super(GSL_IVP_Integrator, self).__init__(fo_odesys, **kwargs)
         self._code = GSL_Code(self._fo_odesys,
                               tempdir = kwargs.get('tempdir', None),
@@ -225,16 +238,16 @@ class GSL_IVP_Integrator(IVP_Integrator):
         return self._binary
 
 
-    def integrate(self, y0, t0, tend, param_vals_by_symb, N,
+    def integrate(self, y0, t0, tend, param_vals, N,
                   abstol = None, reltol = None, h = None, order = 0):
         y0_arr = np.array(
             [y0[k] for k in self._fo_odesys.non_analytic_depv],
             dtype = np.float64)
-        cprog_param_vals_by_symb = dict(
-            param_vals_by_symb.items() + \
+        cprog_param_vals = dict(
+            param_vals.items() + \
             [(k, v) for k, v in y0.items() if k \
              in self._fo_odesys.analytic_depv])
-        params_arr = np.array([cprog_param_vals_by_symb[k] for k \
+        params_arr = np.array([cprog_param_vals[k] for k \
                                in self._code.cprog_param_symbs],
                               dtype = np.float64)
         if N > 0:

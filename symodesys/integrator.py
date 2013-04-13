@@ -125,7 +125,6 @@ class SciPy_IVP_Integrator(IVP_Integrator):
             warnings.resetwarnings()
             tout = np.array(tout)
             yout, dyout, ddyout = map(np.array, (yout, dyout, ddyout))
-            #print tout.shape, yout.shape, dyout.shape, ddyout.shape ###
             if order == 0:
                 self.Yout = yout.reshape((yout.shape[0], yout.shape[1], 1))
             elif order == 1:

@@ -44,8 +44,7 @@ def plot_numeric_vs_analytic(ODESys,
     ivp.integrate(tend, N=N, order=2)
 
     # Anlyse output
-    t, y = ivp.tout, ivp.Yout[:,:,0]
-    print t, ivp.Yout
+    t, y = ivp.tout, ivp.Yres()[:,:,0]
 
     plot_t = np.linspace(t0, tend, 50)
     plot_ay = odesys.analytic_y(plot_t, t0, init_dep_var_vals_by_token)

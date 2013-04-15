@@ -27,7 +27,7 @@ class ODESystem(object):
     solved = None
 
     indepv = None # ODE implies 1 indep. variable,
-                          #  set to sympy.symbol(...)
+                          #  set to sympy.Symbol(...)
     param_symbs = None
 
 
@@ -154,9 +154,7 @@ class ODESystem(object):
     def is_autonomous(self):
         for depv, (order, expr) in \
                 self.odeqs.iteritems():
-            unfunc_subs = {dvfs: sympy.symbol(dvfs.func.__name__) for \
-                           dvfs in self.all_depv}
-            if expr.subs(unfunc_subs).diff(self.indepv) != 0:
+            if self.unfunc_depv(expr).diff(self.indepv) != 0:
                 return False
         return True
 
@@ -168,11 +166,15 @@ class ODESystem(object):
             for wrt in self.all_depv:
                 expr = expr.diff(wrt)
 
-            unfunc_subs = {dvfs: sympy.symbol(dvfs.func.__name__) for \
-                           dvfs in self.all_depv}
-            if expr.subs(unfunc_subs).diff(self.indepv) != 0:
+            if self.unfunc_depv(expr).diff(self.indepv) != 0:
                 return False
         return True
+
+    def unfunc_depv(self, expr):
+        dvfs = self.all_depv[0]
+        unfunc_subs = {dvfs: sympy.Symbol(dvfs.func.__name__) for \
+                       dvfs in self.all_depv}
+        return expr.subs(unfunc_subs)
 
     @property
     def is_homogeneous(self):

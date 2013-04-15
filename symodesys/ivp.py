@@ -68,7 +68,14 @@ class IVP(object):
         self._depv_inv_trnsfm = None
         self._indepv_trnsfm = None
         self._indepv_inv_trnsfm = None
+        self._integrator = None
 
+    @property
+    def integrator(self):
+        if self._integrator == None:
+            self._integrator = self.Integrator(self._fo_odesys,
+                                               **self._integrator_kwargs)
+        return self._integrator
 
     @property
     def init_vals(self):
@@ -140,15 +147,13 @@ class IVP(object):
 
         if len(self._solved_init_val_symbs) < len(self.init_vals):
             # If there are any non-analytic equations left
-            self._integrator = self.Integrator(self._fo_odesys,
-                                                **self._integrator_kwargs)
-            self._integrator.integrate(
+            self.integrator.run(
                 {yi: self.init_vals[yi] for yi \
                  in self._fo_odesys.non_analytic_depv},
                 t0 = self._indepv_init_val, tend = tend,
                 param_vals = self.param_vals,
                 N = N, h = h, order = order)
-            self.tout = self._integrator.tout
+            self.tout = self.integrator.tout
         else:
             if N == 0: N = self.default_N
             self.tout = np.linspace(self._indepv_init_val, tend, N)
@@ -173,25 +178,28 @@ class IVP(object):
         """
         if not hasattr(self, 'tout'): return None
         _Yres = np.empty((len(self.tout), len(self._fo_odesys.all_depv),
-                          self._integrator.Yout.shape[2]), self._dtype)
+                          self.integrator.Yout.shape[2]), self._dtype)
         for i, yi in enumerate(self._fo_odesys.all_depv):
             if yi in self._fo_odesys.analytic_depv:
                 _Yres[:, i, :] = self._analytic_evalr.Yout[
                     :, self._fo_odesys.analytic_depv.index(yi),:]
             else:
-                _Yres[:, i, :] = self._integrator.Yout[
+                _Yres[:, i, :] = self.integrator.Yout[
                     :, self._fo_odesys.non_analytic_depv.index(yi),:]
         return _Yres
+
+    def depv_indices(self):
+        return range(self.Yres().shape[1])
 
     @cache
     def interpolators(self):
         intrpltrs = []
-        for i in range(self.Yres().shape[1]):
+        for i in self.depv_indices():
             intrpltrs.append(PiecewisePolynomial(self.tout, self.Yres()[:,i,:]))
         return intrpltrs
 
     def get_interpolated(self, t):
-        return np.array([self.interpolators()[i](t) for i in range(self.Yres().shape[1])])
+        return np.array([self.interpolators()[i](t) for i in self.depv_indices()])
 
     def get_index_of_depv(self, depvn):
         return self._fo_odesys.all_depv.index(self._fo_odesys[depvn])
@@ -204,7 +212,7 @@ class IVP(object):
         analytic y curves
         """
         if indices == None:
-            indices = range(self.Yres().shape[1])
+            indices = self.depv_indices()
             if skip_helpers:
                 # Don't plot helper functions used in reduction of order of ode system
                 for hlpr in self._fo_odesys.frst_red_hlprs:
@@ -214,7 +222,7 @@ class IVP(object):
             ipy = self.get_interpolated(ipx)
         ls = ['-', '--', ':']
         c = 'k b r g m'.split()
-        m = 'o s t * d p h'.split()
+        m = 'o s ^ * d p h'.split()
         for i in indices:
             mi  = m[i % len(m)]
             lsi = ls[i % len(ls)]

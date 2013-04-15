@@ -89,7 +89,7 @@ class ODESolViewer(HasTraits):
             else:
                 raise AttributeError('No param {}'.format(k))
         self.t_default = np.linspace(t0, tend, 500)
-        self.ivp = IVP(ODESys(), y0, params, t0, Integrator=Integrator)
+        self.ivp = IVP(ODESys(), y0, params, t0, Integrator=GSL_IVP_Integrator)
         self.N = N
         super(ODESolViewer, self).__init__()
         self.run_integration()
@@ -106,13 +106,10 @@ class ODESolViewer(HasTraits):
         self.interpolated_yres = self._integrate(self.init_vals, self.param_vals,
                                                  self.t_default[-1], self.N)
 
-    @cache
     def _integrate(self, init_vals, param_vals, tend, N):
-        print("Runnig integration..", end='')
         self.ivp.init_vals=init_vals
         self.ivp.param_vals=param_vals
         self.ivp.integrate(tend, N = N)
-        print("...DONE! {}".format(','.join([str(self.ivp.Yres()[-1,0,0]), str(self.ivp.tout[-1])])))
         return self.ivp.get_interpolated(self.t)
 
 if __name__ == '__main__':

@@ -12,7 +12,7 @@ from symodesys.ivp import IVP
 
 # TODO
 # Implement automatic resolution of N - number of chained decays via
-# Bateman's equations
+# Bateman's equations <--- No, doesnt handle lambda_k = lambda_l
 
 class CoupledDecay(SimpleFirstOrderODESystem):
 
@@ -30,35 +30,36 @@ class CoupledDecay(SimpleFirstOrderODESystem):
                 w: lambda_v * v - lambda_w * w,
                 }
 
-
     def analytic_u(self, indep_vals, y0, param_vals):
-        return y0[self['u']] * np.exp(-param_vals[self['lambda_u']]*indep_vals)
+        return y0['u'] * np.exp(-param_vals['lambda_u']*indep_vals)
 
 
     def analytic_v(self, indep_vals, y0, param_vals):
-        return y0[self['v']] * np.exp(-param_vals[self['lambda_v']] * indep_vals) + \
-                 y0[self['u']] * param_vals[self['lambda_u']] / \
-                 (param_vals[self['lambda_v']] - param_vals[self['lambda_u']]) * \
-                 (np.exp(-param_vals[self['lambda_u']]*indep_vals) - \
-                  np.exp( - param_vals[self['lambda_v']] * indep_vals))
+        return y0['v'] * np.exp(-param_vals['lambda_v'] * indep_vals) + \
+                 y0['u'] * param_vals['lambda_u'] / \
+                 (param_vals['lambda_v'] - param_vals['lambda_u']) * \
+                 (np.exp(-param_vals['lambda_u']*indep_vals) - \
+                  np.exp( - param_vals['lambda_v'] * indep_vals))
 
     def analytic_w(self, indep_vals, y0, param_vals):
-        return y0[self['w']] * np.exp(-param_vals[self['lambda_w']] * indep_vals) + \
-                 y0[self['v']] * param_vals[self['lambda_v']] / \
-                 (param_vals[self['lambda_w']] - param_vals[self['lambda_v']]) * \
-                 (np.exp(-param_vals[self['lambda_v']]*indep_vals) - \
-                  np.exp(-param_vals[self['lambda_w']]*indep_vals)) + \
-                 param_vals[self['lambda_v']] * param_vals[self['lambda_u']] * \
-                 y0[self['u']] / (param_vals[self['lambda_v']] - \
-                            param_vals[self['lambda_u']]) * \
-                 (1 / (param_vals[self['lambda_w']] - \
-                       param_vals[self['lambda_u']]) * \
-                  (np.exp( - param_vals[self['lambda_u']] * indep_vals) - \
-                   np.exp( - param_vals[self['lambda_w']] * indep_vals)) - \
-                  1 / (param_vals[self['lambda_w']] - \
-                       param_vals[self['lambda_v']]) * \
-                  (np.exp( - param_vals[self['lambda_v']] * indep_vals) - \
-                   np.exp( - param_vals[self['lambda_w']] * indep_vals)))
+        return y0['w'] * np.exp(-param_vals['lambda_w'] * indep_vals) + \
+                 y0['v'] * param_vals['lambda_v'] / \
+                 (param_vals['lambda_w'] - param_vals['lambda_v']) * \
+                 (np.exp(-param_vals['lambda_v']*indep_vals) - \
+                  np.exp(-param_vals['lambda_w']*indep_vals)) + \
+                 param_vals['lambda_v'] * param_vals['lambda_u'] * \
+                 y0['u'] / (param_vals['lambda_v'] - \
+                            param_vals['lambda_u']) * \
+                 (1 / (param_vals['lambda_w'] - \
+                       param_vals['lambda_u']) * \
+                  (np.exp( - param_vals['lambda_u'] * indep_vals) - \
+                   np.exp( - param_vals['lambda_w'] * indep_vals)) - \
+                  1 / (param_vals['lambda_w'] - \
+                       param_vals['lambda_v']) * \
+                  (np.exp( - param_vals['lambda_v'] * indep_vals) - \
+                   np.exp( - param_vals['lambda_w'] * indep_vals)))
+
+    analytic_sol = {'u': analytic_u, 'v': analytic_v, 'w': analytic_w}
 
 
 def main(params_by_token):
@@ -82,8 +83,8 @@ def main(params_by_token):
           }
 
     ivp = IVP(cd, y0, param_vals_by_symb, t0)
-    ivp._Integrator.abstol = 1e-8
-    ivp._Integrator.reltol = 1e-8
+    ivp.Integrator.abstol = 1e-8
+    ivp.Integrator.reltol = 1e-8
 
     #N = 0 # adaptive stepsize controls output
     N = 100
@@ -95,9 +96,10 @@ def main(params_by_token):
     analytic_v = cd.analytic_v(t, y0, param_vals_by_symb)
     analytic_w = cd.analytic_w(t, y0, param_vals_by_symb)
 
-    uout = ivp.get_yout_by_symb(u)
-    vout = ivp.get_yout_by_symb(v)
-    wout = ivp.get_yout_by_symb(w)
+    uout = ivp.Yres()[:,0,0]
+    vout = ivp.Yres()[:,1,0]
+    wout = ivp.Yres()[:,2,0]
+    print t.shape, uout.shape
 
     plt.subplot(311)
     #intr.plot(interpolate = False, show = False)
@@ -111,20 +113,20 @@ def main(params_by_token):
 
     plt.subplot(312)
 
-    plt.plot(t, (uout - analytic_u) / ivp._Integrator.abstol,
+    plt.plot(t, (uout - analytic_u) / ivp.Integrator.abstol,
              label = 'u abserr / abstol')
-    plt.plot(t, (vout - analytic_v) / ivp._Integrator.abstol,
+    plt.plot(t, (vout - analytic_v) / ivp.Integrator.abstol,
              label = 'v abserr / abstol')
-    plt.plot(t, (wout - analytic_w) / ivp._Integrator.abstol,
+    plt.plot(t, (wout - analytic_w) / ivp.Integrator.abstol,
              label = 'w abserr / abstol')
     plt.legend()
 
     plt.subplot(313)
-    plt.plot(t, (uout - analytic_u) / analytic_u / ivp._Integrator.reltol,
+    plt.plot(t, (uout - analytic_u) / analytic_u / ivp.Integrator.reltol,
              label = 'u relerr / reltol')
-    plt.plot(t, (vout - analytic_v) / analytic_v / ivp._Integrator.reltol,
+    plt.plot(t, (vout - analytic_v) / analytic_v / ivp.Integrator.reltol,
              label = 'v relerr / reltol')
-    plt.plot(t, (wout - analytic_w) / analytic_w / ivp._Integrator.reltol,
+    plt.plot(t, (wout - analytic_w) / analytic_w / ivp.Integrator.reltol,
              label = 'w relerr / reltol')
     plt.legend()
     plt.show()

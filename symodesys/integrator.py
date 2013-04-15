@@ -41,7 +41,7 @@ class IVP_Integrator(object):
             if attr in kwargs:
                 setattr(self, attr, kwargs.pop(attr))
 
-    def integrate(self, y0, t0, tend, param_vals,
+    def run(self, y0, t0, tend, param_vals,
                   N, abstol = None, reltol = None, h = None,
                   order = 0):
         """
@@ -76,7 +76,7 @@ class SciPy_IVP_Integrator(IVP_Integrator):
         self._r = ode(self._fo_odesys.dydt, self._fo_odesys.dydt_jac)
 
 
-    def integrate(self, y0, t0, tend, param_vals,
+    def run(self, y0, t0, tend, param_vals,
                   N, abstol=None, reltol=None, h=None,
                   order=0):
         y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
@@ -140,7 +140,7 @@ class Mpmath_IVP_Integrator(IVP_Integrator):
     Only for demonstration purposes
     """
 
-    def integrate(self, y0, param_vals, t0, tend,
+    def run(self, y0, param_vals, t0, tend,
                   N, abstol = None, reltol = None, h = None):
         y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
         param_val_lst = self._fo_odesys.param_val_lst(param_vals)

@@ -1,3 +1,4 @@
+from __future__ import print_function
 
 # symodesys imports
 from symodesys.integrator import IVP_Integrator
@@ -61,12 +62,10 @@ class Generic_Code(object):
                          os.path.basename(path).replace('_template', ''))
             subs = getattr(self, attr)
             template = mako.template.Template(open(srcpath, 'rt').read())
-            print template
-            print subs
             try:
                 rendered = template.render(**subs)
             except:
-                print mako.exceptions.text_error_template().render()
+                print(mako.exceptions.text_error_template().render())
                 raise
             open(outpath, 'wt').write(rendered)
             if path in self._ori_sources:
@@ -124,7 +123,7 @@ class Generic_Code(object):
     def ccode_func(self):
         non_analytic_expr = self._fo_odesys.non_analytic_f.values()
         cse_defs, cse_exprs = sympy.cse(
-            non_analytic_expr, symbols = sympy.numbered_symbols('cse_'))
+            non_analytic_expr, symbols = sympy.numbered_symbols('cse'))
 
         f_cexprs = [self.arrayify(sympy.ccode(x)) for x in cse_exprs]
 
@@ -151,7 +150,7 @@ class Generic_Code(object):
     @property
     def ccode_jac(self):
         na_jac = self._fo_odesys.non_analytic_jac
-        na_f = self._fo_odesys.non_analytic_f.values()
+        na_f = map(self._fo_odesys.unfunc_depv, self._fo_odesys.non_analytic_f.values())
         indepv = self._fo_odesys.indepv
 
         sparse_jac = OrderedDict(reduce(add, [
@@ -163,9 +162,10 @@ class Generic_Code(object):
                 [x.diff(indepv) for x in na_f]
                 ) if expr != 0
             ])
+        print(dfdt)
         cse_defs, cse_exprs = sympy.cse(
             sparse_jac.values() + dfdt.values(),
-            symbols = sympy.numbered_symbols('cse_')
+            symbols = sympy.numbered_symbols('cse')
             )
 
         jac_cexprs = zip(sparse_jac.keys(), [
@@ -238,7 +238,7 @@ class GSL_IVP_Integrator(IVP_Integrator):
         return self._binary
 
 
-    def integrate(self, y0, t0, tend, param_vals, N,
+    def run(self, y0, t0, tend, param_vals, N,
                   abstol = None, reltol = None, h = None, order = 0):
         y0_arr = np.array(
             [y0[k] for k in self._fo_odesys.non_analytic_depv],

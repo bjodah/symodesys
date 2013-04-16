@@ -34,14 +34,15 @@ class IVP(object):
     ``reality'' it is a parameter which is updated
     """
 
+    # TODO: evaluate if possible to loosen coupling to Integrator..
+
     # used if integrate(..., N = 0, ...) and all analytic sol.
     default_N = 100
 
     _dtype = np.float64
 
     def __init__(self, fo_odesys, init_vals, param_vals, t0,
-                 Integrator = SciPy_IVP_Integrator,
-                 AnalyticEvalr = SympyEvalr, **integrator_kwargs):
+                 integrator = None, analytic_evalr = None):
         """
 
         Arguments:
@@ -56,9 +57,10 @@ class IVP(object):
         self.init_vals = init_vals
         self.param_vals = param_vals
         self._indepv_init_val = t0
-        self.Integrator = Integrator
-        self._integrator_kwargs = integrator_kwargs
-        self._AnalyticEvalr = AnalyticEvalr
+        self.integrator = integrator or Mpmath_IVP_Integrator()
+        self.integrator.set_fo_odesys(self._fo_odesys)
+        self.analytic_evalr = analytic_evalr or SympyEvalr()
+        self.analytic_evalr.configure(self._fo_odesys, self.param_vals)
 
         # Init attributes for possible analytically solvable y's
 
@@ -70,12 +72,6 @@ class IVP(object):
         self._indepv_inv_trnsfm = None
         self._integrator = None
 
-    @property
-    def integrator(self):
-        if self._integrator == None:
-            self._integrator = self.Integrator(self._fo_odesys,
-                                               **self._integrator_kwargs)
-        return self._integrator
 
     @property
     def init_vals(self):
@@ -116,7 +112,7 @@ class IVP(object):
 
         TODO: recreate possible 2nd order ODE and check solvability
         """
-        new_init_val_symbs = [] # For info reporting
+        new_init_val_symbs = []
         self._fo_odesys.recursive_analytic_auto_sol()
         for yi, (expr, sol_symbs) in self._fo_odesys.solved.iteritems():
             if yi in self._solved_init_val_symbs: continue
@@ -129,6 +125,8 @@ class IVP(object):
             self._solved_init_val_symbs[yi] = init_val_symb
             new_init_val_symbs.append(init_val_symb)
             return new_init_val_symbs
+        if len(new_init_val_symbs) > 0:
+            self.analytic_evalr.configure(self._fo_odesys, self.param_vals)
 
 
     def integrate(self, tend, N = 0, h = None, order = 2):
@@ -138,12 +136,6 @@ class IVP(object):
         """
         self.interpolators.cache_clear()
         self.Yres.cache_clear()
-        if len(self._solved_init_val_symbs) > 0:
-            # If we have solved parts analytically
-            self._analytic_evalr = self._AnalyticEvalr(
-                self._fo_odesys.solved_exprs,
-                self._fo_odesys.indepv,
-                self.param_vals, order = order)
 
         if len(self._solved_init_val_symbs) < len(self.init_vals):
             # If there are any non-analytic equations left

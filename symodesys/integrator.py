@@ -30,16 +30,21 @@ class IVP_Integrator(object):
 
     kwargs_attr=['abstol', 'reltol']
 
-    def __init__(self, fo_odesys, **kwargs):
+    def __init__(self, **kwargs):
         """
 
         Arguments:
         - `fo_odesys`: FO_ODESYS instance (initial value problem)
         """
-        self._fo_odesys = fo_odesys
-        for attr in self.kwargs_attr:
-            if attr in kwargs:
+        self._fo_odesys = None
+        for attr in kwargs:
+            if attr in self.kwargs_attr:
                 setattr(self, attr, kwargs.pop(attr))
+            else:
+                raise AttributeError('Unkown kwarg: {}'.format(attr))
+
+    def set_fo_odesys(self, fo_odesys):
+        self._fo_odesys = fo_odesys
 
     def run(self, y0, t0, tend, param_vals,
                   N, abstol = None, reltol = None, h = None,
@@ -68,13 +73,45 @@ class IVP_Integrator(object):
         self.Yout = np.zeros((N, NY, order + 1), dtype = self._dtype)
 
 
-class SciPy_IVP_Integrator(IVP_Integrator):
+class Mpmath_IVP_Integrator(IVP_Integrator):
+    """
+    Only for demonstration purposes
+    """
 
-    def __init__(self, fo_odesys, **kwargs):
-        super(SciPy_IVP_Integrator, self).__init__(fo_odesys, **kwargs)
+    def run(self, y0, param_vals, t0, tend,
+                  N, abstol = None, reltol = None, h = None):
+        y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
+        param_val_lst = self._fo_odesys.param_val_lst(param_vals)
+        cb = lambda x, y: self._fo_odesys.dydt(x, y, param_val_lst)
+        self._num_y = sympy.mpmath.odefun(cb, t0, y0_val_lst, tol = abstol)
+        if N > 0:
+            # Fixed stepsize
+            self.init_yout_tout_for_fixed_step_size(t0, tend, N)
+            for i, t in enumerate(self.tout):
+                if i == 0:
+                    self.Yout[i, :, 0] = y0_val_lst
+                    continue
+                self.Yout[i, :, 0] = self._num_y(self.tout[i])
+        else:
+            self.Yout = np.array([y0_val_lst, self._num_y(tend)])
+            self.tout = np.array([t0, tend])
+
+
+class SciPy_IVP_Integrator(IVP_Integrator):
+    """
+    Uses integrator provided in SciPy,
+    beware that this method is slow (expensive sympy.subs calls during
+    evaluation of jacobian and dydt), consider using a native code
+    generating integrator such as e.g. GSL_IVP_Integrator
+    """
+
+    def __init__(self, **kwargs):
+        super(SciPy_IVP_Integrator, self).__init__(**kwargs)
+
+    def set_fo_odesys(self, fo_odesys):
+        super(SciPy_IVP_Integrator, self).set_fo_odesys(fo_odesys)
         from scipy.integrate import ode
         self._r = ode(self._fo_odesys.dydt, self._fo_odesys.dydt_jac)
-
 
     def run(self, y0, t0, tend, param_vals,
                   N, abstol=None, reltol=None, h=None,
@@ -133,31 +170,3 @@ class SciPy_IVP_Integrator(IVP_Integrator):
                 self.Yout = np.concatenate((yout[...,np.newaxis], dyout[...,np.newaxis],
                                            ddyout[...,np.newaxis]), axis=2)
             self.tout = tout
-
-
-class Mpmath_IVP_Integrator(IVP_Integrator):
-    """
-    Only for demonstration purposes
-    """
-
-    def run(self, y0, param_vals, t0, tend,
-                  N, abstol = None, reltol = None, h = None):
-        y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
-        param_val_lst = self._fo_odesys.param_val_lst(param_vals)
-        cb = lambda x, y: self._fo_odesys.dydt(x, y, param_val_lst)
-        self._num_y = sympy.mpmath.odefun(cb, t0, y0_val_lst, tol = abstol)
-        if N > 0:
-            # Fixed stepsize
-            self.init_yout_tout_for_fixed_step_size(t0, tend, N)
-            for i, t in enumerate(self.tout):
-                if i == 0:
-                    self.Yout[i, :, 0] = y0_val_lst
-                    continue
-                self.Yout[i, :, 0] = self._num_y(self.tout[i])
-        else:
-            self.Yout = np.array([y0_val_lst, self._num_y(tend)])
-            self.tout = np.array([t0, tend])
-
-
-class GSL_IVP_Integrator(IVP_Integrator):
-    pass

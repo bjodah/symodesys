@@ -97,8 +97,7 @@ class SympyEvalr(object):
 
     default_dtype = np.float64
 
-    def __init__(self, exprs, indep_var_symb, params_by_symb, order=0,
-                 dtype=None):
+    def __init__(self, order=0, dtype=None):
         """
 
         Arguments:
@@ -108,12 +107,15 @@ class SympyEvalr(object):
         - `order`: set higher than 0 (default) in order to also evaluate derivatives.
                    (output is sotred in self.Yout)
         """
-        self._exprs = exprs
-        self._indep_var_symb = indep_var_symb
-        self._params_by_symb = params_by_symb
-        self._order = order
+        self.order = order
         if dtype == None: dtype = self.default_dtype
         self._dtype = dtype
+
+
+    def configure(self, fo_odesys, param_vals):
+        self._exprs = fo_odesys.solved_exprs
+        self._indep_var_symb = fo_odesys.indepv
+        self._params_by_symb = param_vals
 
 
     def eval_for_indep_array(self, arr, extra_params_by_symb):
@@ -177,5 +179,3 @@ def get_new_symbs(expr, known_symbs):
         if not atom in known_symbs and not atom.is_Number:
             new_symbs.add(atom)
     return new_symbs
-
-

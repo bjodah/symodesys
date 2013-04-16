@@ -224,12 +224,15 @@ class GSL_IVP_Integrator(IVP_Integrator):
     IVP integrator using GNU Scientific Library routines odeiv2
     """
 
-    def __init__(self, fo_odesys, **kwargs):
-        super(GSL_IVP_Integrator, self).__init__(fo_odesys, **kwargs)
+    def __init__(self, **kwargs):
+        super(GSL_IVP_Integrator, self).__init__(**kwargs)
+
+    def set_fo_odesys(self, fo_odesys):
+        super(SciPy_IVP_Integrator, self).set_fo_odesys(fo_odesys)
+        self._binary = None # <-- Clears cache
         self._code = GSL_Code(self._fo_odesys,
                               tempdir = kwargs.get('tempdir', None),
                               save_temp = kwargs.get('save_temp', False))
-        self._binary = None
 
     @property
     def binary(self):
@@ -239,23 +242,31 @@ class GSL_IVP_Integrator(IVP_Integrator):
 
 
     def run(self, y0, t0, tend, param_vals, N,
-                  abstol = None, reltol = None, h = None, order = 0):
+                  abstol = None, reltol = None, h = None, h_init = None, h_max=0.0, order = 0):
+        """
+        hmax won't be set if 0.0
+        """
+        if h_init == None:
+            h_init = 1e-9 # TODO: along the lines of: h_init=f(y0, dydt, jac, abstol, reltol)
+
+        # Set (c-program) init vals to the possible subset of non_anlytic depv
         y0_arr = np.array(
             [y0[k] for k in self._fo_odesys.non_analytic_depv],
             dtype = np.float64)
+
+        # Extend (c-program) params with y0 values of analytic functions
         cprog_param_vals = dict(
             param_vals.items() + \
             [(k, v) for k, v in y0.items() if k \
              in self._fo_odesys.analytic_depv])
+
+        # C-program knows nothing about dicts, provide values as an array
         params_arr = np.array([cprog_param_vals[k] for k \
                                in self._code.cprog_param_symbs],
                               dtype = np.float64)
         if N > 0:
             # Fixed stepsize
             self.init_Yout_tout_for_fixed_step_size(t0, tend, N, order)
-            # Order give (super)dimensionality of yout
-            h_init = 1e-10 # TODO: find h: max(dydt) = abstol
-            h_max = 0.0 # hmax won't be set if 0.0
             tout, Yout = self.binary.integrate_equidistant_output(
                 t0, tend, y0_arr, N, h_init, h_max, self.abstol, self.reltol, params_arr, order)
             self.tout = tout

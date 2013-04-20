@@ -20,7 +20,7 @@ class VanDerPolOscillator(SimpleFirstOrderODESystem):
                 }
 
 
-def main(y0, params, t0 = 0.0, tend = 10, N = 0):
+def main(y0, params, tend, t0 = 0.0, N = 0):
     """
     Example program integrating an IVP problem of van der Pol oscillator
     default is adaptive step size (N=0)
@@ -37,5 +37,4 @@ if __name__ == '__main__':
     else:
         mu = 1.0
 
-    main(y0={'u': 1.0, 'v': 0.0}, params = {'mu': mu})
-
+    main(y0={'u': 1.0, 'v': 0.0}, params = {'mu': mu}, 10.0)

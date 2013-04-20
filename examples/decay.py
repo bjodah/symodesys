@@ -1,38 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
-from collections import OrderedDict
-
-import sympy
+# External imports
 import numpy as np
-import matplotlib.pyplot as plt
 
-from symodesys.odesys import FirstOrderODESystem, SimpleFirstOrderODESystem
-from symodesys.ivp import IVP
-
-
-# TODO: add use of units from Sympys physics module and enter lambda in per s, and give
-#        time intervals in hours
-
-# TODO: Determine wheter to use:
-#u = sympy.symbols('u')
-#    or
-#u = sympy.Function('u')(indepv)
-
-t = sympy.symbols('t')
-u = sympy.Function('u')(t)
-lambda_u = sympy.symbols('lambda_u')
-
-class LowLevelDecay(FirstOrderODESystem):
-
-    dep_var_symbs = u,
-    param_symbs   = lambda_u,
-    f = OrderedDict([(u, -lambda_u * u)])
-
-    def analytic_u(self, indep_vals, y0):
-        return y0['u'] * np.exp(-self.param_vals_by_symb[lamba_u]*indep_vals)
-
+# Package imports
+from symodesys import SimpleFirstOrderODESystem
+from symodesys.ivp import plot_numeric_vs_analytic
 
 class Decay(SimpleFirstOrderODESystem):
 
@@ -43,47 +17,11 @@ class Decay(SimpleFirstOrderODESystem):
     def expressions(self):
         return {self['u']: self['lambda_u'] * -self['u']}
 
-    def analytic_u(self, indep_vals, y0, param_vals):
-        return y0['u'] * np.exp(-param_vals[self['lambda_u']]*indep_vals)
+    def analytic_u(self, indep_vals, y0, params):
+        return y0['u'] * np.exp(-params['lambda_u']*indep_vals)
 
-
-def plot_numeric_vs_analytic(ODESys, indep_var_lim,
-                             init_dep_var_vals_by_token,
-                             param_vals, N = 0):
-    """
-    Integrate
-    """
-    odesys = ODESys()
-    param_vals_by_symb = odesys.get_param_vals_by_symb_from_by_token(
-        param_vals)
-
-    y0 = {odesys[k]: v for k, v in init_dep_var_vals_by_token.items()}
-    t0, tend = indep_var_lim
-    ivp = IVP(odesys, y0, param_vals_by_symb, t0)
-
-    ivp.integrate(tend, N = N)
-    t, y = ivp.tout, ivp.Yout[:,:,0]
-
-    plt.subplot(311)
-    ivp.plot(interpolate = True, show = False)
-
-    analytic_u = odesys.analytic_u(t, init_dep_var_vals_by_token,
-                                param_vals_by_symb)
-    plt.subplot(312)
-    plt.plot(t, (y[:, 0] - analytic_u) / ivp._integrator.abstol,
-             label = 'abserr / abstol')
-    plt.legend()
-    plt.subplot(313)
-    plt.plot(t, (y[:, 0] - analytic_u) / analytic_u / ivp._integrator.reltol,
-             label = 'relerr / reltol')
-    plt.legend()
-    plt.show()
+    analytic_sol = {'u': analytic_u}
 
 
 if __name__ == '__main__':
-    plot_numeric_vs_analytic(
-        ODESys = Decay,
-        indep_var_lim = (0, 10.0),
-        init_dep_var_vals_by_token = {'u': 1.0},
-        param_vals = {'lambda_u': 0.2},
-        N = 0)
+    plot_numeric_vs_analytic(Decay, {'u': 1.0}, {'lambda_u': 0.2}, 10.0, N=30)

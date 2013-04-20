@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import sympy
 
 from symodesys.helpers import SympyEvalr, cache
-from symodesys.integrator import SciPy_IVP_Integrator
+from symodesys.integrator import Mpmath_IVP_Integrator
 from symodesys.odesys import FirstOrderODESystem
 
 # LONG-TERM FUTURE TODO: Support uncertainties as parameter inputs
@@ -70,7 +70,6 @@ class IVP(object):
         self._depv_inv_trnsfm = None
         self._indepv_trnsfm = None
         self._indepv_inv_trnsfm = None
-        self._integrator = None
 
 
     @property
@@ -129,11 +128,12 @@ class IVP(object):
             self.analytic_evalr.configure(self._fo_odesys, self.param_vals)
 
 
-    def integrate(self, tend, N = 0, h = None, order = 2):
+    def integrate(self, tend, N = 0, h = None, order = 1):
         """
         Integrates the non-analytic odesystem and evaluates the
         analytic functions for the dependent variables (if there are any).
         """
+        assert float(tend) == tend
         self.interpolators.cache_clear()
         self.Yres.cache_clear()
 
@@ -196,7 +196,7 @@ class IVP(object):
     def get_index_of_depv(self, depvn):
         return self._fo_odesys.all_depv.index(self._fo_odesys[depvn])
 
-    def plot(self, indices = None, interpolate = False, datapoints=True,
+    def plot(self, indices = None, interpolate = True, datapoints=False,
              show = False, skip_helpers = True):
         """
         Rudimentary plotting utility for quick inspection of solutions
@@ -230,3 +230,31 @@ class IVP(object):
             plt.plot()
         plt.legend()
         if show: plt.show()
+
+def plot_numeric_vs_analytic(ODESys, y0, params, tend, t0=0.0, N=0):
+    """
+    Convenience function for instantiating ODESys class and assigning
+    it to an associated IVP instance, run the integration and in the case
+    of ODESys having 'analytic_sol', plot the absolute and relative errors
+    made during the integration.
+    """
+    odesys = ODESys()
+    ivp = IVP(odesys, y0, params, t0)
+    ivp.integrate(tend, N)
+    t, y = ivp.tout, ivp.Yres()[:,:,0]
+
+    plt.subplot(311)
+    ivp.plot(interpolate = True, show = False)
+
+    for i, (k, cb) in enumerate(odesys.analytic_sol.items()):
+        analytic = cb(odesys, t, y0, params)
+        plt.subplot(312)
+        plt.plot(t, (y[:, i] - analytic) / ivp.integrator.abstol,
+                 label = k+': abserr / abstol')
+        plt.legend()
+        plt.subplot(313)
+        plt.plot(t, (y[:, i] - analytic) / analytic / ivp.integrator.reltol,
+                 label = k+': relerr / reltol')
+        plt.legend()
+
+    plt.show()

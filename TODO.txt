@@ -1,0 +1,6 @@
+Refactor gsl.integrator to use codegen (and factor out general bits)
+Add sundials
+Add lsode
+
+solved provides DAE functionality, generalizing?
+Pure root finding module, similiar syntax?

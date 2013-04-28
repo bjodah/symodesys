@@ -6,7 +6,6 @@
 // Variables: f, cse_func
 // CSE tokens: cse%d
 
-
 int
 func (double t, const double y[], double f[], void * params)
 {

@@ -206,13 +206,13 @@ class GSL_Code(Generic_Code):
     # Serialization to double check against collision?
 
 
-    copy_files = ('gsl/drivers.c', 'gsl/pyinterface.pyx') + \
-                 ('gsl/drivers.h', 'gsl/func.h', 'gsl/jac.h', 'gsl/Makefile')
+    copy_files = ('drivers.c', 'pyinterface.pyx') + \
+                 ('drivers.h', 'func.h', 'jac.h', 'Makefile')
 
     templates = {
-        'dydt': ('gsl/func_template.c', 'ccode_func'),
-        'dydt_jac': ('gsl/jac_template.c', 'ccode_jac'),
-        'main_ex': ('gsl/main_ex_template.c', 'ccode_main_ex')
+        'dydt': ('func_template.c', 'ccode_func'),
+        'dydt_jac': ('jac_template.c', 'ccode_jac'),
+        'main_ex': ('main_ex_template.c', 'ccode_main_ex')
         }
 
     _ori_sources = list(copy_files[:2]) + [templates[k][0] for k in ['dydt', 'dydt_jac']]
@@ -225,14 +225,16 @@ class GSL_IVP_Integrator(IVP_Integrator):
     """
 
     def __init__(self, **kwargs):
+        self.tempdir = kwargs.pop('tempdir', None)
+        self.save_temp = kwargs.pop('save_temp', False)
         super(GSL_IVP_Integrator, self).__init__(**kwargs)
 
     def set_fo_odesys(self, fo_odesys):
-        super(SciPy_IVP_Integrator, self).set_fo_odesys(fo_odesys)
+        super(GSL_IVP_Integrator, self).set_fo_odesys(fo_odesys)
         self._binary = None # <-- Clears cache
         self._code = GSL_Code(self._fo_odesys,
-                              tempdir = kwargs.get('tempdir', None),
-                              save_temp = kwargs.get('save_temp', False))
+                              tempdir = self.tempdir,
+                              save_temp = self.save_temp)
 
     @property
     def binary(self):

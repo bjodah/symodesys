@@ -22,10 +22,11 @@ promising free-software CAS in the views of the author) an efficient
 tool for dealing with systems of ODE's.
 
 Symodesys offers (for IVP's):
-* [TODO] Interfacing and _code generation_ for state of the art
-  numerical packages (GSL, Sundials, ODEPACK)
-* [TODO] Interactive plotting through Enthought's Chaco library
-* Static plot generation through matplotlib
+* [TODO] Add options of method to GSL integrator
+* [TODO] Add code generation support for: Sundials, ODEPACK.
+* [TODO] Improve code generation to write loops when possible (let compiler unroll if optimal, decalare global const paramters)
+* [TODO] Look into generating Jacobian as a sympy.SparseMatrix
+* [TODO] General Interactive plotting through Enthought's Chaco library
 * [TODO] Optimization of paramters (fiting) to match e.g. numerical
   data.
 * [TODO] Export of trajectories

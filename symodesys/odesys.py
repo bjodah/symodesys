@@ -119,6 +119,7 @@ class ODESystem(object):
     @property
     def known_symbs(self):
         """ Convenience attribute """
+        #
         return [self.indepv] + self.all_depv + self.param_and_sol_symbs
 
     def subs(self, subsd):
@@ -584,6 +585,9 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
     dep_var_tokens = None
     param_tokens = None
     expressions = None
+
+    # Overwrite title for use in e.g. plots
+    title = 'System of ordinary differential equations'
 
     def __init__(self, *args, **kwargs):
         self.param_tokens = self.param_tokens or []

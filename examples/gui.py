@@ -89,7 +89,7 @@ class ODESolViewer(HasTraits):
             else:
                 raise AttributeError('No param {}'.format(k))
         self.t_default = np.linspace(t0, tend, 500)
-        self.ivp = IVP(ODESys(), y0, params, t0, Integrator=GSL_IVP_Integrator)
+        self.ivp = IVP(ODESys(), y0, params, t0, integrator=GSL_IVP_Integrator())
         self.N = N
         super(ODESolViewer, self).__init__()
         self.run_integration()

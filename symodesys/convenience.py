@@ -3,16 +3,15 @@ import matplotlib.pyplot as plt
 
 from symodesys.ivp import IVP
 
-def plot_numeric_vs_analytic(ODESys, y0, params, t0, tend, N = 0, ivp_kwargs=None):
+def plot_numeric_vs_analytic(ODESys, y0, params, t0, tend, integrator=None, N=0):
     """
     Run compiled integrator (pointless for such a small ODE but
     useful for large systems)
     """
-    ivp_kwargs = ivp_kwargs or {}
     odesys = ODESys()
 
     # Solve
-    ivp = IVP(odesys, y0, params, t0, **ivp_kwargs)
+    ivp = IVP(odesys, y0, params, t0, integrator=integrator)
     ivp.integrate(tend, N=N, order=2)
 
     # Anlyse output
@@ -23,4 +22,3 @@ def plot_numeric_vs_analytic(ODESys, y0, params, t0, tend, N = 0, ivp_kwargs=Non
         plt.plot(plot_t, cb(odesys, plot_t, y0, params), label = 'Analytic {}'.format(depv))
     plt.legend()
     plt.show()
-

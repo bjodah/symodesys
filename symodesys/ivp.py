@@ -197,14 +197,14 @@ class IVP(object):
         return self._fo_odesys.all_depv.index(self._fo_odesys[depvn])
 
     def plot(self, indices = None, interpolate = True, datapoints=False,
-             show = False, skip_helpers = True, usetex=True, texnames=None):
+             show = False, skip_helpers = True, usetex=False, texnames=None):
         """
         Rudimentary plotting utility for quick inspection of solutions
         TODO: move this from here,  make more general to accept mixed ODE sol +
         analytic y curves
         """
+        import matplotlib.pyplot as plt
         if usetex:
-            import matplotlib.pyplot as plt
             from matplotlib import rc
             rc('text', usetex=True)
 
@@ -225,7 +225,7 @@ class IVP(object):
             lsi = ls[i % len(ls)]
             ci  = c[i % len(c)]
             lbl = str(self._fo_odesys.all_depv[i])
-            if usetex:
+            if usetex and texnames != None:
                 lbl = texnames[lbl]
             print(lbl) ###
             if interpolate:

@@ -224,6 +224,12 @@ class GSL_IVP_Integrator(IVP_Integrator):
     IVP integrator using GNU Scientific Library routines odeiv2
     """
 
+    # step_type choices are in `step_types` in pyinterface.pyx
+    integrate_args = {'step_type': (
+        'rk2','rk4','rkf45','rkck','rk8pd','rk2imp',
+        'rk4imp','bsimp','rk1imp','msadams','msbdf'),
+    }
+
     def __init__(self, **kwargs):
         self.tempdir = kwargs.pop('tempdir', None)
         self.save_temp = kwargs.pop('save_temp', False)

@@ -8,11 +8,37 @@
 #include "func.h"
 #include "jac.h"
 
+gsl_odeiv2_step_type * get_step_type(int index){
+  switch(index){
+  case 0:
+    return gsl_odeiv2_step_rk2;
+  case 1:
+    return gsl_odeiv2_step_rk4;
+  case 2:
+    return gsl_odeiv2_step_rkf45;
+  case 3:
+    return gsl_odeiv2_step_rkck;
+  case 4:
+    return gsl_odeiv2_step_rk8pd;
+  case 5:
+    return gsl_odeiv2_step_rk2imp;
+  case 6:
+    return gsl_odeiv2_step_rk4imp;
+  case 7:
+    return gsl_odeiv2_step_bsimp;
+  case 8:
+    return gsl_odeiv2_step_rk1imp;
+  case 9:
+    return gsl_odeiv2_step_msadams;
+  case 10:
+    return gsl_odeiv2_step_msbdf;
+  }
+}
 
 int
 integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_steps,
                                        double h_init, double h_max, double eps_abs,
-                                       double eps_rel, void * params, size_t dim, int order, double tout[], double Yout[])
+                                       double eps_rel, void * params, size_t dim, int order, double tout[], double Yout[], int step_type_idx)
 {
   /* Order can be 0, 1 or 2 */
   size_t i; /* Counter in macro-step loop */
@@ -22,8 +48,8 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
   int status;
   double ti;
   double dt = (t1-t)/(double)(n_steps-1);
-  const gsl_odeiv2_step_type * T = gsl_odeiv2_step_msbdf;
-  gsl_odeiv2_step * s = gsl_odeiv2_step_alloc (T, dim);
+  /* gsl_odeiv2_step_type * T = gsl_odeiv2_step_msbdf; */
+  gsl_odeiv2_step * s = gsl_odeiv2_step_alloc (get_step_type(step_type_idx), dim);
   /* gsl_odeiv2_control * c = gsl_odeiv2_control_y_new (eps_abs, eps_rel); */
   /* gsl_odeiv2_evolve * e = gsl_odeiv2_evolve_alloc (dim); */
 
@@ -90,7 +116,8 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
 int
 integrate_ode_using_driver_fixed_step_print(double t, double t1, double y[], int n_steps,
                                             double h_init, double h_max, double eps_abs,
-                                            double eps_rel, void *params, size_t dim, int order)
+                                            double eps_rel, void *params, size_t dim, int order,
+					    int step_type_idx)
 {
   int status;
   int i,j,k;
@@ -100,7 +127,8 @@ integrate_ode_using_driver_fixed_step_print(double t, double t1, double y[], int
   tout = malloc(sizeof(double)*n_steps);
   Yout = malloc(sizeof(double)*n_steps*dim*(order+1));
   status = integrate_ode_using_driver_fixed_step(t, t1, y, n_steps, h_init, h_max, eps_abs,
-                                                 eps_rel, params, dim, order, tout, Yout);
+                                                 eps_rel, params, dim, order, tout, Yout, 
+						 step_type_idx);
   if (status != GSL_SUCCESS)
     {
       return status;

@@ -37,4 +37,4 @@ if __name__ == '__main__':
     else:
         mu = 1.0
 
-    main(y0={'u': 1.0, 'v': 0.0}, params = {'mu': mu}, 10.0)
+    main(y0={'u': 1.0, 'v': 0.0}, params = {'mu': mu}, tend=10.0)

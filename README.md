@@ -27,8 +27,8 @@ Symodesys offers (for IVP's):
 * [TODO] Improve code generation to write loops when possible (let compiler unroll if optimal, decalare global const paramters)
 * [TODO] Look into generating Jacobian as a sympy.SparseMatrix
 * [TODO] General Interactive plotting through Enthought's Chaco library
-* [TODO] Optimization of paramters (fiting) to match e.g. numerical
-  data.
+* [TODO] Optimization of paramters (fiting) to match e.g. numerical data.
+* [TODO] Add routines for scaling (and automatic rescaling) in e.g. the IVP class.
 * [TODO] Export of trajectories
 
 Other software built using symodesys:

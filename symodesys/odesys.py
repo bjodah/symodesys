@@ -172,7 +172,6 @@ class ODESystem(object):
         return True
 
     def unfunc_depv(self, expr):
-        dvfs = self.all_depv[0]
         unfunc_subs = {dvfs: sympy.Symbol(dvfs.func.__name__) for \
                        dvfs in self.all_depv}
         return expr.subs(unfunc_subs)

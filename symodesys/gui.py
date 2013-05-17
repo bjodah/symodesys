@@ -6,8 +6,13 @@ import numpy as np
 from symodesys.ivp import IVP
 from symodesys.gsl import GSL_IVP_Integrator
 
+COLR = ['red', 'green', 'blue', 'black']
+
 def get_chaco_viewer(odesys, y0, params, t0, tend, N):
     """
+    Dynamically builds a Traits enabled class which
+    can produce interactive plotting through Chaco
+
     Usage:
         >>>viewer=get_chaco_viewer(MyOscillator, y0, params, t0, tend, N)
         >>>viewer.configure_traits()
@@ -18,7 +23,15 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
     from enthought.traits.api import HasTraits, Instance, Array, Property, Range, Float, Enum
     from enthought.traits.ui.api import Item, View
 
-    class ODESolViewer(HasTraits):
+    class ODESolViewer(object):
+        """
+        ODESolViewer makes a chaco viewer instance.
+        """
+        # It uses some not so pretty meta programming
+        # in the __new__ part in order to enable setting
+        # attributes before HasTraits meta-class machinery
+        # gets its hands on it. It works, but could be rewritten
+        # to enhance brevity and extensibility.
 
         plot = Instance(Plot)
         plotdata = Instance(ArrayPlotData, args=())
@@ -29,10 +42,10 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
             plot = Plot(self.plotdata)
             self.plotdata.set_data(str(odesys.indepv), getattr(self, str(odesys.indepv)))
             for dv in odesys.all_depv:
-                self.plotdata.set_data(dv.func.__name__, getattr(self, dv))
-            for dv in odesys.all_depv:
+                self.plotdata.set_data(dv.func.__name__, getattr(self, dv.func.__name__))
+            for i, dv in enumerate(odesys.all_depv):
                 plot.plot((str(odesys.indepv), dv.func.__name__),
-                          color = 'red', type_trait="plot_type", name = dv.func.__name__)
+                          color = COLR[i % len(COLR)], type_trait="plot_type", name = dv.func.__name__)
             plot.legend.visible = True
             plot.title = getattr(odesys, 'title', 'Solution')
             plot.x_axis.title = str(odesys.indepv)
@@ -43,22 +56,60 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
             plot.overlays.append(zoom)
             return plot
 
-        def _u_changed(self):
-            self.plotdata.set_data('u', self._get_u())
+        def __new__(cls, *args, **kwargs):
+            all_init = ['init_' + depv.func.__name__ for depv in odesys.all_depv]
+            all_param = map(str,odesys.param_and_sol_symbs)
 
-        def _v_changed(self):
-            self.plotdata.set_data('v', self._get_v())
+            items = [Item('plot', editor=ComponentEditor(),
+                          show_label=False),
+                     Item(name='plot_type')]
 
-        def _t_default(self):
-            return self.t_default
+            setattr(cls, str(odesys.indepv), Array)
+            setattr(cls, '_'+str(odesys.indepv)+'_default', lambda self: self.t_default)
 
-        def _get_u(self):
-            self.run_integration()
-            return self.interpolated_yres[self.ivp.get_index_of_depv('u'),:]
+            for depv in odesys.all_depv:
+                # TODO: enusre 'init_' + ... does not collide
+                depv_str = depv.func.__name__
+                print all_init+all_param
+                setattr(cls, depv_str, Property(Array, depends_on=all_init+all_param))
+                setattr(cls, 'init_'+depv_str, Range(low=0.0, high=10.0, value=1.0))
 
-        def _get_v(self):
-            self.run_integration()
-            return self.interpolated_yres[self.ivp.get_index_of_depv('v'),:]
+                def getter(self, depstr=depv_str):
+                    # The keyword argument needs to be there not to be overwritten
+                    # in the closure as the loop proceeds (python behaviour)
+                    return self.interpolated_yres[self.ivp.get_index_of_depv(depstr),:]
+                setattr(cls, '_get_'+depv_str, getter)
+
+                def changed(self, depstr=depv_str):
+                    self.plotdata.set_data(depstr, getattr(self, '_get_'+depstr)())
+                setattr(cls, '_'+depv_str+'_changed', changed)
+
+                def init_changed(self, depstr=depv_str):
+                    self.run_integration()
+                setattr(cls, '_init_'+depv_str+'_changed', init_changed)
+
+                items.append(Item(name=str('init_'+depv_str)))
+
+            for param in odesys.param_and_sol_symbs:
+                setattr(cls, str(param), Range(low=0.0, high=10.0, value=1.0))
+                items.append(Item(name=str(param)))
+                def param_changed(self, depstr=str(param)):
+                    self.run_integration()
+                setattr(cls, '_'+str(param)+'_changed', param_changed)
+
+
+            view = View(*items,
+                        width = 600,
+                        height = 800,
+                        resizable = True,
+                        title = getattr(odesys, 'title', "Solution"))
+            setattr(cls, 'traits_view', view)
+            newcls = type(cls.__name__, (HasTraits,),
+                          {k: v for k,v in cls.__dict__.items() if k != '__new__'})
+            instnce = newcls.__new__(newcls)
+            instnce.__dict__ = {}
+            instnce.__init__(*args, **kwargs)
+            return instnce
 
         def __init__(self, odesys_, y0, params, t0, tend, N, Integrator=GSL_IVP_Integrator):
             for k, v in y0.items():
@@ -71,10 +122,11 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
                     setattr(self, k, v)
                 else:
                     raise AttributeError('No param {}'.format(k))
-            self.t_default = np.linspace(t0, tend, 500)
+            setattr(self, str(odesys.indepv) + '_default', np.linspace(t0, tend, 500))
             self.ivp = IVP(odesys_, y0, params, t0, integrator=GSL_IVP_Integrator())
             self.N = N
-            super(ODESolViewer, self).__init__()
+            self.old_args = []
+            #super(ODESolViewer, self).__init__()
             self.run_integration()
 
         @property
@@ -86,50 +138,31 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
             return {p: getattr(self, str(p)) for p in odesys.param_and_sol_symbs}
 
         def run_integration(self):
-            # This may need caching
-            self.interpolated_yres = self._integrate(self.init_vals, self.param_vals,
-                                                     self.t_default[-1], self.N)
+            """
+            Runs the actual numeric integration
+            """
+
+            # Only run if updated since last run
+            args = []
+            for depv in odesys.all_depv:
+                args.append(getattr(self, 'init_'+depv.func.__name__))
+            for param in odesys.param_and_sol_symbs:
+                args.append(getattr(self, str(param)))
+            if args == self.old_args: return
+            self.old_args = args
+
+            # Make a call to the heavy lifting.
+            self.interpolated_yres = self._integrate(
+                self.init_vals, self.param_vals,
+                getattr(self, str(odesys.indepv)+'_default')[-1], self.N)
+            for depv in odesys.all_depv:
+                depv_str = depv.func.__name__
+                self.plotdata.set_data(depv_str, getattr(self, '_get_'+depv_str)())
 
         def _integrate(self, init_vals, param_vals, tend, N):
             self.ivp.init_vals=init_vals
             self.ivp.param_vals=param_vals
             self.ivp.integrate(tend, N = N)
-            print self.t, type(self.t)
             return self.ivp.get_interpolated(self.t)
 
-    viewer = ODESolViewer
-    all_init = ['init_' + depv.func.__name__ for depv in odesys.all_depv]
-    all_param = odesys.param_and_sol_symbs
-
-    items = [Item('plot', editor=ComponentEditor(),
-                  show_label=False),
-             Item(name='plot_type')]
-
-    setattr(viewer, str(odesys.indepv), Array) # e.g. `t`
-    setattr(viewer, '_'+str(odesys.indepv)+'_default', lambda self: self.t_default)
-
-    for depv in odesys.all_depv:
-        # TODO: enusre 'init_' + ... does not collide
-        setattr(viewer, depv.func.__name__, Property(Array, depends_on=all_init+all_param))
-        setattr(viewer, 'init_'+depv.func.__name__, Range(low=0.0, high=10.0, value=1.0))
-        print 'setattr, init_{}'.format(depv.func.__name__) ###
-        setattr(viewer, '_'+depv.func.__name__+'_changed',
-                lambda self: self.plotdata.set_data(depv.func.__name__, getattr(self, '_get_'+depv.func.__name__)))
-        def getter(self):
-            self.run_integration()
-            return self.interpolated_yres[self.ivp.get_index_of_depv(depv.func.__name__),:]
-        setattr(viewer, '_get_'+depv.func.__name__, getter)
-        items.append(Item(name=str('init_'+depv.func.__name__)))
-
-    for param in odesys.param_and_sol_symbs:
-        setattr(viewer, str(param), Range(low=0.0, high=10.0, value=1.0))
-        items.append(Item(name=str(param)))
-
-    view = View(*items,
-            width = 600,
-            height = 800,
-            resizable = True,
-            title = getattr(odesys,'title',"Solution"))
-    setattr(viewer, 'traits_view', view)
-
-    return viewer(odesys, y0, params, t0, tend, N)
+    return ODESolViewer(odesys, y0, params, t0, tend, N)

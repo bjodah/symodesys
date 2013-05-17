@@ -15,3 +15,4 @@ if __name__ == '__main__':
     N = 50
     viewer = get_chaco_viewer(ODESys(), y0, params, t0, tend, N)
     viewer.configure_traits()
+    viewer.clean_up()

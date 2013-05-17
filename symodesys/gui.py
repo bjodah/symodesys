@@ -165,4 +165,10 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
             self.ivp.integrate(tend, N = N)
             return self.ivp.get_interpolated(self.t)
 
+        def clean_up(self):
+            try:
+                self.ivp.integrator._code.clean()
+            except AttributeError:
+                pass
+
     return ODESolViewer(odesys, y0, params, t0, tend, N)

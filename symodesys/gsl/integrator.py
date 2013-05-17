@@ -77,21 +77,22 @@ class Generic_Code(object):
         return import_(binary_path)
 
     def _compile(self):
+        extension_name = 'pyinterface'
         setup(
             script_name =  'DUMMY_SCRIPT_NAME',
-            script_args =  ['build_ext',  '--inplace'],
+            script_args =  ['build_ext',  '--build-lib', self._tempdir],
             include_dirs = [cython_gsl.get_include()],
             cmdclass = {'build_ext': build_ext},
             ext_modules = [
                 Extension(
-                    "pyinterface",
+                    extension_name,
                     self._source_files,
                     libraries=cython_gsl.get_libraries(),
                     library_dirs=[cython_gsl.get_library_dir()],
                     include_dirs=[cython_gsl.get_cython_include_dir()]),
                 ]
             )
-        return "pyinterface.so"
+        return os.path.join(self._tempdir, extension_name)
 
     def clean(self):
         if not self._save_temp:
@@ -222,6 +223,9 @@ class GSL_Code(Generic_Code):
 class GSL_IVP_Integrator(IVP_Integrator):
     """
     IVP integrator using GNU Scientific Library routines odeiv2
+
+    remember to run on the instance on program exit.
+    _code.clean()
     """
 
     # step_type choices are in `step_types` in pyinterface.pyx

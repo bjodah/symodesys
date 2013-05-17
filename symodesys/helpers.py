@@ -137,7 +137,7 @@ class SympyEvalr(object):
 
 
 def import_(filename):
-    """ Imports (cython generated) .so file """
+    """ Imports (cython generated) shared object file (.so) """
     path, name = os.path.split(filename)
     name, ext = os.path.splitext(name)
     fobj, filename, data = imp.find_module(name, [path])

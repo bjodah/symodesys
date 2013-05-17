@@ -22,8 +22,8 @@ promising free-software CAS in the views of the author) an efficient
 tool for dealing with systems of ODE's.
 
 Symodesys offers (for IVP's):
-* [TODO] Add options of method to GSL integrator
-* [TODO] Add code generation support for: Sundials, ODEPACK.
+* [TODO] Add options of dynamic step size GSL integrator
+* [TODO] Add code generation support for: Sundials, ODEPACK and RODAS (look at assimulo)
 * [TODO] Improve code generation to write loops when possible (let compiler unroll if optimal, decalare global const paramters)
 * [TODO] Look into generating Jacobian as a sympy.SparseMatrix
 * [TODO] General Interactive plotting through Enthought's Chaco library

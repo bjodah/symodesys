@@ -48,7 +48,7 @@ class IVP(object):
         Arguments:
         - `fo_odesys`: First order ODE System
         - `init_vals`: Dictionary mapping dep. var symbols to vals at t0
-        - `Integrator`: IVP_Integrator class
+        - `integrator`: IVP_Integrator class instance
         - `AnalyticEvalr`: Callback evaluating the analytically solved eq.
                             Defaults to SympyEvalr
         """

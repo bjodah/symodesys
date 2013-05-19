@@ -512,7 +512,7 @@ class FirstOrderODESystem(ODESystem):
 
     def transform_depv(self, trnsfm, inv_trnsfm):
         """
-        trnsfm: dict mapping old_depv to tuple of (new_depv, expr_in_old)
+        trnsfm: dict mapping new_depv to expr_in_old
         inv_subs: dict mapping old_depv to expression in new_depv
         """
         new_f = OrderedDict()

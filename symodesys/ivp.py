@@ -32,11 +32,16 @@ class IVP(object):
     into parameters when a system of ODEs are reduced analytically
     I.e. the user may still update initial_values, even though in
     ``reality'' it is a parameter which is updated
+
+    It also provides a front-end for the variable transformation
+    routines and can automatically transforms numerical initial values
+    and numerical results.
+
+    Scaling of variables is provided in a similar manner.
     """
 
-    # TODO: evaluate if possible to loosen coupling to Integrator..
-
-    # used if integrate(..., N = 0, ...) and all analytic sol.
+    # default_N is used if we integrate(..., N = 0, ...)
+    # and all analytic sol. (no stepper is run)
     default_N = 100
 
     _dtype = np.float64
@@ -53,7 +58,8 @@ class IVP(object):
                             Defaults to SympyEvalr
         """
         self._fo_odesys = fo_odesys
-        self._old_fo_odesys = [] # Save old sys when solving analytically
+        self._old_fo_odesys = [] # Save old sys when solving
+                                 # analytically
         self.init_vals = init_vals
         self.param_vals = param_vals
         self._indepv_init_val = t0
@@ -90,14 +96,47 @@ class IVP(object):
 
 
     def use_internal_depv_trnsfm(self, trnsfm, inv_trnsfm):
+        """
+        Solve the system numerically for the transformed variables
+        according to the provided arguments:
+        -`trnsfm`: dict mapping new_depv to expr_in_old
+        -`inv_trnsfm`: dict mapping old_depv to expression in new_depv
+
+        The user input and output of initial and resulting values
+        for the dependent variables will be agnostic of the
+        transformation (the values will be converted internally)
+        """
         self._depv_trnsfm = trnsfm
         self._depv_inv_trnsfm = inv_trnsfm
-        self._fo_odesys.transform_depv(trnsfm, inv_trnsfm)
+        new_fo_odesys = self._fo_odesys.transform_depv(trnsfm, inv_trnsfm)
+        new_init_vals = {}
+        for new_depv, expr_in_old in trnsfm.items():
+            new_init_vals[new_depv] = expr_in_old.subs(self.init_vals)
+        new_instance =  self.__class__(new_fo_odesys, new_init_vals,
+                              self.param_vals, self._indepv_init_val,
+                              self.integrator, self.analytic_evalr)
+        new_instance._inv_depv_trnsf = inv_trnsfm
+        return new_instance
+
 
     def use_internal_indepv_trnsfm(self, trnsfm, inv_trnsfm):
+        """
+        Returns a new class instance with this instance as model,
+        but with independent variables transformed according
+        to provided arguments
+        -`trnsfm`: A tuple of (new_indep_symb, expr_in_old_indep)
+        -`inv_trnsfm`: A tuple of (old_indep_symb, expr_in_new_indep)
+        """
         self._indepv_trnsfm = trnsfm
         self._indepv_inv_trnsfm = inv_trnsfm
-        self._fo_odesys.transform_indepv(trnsfm, inv_trsfm)
+        new_fo_odesys = self._fo_odesys.transform_indepv(
+            trnsfm, inv_trsfm)
+        new_indepv_init_val = self._indepv_init_val
+        new_instance = self.__class__(new_fo_odesys, self.init_vals,
+                              self.param_vals, new_indepv_init_val,
+                              self.integrator, self.analytic_evalr)
+        new_instance._inv_indepv_trnsfm = inv_trnsfm
+        return new_instance
 
     def mk_init_val_symb(self, y):
         new_symb = sympy.symbols(y.func.__name__ + '_init')
@@ -125,30 +164,32 @@ class IVP(object):
             new_init_val_symbs.append(init_val_symb)
             return new_init_val_symbs
         if len(new_init_val_symbs) > 0:
-            self.analytic_evalr.configure(self._fo_odesys, self.param_vals)
+            self.analytic_evalr.configure(self._fo_odesys,
+                                          self.param_vals)
 
 
     def integrate(self, tend, N = 0, h = None, order = 1):
         """
         Integrates the non-analytic odesystem and evaluates the
-        analytic functions for the dependent variables (if there are any).
+        analytic functions for the dependent variables (if there
+        are any).
         """
         assert float(tend) == tend
         self.interpolators.cache_clear()
-        self.Yres.cache_clear()
+        self.trajectories.cache_clear()
 
         if len(self._solved_init_val_symbs) < len(self.init_vals):
             # If there are any non-analytic equations left
-            self.integrator.run(
-                {yi: self.init_vals[yi] for yi \
-                 in self._fo_odesys.non_analytic_depv},
+            y0 = {yi: self.init_vals[yi] for yi \
+                  in self._fo_odesys.non_analytic_depv}
+            self.integrator.run(y0,
                 t0 = self._indepv_init_val, tend = tend,
                 param_vals = self.param_vals,
                 N = N, h = h, order = order)
-            self.tout = self.integrator.tout
+            #self.tout = self.integrator.tout
         else:
             if N == 0: N = self.default_N
-            self.tout = np.linspace(self._indepv_init_val, tend, N)
+            #self.tout = np.linspace(self._indepv_init_val, tend, N)
 
         if len(self._solved_init_val_symbs) > 0:
             self._analytic_evalr.eval_for_indep_array(
@@ -157,37 +198,81 @@ class IVP(object):
                     for yi in self._fo_odesys.analytic_depv}
                 )
 
-    def trajectory(self):
+    @cache
+    def indep_out(self):
         """
-        Handles inv_trnsfm
+        Handles variable transformation of numerical
+        data corresponding to the independent variable
         """
-        pass
+        tout = self.integrator.tout
+        if hasattr(self, '_inv_indepv_trnsfm'):
+            new_tout = tout.copy()
+        else:
+            return tout
+
 
     @cache
-    def Yres(self):
+    def trajectories(self):
+        """
+        Handles variable transformation of numerical
+        data corresponding to the dependent variables
+        """
+        Yres = self.Yres
+        if hasattr(self, '_inv_depv_trnsfm'):
+            # do the inverse transform of the dependent variables.
+            new_Yres=Yres.copy()
+            Yres_dict={}
+            for i, cur_depv in enumerate(self._fo_odesys.all_depv):
+                for j in rang(Yres.shape[2]):
+                    # j loops over ith deriv
+                    Yres_dict[cur_depv.diff(self._fo_odesys.indepv, i)] \
+                        = Yres[:, i, j]
+
+            for i, (ori_depv, expr_in_cur) in enumerate(
+                    self._inv_depv_trnsfm.items()):
+                derivs = []
+                for j in range(Yres.shape[2]):
+                    # j loops over ith deriv
+                    der_expr = expr_in_cur.diff(
+                        self._fo_odesys.indepv)
+                    for k in range(Yres.shape[0]):
+                        # ouch, this will be slow
+                        new_Yres[k,i,j] = der_expr.subs(Yres_dict)
+
+            return new_Yres
+        else:
+            return Yres
+
+
+    @cache
+    def _Yres(self):
         """
         Unified the output of the numerical and analyitc results.
+        first axis: independent variable value
+        second axis: dependent variable index (_fo_odesys.all_depv)
+        third axis: 0-th, 1st, ... derivatives
         """
         if not hasattr(self, 'tout'): return None
-        _Yres = np.empty((len(self.tout), len(self._fo_odesys.all_depv),
+        Yres = np.empty((len(self.tout), len(self._fo_odesys.all_depv),
                           self.integrator.Yout.shape[2]), self._dtype)
         for i, yi in enumerate(self._fo_odesys.all_depv):
             if yi in self._fo_odesys.analytic_depv:
-                _Yres[:, i, :] = self._analytic_evalr.Yout[
+                Yres[:, i, :] = self._analytic_evalr.Yout[
                     :, self._fo_odesys.analytic_depv.index(yi),:]
             else:
-                _Yres[:, i, :] = self.integrator.Yout[
+                Yres[:, i, :] = self.integrator.Yout[
                     :, self._fo_odesys.non_analytic_depv.index(yi),:]
-        return _Yres
+        return Yres
 
     def depv_indices(self):
-        return range(self.Yres().shape[1])
+        return range(self.trajectories().shape[1])
+
 
     @cache
     def interpolators(self):
         intrpltrs = []
         for i in self.depv_indices():
-            intrpltrs.append(PiecewisePolynomial(self.tout, self.Yres()[:,i,:]))
+            intrpltrs.append(PiecewisePolynomial(self.tout, self.trajectories()[:,i,:]))
         return intrpltrs
 
     def get_interpolated(self, t):
@@ -233,7 +318,7 @@ class IVP(object):
                          marker = 'None', ls = lsi, color = ci)
                 lsi = 'None'
             if datapoints:
-                plt.plot(self.tout, self.Yres()[:, i, 0], label = lbl,
+                plt.plot(self.tout, self.trajectories()[:, i, 0], label = lbl,
                          marker = mi, ls = lsi, color = ci)
             plt.plot()
         plt.legend()
@@ -249,7 +334,7 @@ def plot_numeric_vs_analytic(ODESys, y0, params, tend, t0=0.0, N=0):
     odesys = ODESys()
     ivp = IVP(odesys, y0, params, t0)
     ivp.integrate(tend, N)
-    t, y = ivp.tout, ivp.Yres()[:,:,0]
+    t, y = ivp.tout, ivp.trajectories()[:,:,0]
 
     plt.subplot(311)
     ivp.plot(interpolate = True, show = False)

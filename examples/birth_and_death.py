@@ -55,19 +55,19 @@ def main(n):
     bd = BirthDeathSystem.mk_of_dim(n)
     y0 = {'y{}'.format(i): (n-i)*1.0 for i in range(n)}
     params = {'l{}'.format(i): (n-i)/10.0 for i in range(n)}
-    t0, tend, N = 0, 0.5, 100
+    t0, tend, N = 0, 10.0, 500
     ivp = IVP(bd, y0, params, t0, integrator=GSL_IVP_Integrator())
     trnsfm, inv_trnsfm = {}, {}
     for i in range(n):
         # Generate the transform (incl. inverse)
-        lny = sympy.Symbol('lny{}'.format(i))
+        lny = ivp.mk_depv_symbol('lny{}'.format(i))
         y = bd['y{}'.format(i)]
         trnsfm[lny] = sympy.log(y)
         inv_trnsfm[y] = sympy.exp(lny)
     # Apply the transform
-    ivp.use_internal_depv_trnsfm(trnsfm, inv_trnsfm)
-    ivp.integrate(tend, N)
-    ivp.plot(interpolate=True, datapoints=False, show=True)
+    ivp2 = ivp.use_internal_depv_trnsfm(trnsfm, inv_trnsfm)
+    ivp2.integrate(tend, N)
+    ivp2.plot(interpolate=True, datapoints=False, show=True)
 
 
 if __name__ == '__main__':

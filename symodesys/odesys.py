@@ -6,7 +6,7 @@ from functools import reduce
 from operator import add
 from collections import namedtuple, OrderedDict
 
-#This might be implemented+named better (unclear if namedtuple appropr):
+#This might be implemented+named better (unclear if namedtuple appropriate/adds value):
 ODEExpr = namedtuple('ODEExpr', 'order expr')
 
 
@@ -17,6 +17,10 @@ class ODESystem(object):
     dictionary should be of the form:
        sympy.Function('name')(self.indepv)
     """
+
+    # By default Symbols are taken to represent real valued
+    # variables, override this by changing `real` to False:
+    real = True
 
     # For tracking what dep var func symbs are generated upon
     # order reduction (instantiate as list)
@@ -74,7 +78,7 @@ class ODESystem(object):
                 raise KeyError('Key not found: {}'.format(key))
         else:
             try:
-                return self[sympy.Symbol(key)]
+                return self[sympy.Symbol(key, real=self.real)]
             except KeyError:
                 return self[sympy.Function(key)(self.indepv)]
         return match
@@ -172,7 +176,7 @@ class ODESystem(object):
         return True
 
     def unfunc_depv(self, expr):
-        unfunc_subs = {dvfs: sympy.Symbol(dvfs.func.__name__) for \
+        unfunc_subs = {dvfs: sympy.Symbol(dvfs.func.__name__, real=self.real) for \
                        dvfs in self.all_depv}
         return expr.subs(unfunc_subs)
 
@@ -622,7 +626,7 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
         # The assert is there to signal need to subclass if using
         # SimpleFirstOrderODESystem
         if self.param_symbs == None:
-            self.param_symbs = [sympy.Symbol(k) for k in\
+            self.param_symbs = [sympy.Symbol(k, real=self.real) for k in\
                                 self.param_tokens]
 
     # End overloading

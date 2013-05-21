@@ -4,7 +4,7 @@
 import sympy
 
 from decay import Decay
-from symodesys.ivp import IVP
+from symodesys.ivp import IVP, plot_numeric_vs_analytic
 
 def main(y0={'u':1.0}, params={'lambda_u':1.0}, t0=0.0, tend=5.0, N=20):
     """
@@ -14,7 +14,7 @@ def main(y0={'u':1.0}, params={'lambda_u':1.0}, t0=0.0, tend=5.0, N=20):
     u = d['u']
     lnu = ivp.mk_depv_symbol('lnu')
     ivp2 = ivp.use_internal_depv_trnsfm({lnu: sympy.log(u)}, {u: sympy.exp(lnu)})
-    ivp2.integrate(tend, N, order=0)
+    ivp2.integrate(tend, N, order=2)
     ivp2.plot(show=True)
 
 if __name__ == '__main__':

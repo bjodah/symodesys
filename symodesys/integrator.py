@@ -66,12 +66,12 @@ class IVP_Integrator(object):
         pass
 
 
-    def init_Yout_tout_for_fixed_step_size(self, t0, tend, N, order = 0):
-        dt = (tend - t0) / (N - 1)
+    def init_Yout_tout_for_fixed_step_size(self, t0, tend, N, order=0):
+        dt = (tend-t0) / (N-1)
         NY = len(self._fo_odesys.non_analytic_depv)
         self.tout = np.asarray(np.linspace(t0, tend, N), dtype = self._dtype)
         # Handle other dtype for tout here? linspace doesn't support dtype arg..
-        self.Yout = np.zeros((N, NY, order + 1), dtype = self._dtype)
+        self.Yout = np.zeros((N, NY, order+1), dtype = self._dtype)
 
 
 class Mpmath_IVP_Integrator(IVP_Integrator):

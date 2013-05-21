@@ -196,7 +196,7 @@ class IVP(object):
                                           self.param_vals)
 
 
-    def integrate(self, tend, N = 0, h = None, order = 1):
+    def integrate(self, tend, N=0, h=None, order=1):
         """
         Integrates the non-analytic odesystem and evaluates the
         analytic functions for the dependent variables (if there
@@ -211,9 +211,9 @@ class IVP(object):
             y0 = {yi: self.init_vals[yi] for yi \
                   in self._fo_odesys.non_analytic_depv}
             self.integrator.run(y0,
-                t0 = self._indepv_init_val, tend = tend,
-                param_vals = self.param_vals,
-                N = N, h = h, order = order)
+                t0=self._indepv_init_val, tend=tend,
+                param_vals=self.param_vals,
+                N=N, h=h, order=order)
             #self.tout = self.integrator.tout
         else:
             if N == 0: N = self.default_N
@@ -251,18 +251,18 @@ class IVP(object):
             new_Yres=Yres.copy()
             Yres_dict={}
             for i, cur_depv in enumerate(self._fo_odesys.all_depv):
-                for j in range(Yres.shape[2]+1):
+                for j in range(Yres.shape[2]):
                     # j loops over ith deriv
                     deriv = cur_depv.diff(self._fo_odesys.indepv, j)
                     Yres_dict[deriv] = Yres[:, i, j]
 
             for i, (ori_depv, expr_in_cur) in enumerate(
                     self._depv_inv_trnsfm.items()):
-                for j in range(Yres.shape[2]+1):
+                for j in range(Yres.shape[2]):
                     # j loops over ith deriv
                     der_expr = expr_in_cur.diff(
-                        self._fo_odesys.indepv)
-                    for k in range(Yres.shape[0]+1):
+                        self._fo_odesys.indepv, j)
+                    for k in range(Yres.shape[0]):
                         # ouch, this will be slow
                         new_Yres[k,i,j] = der_expr.subs(
                             {key: value[k] for key, value in Yres_dict.iteritems()})

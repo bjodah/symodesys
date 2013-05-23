@@ -60,7 +60,7 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
 
   double *f = malloc(sizeof(double)*dim);
   double *dfdt = malloc(sizeof(double)*dim);
-  gsl_matrix *dfdy = gsl_matrix_alloc(dim, dim);
+  gsl_matrix *dfdy = gsl_matrix_calloc(dim, dim); // init to zero (calloc)
 
   if (h_max > 0.0)
     {

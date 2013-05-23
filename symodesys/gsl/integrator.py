@@ -163,7 +163,6 @@ class Generic_Code(object):
                 [x.diff(indepv) for x in na_f]
                 ) if expr != 0
             ])
-        print(dfdt)
         cse_defs, cse_exprs = sympy.cse(
             sparse_jac.values() + dfdt.values(),
             symbols = sympy.numbered_symbols('cse')

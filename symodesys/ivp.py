@@ -255,20 +255,25 @@ class IVP(object):
                     # j loops over ith deriv
                     deriv = cur_depv.diff(self._fo_odesys.indepv, j)
                     Yres_dict[deriv] = Yres[:, i, j]
-
+            dummy_symb_map = dict(zip(Yres_dict.keys(), sympy.symbols('dummy:'+str(len(Yres_dict)))))
             for i, (ori_depv, expr_in_cur) in enumerate(
                     self._depv_inv_trnsfm.items()):
                 for j in range(Yres.shape[2]):
                     # j loops over ith deriv
                     der_expr = expr_in_cur.diff(
                         self._fo_odesys.indepv, j)
-                    for k in range(Yres.shape[0]):
-                        # ouch, this will be slow
-                        new_Yres[k,i,j] = der_expr.subs(
-                            {key: value[k] for key, value in Yres_dict.iteritems()})
+
+                    # derivatives need to be named.
+                    der_expr = der_expr.subs(dummy_symb_map)
+                    cur_dummies, cur_expr_keys = zip(*[(k,v) for k,v in dummy_symb_map.iteritems() if v in der_expr.atoms()])
+                    new_Yres[:,i,j] = sympy.utilities.autowrap.ufuncify(cur_dummies,der_expr,tempdir='/tmp/tmp0/')([Yres_dict[k] for k in cur_expr_keys])
+                    # for k in range(Yres.shape[0]):
+                    #     # ouch, this will be slow
+                    #     new_Yres[k,i,j] = der_expr.subs(
+                    #         {key: value[k] for key, value in Yres_dict.iteritems()})
             return new_Yres
         else:
-            return Yres
+           return Yres
 
 
     @cache

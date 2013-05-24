@@ -83,6 +83,12 @@ class ODESystem(object):
                 return self[sympy.Function(key)(self.indepv)]
         return match
 
+    def mk_func(self, key):
+        RealFunction = sympy.Function(key)
+        setattr(RealFunction, '_eval_is_real', lambda self: self.real)
+        return RealFunction(self.indepv)
+
+
     def ensure_dictkeys_as_symbs(self, val_by_token):
         """
         Convenience function for converting dicts with keys of form
@@ -123,7 +129,6 @@ class ODESystem(object):
     @property
     def known_symbs(self):
         """ Convenience attribute """
-        #
         return [self.indepv] + self.all_depv + self.param_and_sol_symbs
 
     def subs(self, subsd):
@@ -291,8 +296,9 @@ class AnyOrderODESystem(ODESystem):
         """
         helpers = {}
         for i in range(1, order):
-            candidate = sympy.Function(str(fnc.func.__name__) + '_h' + \
-                                       str(i))(self.indepv)
+            candidate = self.mk_func(fnc.func.__name__ + '_h' + str(i))
+                # sympy.Function(str(fnc.func.__name__) + '_h' + \
+                #                        str(i))(self.indepv)
             while candidate in self.odeqs:
                 candidate = candidate + '_h'
             helpers[i] = candidate
@@ -612,7 +618,7 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
         # First we need to set the keys (needed when self.expressions()
         # makes look-ups)
         self.f = OrderedDict(
-            [(sympy.Function(tok)(self.indepv), None) for\
+            [(self.mk_func(tok), None) for\
                               tok in self.dep_var_tokens])
         for tok in self.dep_var_tokens:
             self.f[self[tok]] = self.expressions[self[tok]]

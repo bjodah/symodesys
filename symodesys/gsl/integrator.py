@@ -223,8 +223,7 @@ class GSL_IVP_Integrator(IVP_Integrator):
     """
     IVP integrator using GNU Scientific Library routines odeiv2
 
-    remember to run on the instance on program exit.
-    _code.clean()
+    remember to run `clean()` on the instance on program exit. (or use IVP's context manager)
     """
 
     # step_type choices are in `step_types` in pyinterface.pyx
@@ -245,6 +244,9 @@ class GSL_IVP_Integrator(IVP_Integrator):
                               tempdir = self.tempdir,
                               save_temp = self.save_temp)
 
+    def clean(self):
+        self._code.clean()
+
     @property
     def binary(self):
         if self._binary == None:
@@ -253,10 +255,14 @@ class GSL_IVP_Integrator(IVP_Integrator):
 
 
     def run(self, y0, t0, tend, param_vals, N,
-                  abstol = None, reltol = None, h = None, h_init = None, h_max=0.0, order = 0):
+                  abstol=None, reltol=None, h=None, h_init=None, h_max=0.0, nderiv =None):
         """
         hmax won't be set if 0.0
         """
+        if nderiv == None:
+            nderiv = self.nderiv
+        else:
+            self.nderiv = nderiv
         if h_init == None:
             h_init = 1e-9 # TODO: along the lines of: h_init=f(y0, dydt, jac, abstol, reltol)
 
@@ -277,9 +283,9 @@ class GSL_IVP_Integrator(IVP_Integrator):
                               dtype = np.float64)
         if N > 0:
             # Fixed stepsize
-            self.init_Yout_tout_for_fixed_step_size(t0, tend, N, order)
+            self.init_Yout_tout_for_fixed_step_size(t0, tend, N, nderiv)
             tout, Yout = self.binary.integrate_equidistant_output(
-                t0, tend, y0_arr, N, h_init, h_max, self.abstol, self.reltol, params_arr, order)
+                t0, tend, y0_arr, N, h_init, h_max, self.abstol, self.reltol, params_arr, nderiv)
             self.tout = tout
             self.Yout = Yout
         else:

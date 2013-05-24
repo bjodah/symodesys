@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from collections import OrderedDict
 
 import numpy as np
@@ -8,7 +11,7 @@ except ImportError:
 import matplotlib.pyplot as plt
 import sympy
 
-from symodesys.helpers import SympyEvalr, cache
+from symodesys.helpers import SympyEvalr, cache, array_subs
 from symodesys.integrator import Mpmath_IVP_Integrator
 from symodesys.odesys import FirstOrderODESystem
 
@@ -100,7 +103,6 @@ class IVP(object):
     def param_vals(self, value):
         self._param_vals = self._fo_odesys.ensure_dictkeys_as_symbs(value)
 
-
     def use_internal_depv_trnsfm(self, trnsfm, inv_trnsfm, strict=True):
         """
         Solve the system numerically for the transformed variables
@@ -163,7 +165,7 @@ class IVP(object):
         Convenience function for generating sympy.Function symbols for
         use in `use_internal_depv_trnsfm`
         """
-        return sympy.Function(s)(self._fo_odesys.indepv)
+        return self._fo_odesys.mk_func(s)
 
 
     def mk_init_val_symb(self, y):
@@ -196,7 +198,7 @@ class IVP(object):
                                           self.param_vals)
 
 
-    def integrate(self, tend, N=0, h=None, order=1):
+    def integrate(self, tend, N=0, h=None, nderiv=1):
         """
         Integrates the non-analytic odesystem and evaluates the
         analytic functions for the dependent variables (if there
@@ -213,15 +215,16 @@ class IVP(object):
             self.integrator.run(y0,
                 t0=self._indepv_init_val, tend=tend,
                 param_vals=self.param_vals,
-                N=N, h=h, order=order)
+                N=N, h=h, nderiv=nderiv)
             #self.tout = self.integrator.tout
         else:
+            # If all equations were solved analytically
             if N == 0: N = self.default_N
-            #self.tout = np.linspace(self._indepv_init_val, tend, N)
+            self.integrator.tout = np.linspace(self._indepv_init_val, tend, N)
 
         if len(self._solved_init_val_symbs) > 0:
-            self._analytic_evalr.eval_for_indep_array(
-                self.tout, {
+            self.analytic_evalr.eval_for_indep_array(
+                self.indep_out(), {
                     self._solved_init_val_symbs[yi]: self.init_vals[yi]\
                     for yi in self._fo_odesys.analytic_depv}
                 )
@@ -238,42 +241,33 @@ class IVP(object):
         else:
             return tout
 
-
     @cache
     def trajectories(self):
         """
-        Handles variable transformation of numerical
-        data corresponding to the dependent variables
+        Returns an OrderedDict instance of:
+        depv: nt×nderiv
         """
         Yres = self._Yres()
+        nt, ndepv, ndatapp = Yres.shape # time, dependent variables, data per point (nderiv+1)
+        indepv = self._fo_odesys.indepv
         if self._depv_inv_trnsfm:
-            # do the inverse transform of the dependent variables.
-            new_Yres=Yres.copy()
-            Yres_dict={}
-            for i, cur_depv in enumerate(self._fo_odesys.all_depv):
-                for j in range(Yres.shape[2]):
-                    # j loops over ith deriv
-                    deriv = cur_depv.diff(self._fo_odesys.indepv, j)
-                    Yres_dict[deriv] = Yres[:, i, j]
-            dummy_symb_map = dict(zip(Yres_dict.keys(), sympy.symbols('dummy:'+str(len(Yres_dict)))))
-            for i, (ori_depv, expr_in_cur) in enumerate(
-                    self._depv_inv_trnsfm.items()):
-                for j in range(Yres.shape[2]):
-                    # j loops over ith deriv
-                    der_expr = expr_in_cur.diff(
-                        self._fo_odesys.indepv, j)
-
-                    # derivatives need to be named.
-                    der_expr = der_expr.subs(dummy_symb_map)
-                    cur_dummies, cur_expr_keys = zip(*[(k,v) for k,v in dummy_symb_map.iteritems() if v in der_expr.atoms()])
-                    new_Yres[:,i,j] = sympy.utilities.autowrap.ufuncify(cur_dummies,der_expr,tempdir='/tmp/tmp0/')([Yres_dict[k] for k in cur_expr_keys])
-                    # for k in range(Yres.shape[0]):
-                    #     # ouch, this will be slow
-                    #     new_Yres[k,i,j] = der_expr.subs(
-                    #         {key: value[k] for key, value in Yres_dict.iteritems()})
-            return new_Yres
+            # Ok, wee need to transform Yres from numerical integration
+            # back to original variables
+            od = OrderedDict()
+            deriv_data = {depv.diff(indepv, j): Yres[:,i,j] for j in range(ndatapp) \
+                           for i, depv in enumerate(self._fo_odesys.all_depv)}
+            def transform(data, expr):
+                result = np.empty((nt, ndatapp))
+                for j in range(ndatapp):
+                    der_expr = expr.diff(indepv, j)
+                    result[:,j] = array_subs(der_expr, deriv_data)
+                return result
+            for i, (ori_depv, expr_in_cur) in enumerate(self._depv_inv_trnsfm.items()):
+                od[ori_depv] = transform(Yres[:,i,:], expr_in_cur)
+            return od
         else:
-           return Yres
+            return OrderedDict(zip(self._fo_odesys.all_depv,
+                                   [Yres[:,i,:] for i in range(ndepv)]))
 
 
     @cache
@@ -286,61 +280,88 @@ class IVP(object):
         """
         #if not hasattr(self, 'tout'): return None
         Yres = np.empty((len(self.indep_out()), len(self._fo_odesys.all_depv),
-                          self.integrator.Yout.shape[2]), self._dtype)
+                          self.integrator.nderiv), self._dtype)
         for i, yi in enumerate(self._fo_odesys.all_depv):
             if yi in self._fo_odesys.analytic_depv:
-                Yres[:, i, :] = self._analytic_evalr.Yout[
+                Yres[:, i, :] = self.analytic_evalr.Yout[
                     :, self._fo_odesys.analytic_depv.index(yi),:]
             else:
                 Yres[:, i, :] = self.integrator.Yout[
                     :, self._fo_odesys.non_analytic_depv.index(yi),:]
         return Yres
 
-    def depv_indices(self):
-        return range(self.trajectories().shape[1])
-
+    @property
+    def all_depv(self):
+        """
+        Resolves current depv (in case of internal variables transformation in use)
+        """
+        if self._indepv_inv_trnsfm:
+            return self._indepv_inv_trnsfm.keys()
+        else:
+            return self._fo_odesys.all_depv
 
     @cache
     def interpolators(self):
-        intrpltrs = []
-        for i in self.depv_indices():
-            intrpltrs.append(PiecewisePolynomial(self.indep_out(), self.trajectories()[:,i,:]))
-        return intrpltrs
+        return OrderedDict([(k, PiecewisePolynomial(
+            self.indep_out(), self.trajectories()[k])) for k,v \
+                            in self.trajectories().items()])
 
-    def get_interpolated(self, t):
-        return np.array([self.interpolators()[i](t) for i in self.depv_indices()])
+
+    def get_interpolated(self, t, depvs=None):
+        if depvs == None: depvs = self.all_depv
+        return np.array([self.interpolators()[depv](t) for depv in depvs])
+
+
+    def get_depv_from_token(self, depvn):
+        """
+        Like __getitem__ of FirstOrderODESystem, but intercepts
+        variable use of internal variable transformation.
+        """
+        if self._depv_inv_trnsfm:
+            candidate = self.mk_depv_symbol(depvn)
+            if candidate in self._depv_inv_trnsfm.keys():
+                return candidate
+            else:
+                raise KeyError('{} (created from {}) not found in original depv'.format(
+                    candidate, depvn))
+        else:
+            return self._fo_odesys[depvn]
+
 
     def get_index_of_depv(self, depvn):
-        return self._fo_odesys.all_depv.index(self._fo_odesys[depvn])
+        return self.all_depv.index(self.get_depv_from_token(depvn))
 
-    def plot(self, indices = None, interpolate = True, datapoints=False,
-             show = False, skip_helpers = True, usetex=False, texnames=None):
+    def plot(self, depvs=None, interpolate=True, datapoints=False,
+             show=False, skip_helpers=True, usetex=False, texnames=None,
+             ax=None):
         """
         Rudimentary plotting utility for quick inspection of solutions
         TODO: move this from here,  make more general to accept mixed ODE sol +
         analytic y curves
+
+        Arguments:
+        - `depvs`: A sequence of depv to be plotted, plots all if it is None (default)
         """
         import matplotlib.pyplot as plt
         if usetex:
             from matplotlib import rc
             rc('text', usetex=True)
 
-        if indices == None:
-            indices = self.depv_indices()
+        if depvs == None:
+            depvs = self.all_depv
             if skip_helpers:
                 # Don't plot helper functions used in reduction of order of ode system
                 for hlpr in self._fo_odesys.frst_red_hlprs:
-                    indices.pop(self._fo_odesys.all_depv.index(hlpr[2]))
+                    depvs.pop(depvs.index(hlpr[2]))
         if interpolate:
             ipx = np.linspace(self.indep_out()[0], self.indep_out()[-1], 1000)
-            ipy = self.get_interpolated(ipx)
+            ipy = self.get_interpolated(ipx, depvs)
         ls = ['-', '--', ':']
         c = 'k b r g m'.split()
         m = 'o s ^ * d p h'.split()
-        fig = plt.figure()
-        ax = plt.subplot(111)
+        ax = ax or plt.subplot(111)
 
-        for i in indices:
+        for i, depv in enumerate(depvs):
             mi  = m[i % len(m)]
             lsi = ls[i % len(ls)]
             ci  = c[i % len(c)]
@@ -352,7 +373,7 @@ class IVP(object):
                          marker = 'None', ls = lsi, color = ci)
                 lsi = 'None'
             if datapoints:
-                ax.plot(self.indep_out(), self.trajectories()[:, i, 0], label = lbl,
+                ax.plot(self.indep_out(), self.trajectories()[depv][:, 0], label = lbl,
                          marker = mi, ls = lsi, color = ci)
 
         # Shrink box by 20%
@@ -362,6 +383,20 @@ class IVP(object):
         # Put a legend to the right of the current axis
         ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         if show: plt.show()
+
+    def __enter__(self): return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """
+        Clean
+        """
+        # implement a clean method in the subclass if
+        # you wish to use the context manager.
+        self.clean()
+
+    def clean(self):
+        self.integrator.clean()
+
 
 def plot_numeric_vs_analytic(ODESys, y0, params, tend, t0=0.0, N=0):
     """
@@ -373,19 +408,19 @@ def plot_numeric_vs_analytic(ODESys, y0, params, tend, t0=0.0, N=0):
     odesys = ODESys()
     ivp = IVP(odesys, y0, params, t0)
     ivp.integrate(tend, N)
-    t, y = ivp.indep_out(), ivp.trajectories()[:,:,0]
+    t, y = ivp.indep_out(), ivp.trajectories()
 
-    plt.subplot(311)
-    ivp.plot(interpolate = True, show = False)
+    ivp.plot(interpolate = True, show = False, ax=plt.subplot(311))
+    print y, odesys.analytic_sol.items()
 
     for i, (k, cb) in enumerate(odesys.analytic_sol.items()):
         analytic = cb(odesys, t, y0, params)
         plt.subplot(312)
-        plt.plot(t, (y[:, i] - analytic) / ivp.integrator.abstol,
+        plt.plot(t, (y[odesys[k]][:, 0] - analytic) / ivp.integrator.abstol,
                  label = k+': abserr / abstol')
         plt.legend()
         plt.subplot(313)
-        plt.plot(t, (y[:, i] - analytic) / analytic / ivp.integrator.reltol,
+        plt.plot(t, (y[odesys[k]][:, 0] - analytic) / analytic / ivp.integrator.reltol,
                  label = k+': relerr / reltol')
         plt.legend()
 

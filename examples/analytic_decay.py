@@ -30,7 +30,7 @@ def plot_numeric_vs_analytic(Sys, indep_var_lim,
     print ivp.recursive_analytic_reduction()
 
     ivp.integrate(tend, N = N)
-    t, u = ivp.tout, ivp.yout
+    t, u = ivp.indep_out(), ivp.trajectories()[odesys['u']]
 
     plt.subplot(311)
     ivp.plot()

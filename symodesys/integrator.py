@@ -28,6 +28,7 @@ class IVP_Integrator(object):
 
     abstol = 1e-6 # Default absolute tolerance
     reltol = 1e-6 # Default relative tolerance
+    nderiv = 1 # Default maximum order of derivatives
 
     kwargs_attr=['abstol', 'reltol']
 
@@ -48,8 +49,8 @@ class IVP_Integrator(object):
         self._fo_odesys = fo_odesys
 
     def run(self, y0, t0, tend, param_vals,
-                  N, abstol = None, reltol = None, h = None,
-                  order = 0):
+                  N, abstol=None, reltol=None, h=None,
+                  nderiv=None):
         """
         Should assign to self.tout and self.yout
         - `y0`: Dict mapping dep. var. symbs to initial values
@@ -59,19 +60,28 @@ class IVP_Integrator(object):
                allocation of length
         - `abstol`: absolute tolerance for numerical integrator driver routine
         - `reltol`: relative tolerance for numerical integrator driver routine
-        - `order`: Up to what order should d^n/dt^n derivatives of y be evaluated
+        - `nderiv`: Up to what nderiv should d^n/dt^n derivatives of y be evaluated
                    (defaults to 0)
         Changes to the signature of this function must be propagated to IVP.integrate
         """
         pass
 
+    def clean(self):
+        """
+        Clean up temporary files.
+        """
+        pass
 
-    def init_Yout_tout_for_fixed_step_size(self, t0, tend, N, order=0):
+    def init_Yout_tout_for_fixed_step_size(self, t0, tend, N, nderiv=None):
+        if nderiv == None:
+            nderiv = self.nderiv
+        else:
+            self.nderiv = nderiv
         dt = (tend-t0) / (N-1)
         NY = len(self._fo_odesys.non_analytic_depv)
         self.tout = np.asarray(np.linspace(t0, tend, N), dtype = self._dtype)
         # Handle other dtype for tout here? linspace doesn't support dtype arg..
-        self.Yout = np.zeros((N, NY, order+1), dtype = self._dtype)
+        self.Yout = np.zeros((N, NY, nderiv+1), dtype = self._dtype)
 
 
 class Mpmath_IVP_Integrator(IVP_Integrator):
@@ -81,24 +91,28 @@ class Mpmath_IVP_Integrator(IVP_Integrator):
 
     def run(self, y0, t0, tend, param_vals,
                   N, abstol = None, reltol = None, h = None,
-            order=0):
+            nderiv=None):
+        if nderiv == None:
+            nderiv = self.nderiv
+        else:
+            self.nderiv = nderiv
         y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
         param_val_lst = self._fo_odesys.param_val_lst(param_vals)
         cb = lambda x, y: self._fo_odesys.dydt(x, y, param_val_lst)
         self._num_y = sympy.mpmath.odefun(cb, t0, y0_val_lst, tol = abstol)
         if N > 0:
             # Fixed stepsize
-            self.init_Yout_tout_for_fixed_step_size(t0, tend, N, order)
+            self.init_Yout_tout_for_fixed_step_size(t0, tend, N, nderiv)
             for i, t in enumerate(self.tout):
                 if i == 0:
                     self.Yout[i, :, 0] = y0_val_lst
                 else:
                     self.Yout[i, :, 0] = self._num_y(self.tout[i])
 
-                if order > 0:
+                if nderiv > 0:
                     self.Yout[i, :, 1] = self._fo_odesys.dydt(
                         self.tout[i], self.Yout[i, :, 0], param_val_lst)
-                if order > 1:
+                if nderiv > 1:
                     self.Yout[i, :, 2] = self._fo_odesys.d2ydt2(
                         self.tout[i], self.Yout[i, :, 0], param_val_lst)
 
@@ -106,23 +120,6 @@ class Mpmath_IVP_Integrator(IVP_Integrator):
             raise NotImplementedError('Mpmath_IVP_Integrator does not currently support'+\
                                       ' adaptive step-size control, please consider using'+\
                                       ' SciPy_IVP_Integrator if that is what is sought for.')
-
-            # NOTE: It is not quite clear to me how to extract
-            # intermediate steps taken by mpmath.odefun... hence NotImplementedError
-            # self.tout = np.array([t0, tend])
-            # # Set Yout depending on order
-            # yout = np.array([y0_val_lst, self._num_y(tend)])
-            # if order == 0:
-            #     self.Yout = yout.reshape(yout.shape+(1,))
-            # if order > 0:
-            #     self.Yout = np.concatenate((yout, np.array(
-            #         [self._fo_odesys.dydt(
-            #             self.tout[i], yout[i, :], param_val_lst) for i in range(len(self.tout))])), axis=2)
-            # if order > 1:
-            #     self.Yout = np.concatenate((yout, np.array(
-            #         [self._fo_odesys.d2ydt2(
-            #             self.tout[i], yout[i, :], param_val_lst) for i in range(len(self.tout))])), axis=2)
-            # self.Yout = yout
 
 
 class SciPy_IVP_Integrator(IVP_Integrator):
@@ -143,7 +140,11 @@ class SciPy_IVP_Integrator(IVP_Integrator):
 
     def run(self, y0, t0, tend, param_vals,
                   N, abstol=None, reltol=None, h=None,
-                  order=0):
+                  nderiv=None):
+        if nderiv == None:
+            nderiv = self.nderiv
+        else:
+            self.nderiv = nderiv
         y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
         param_val_lst = self._fo_odesys.param_val_lst(param_vals)
         self._r.set_initial_value(y0_val_lst, t0)
@@ -152,17 +153,17 @@ class SciPy_IVP_Integrator(IVP_Integrator):
         if N > 0:
             # Fixed stepsize
             self._r.set_integrator('vode', method = 'bdf', with_jacobian = True)
-            self.init_Yout_tout_for_fixed_step_size(t0, tend, N, order)
+            self.init_Yout_tout_for_fixed_step_size(t0, tend, N, nderiv)
             for i, t in enumerate(self.tout):
                 if i == 0:
                     self.Yout[i, :, 0] = y0_val_lst
                 else:
                     self.Yout[i, :, 0] = self._r.integrate(self.tout[i])
 
-                if order > 0:
+                if nderiv > 0:
                     self.Yout[i, :, 1] = self._fo_odesys.dydt(
                         self.tout[i], self.Yout[i, :, 0], param_val_lst)
-                if order > 1:
+                if nderiv > 1:
                     self.Yout[i, :, 2] = self._fo_odesys.d2ydt2(
                         self.tout[i], self.Yout[i, :, 0], param_val_lst)
                 assert self._r.successful()
@@ -179,10 +180,10 @@ class SciPy_IVP_Integrator(IVP_Integrator):
             keep_going = True
             while keep_going:
                 keep_going = self._r.t < tend
-                if order > 0:
+                if nderiv > 0:
                     dyout.append(self._fo_odesys.dydt(
                         self._r.t, self._r.y, param_val_lst))
-                if order > 1:
+                if nderiv > 1:
                     ddyout.append(self._fo_odesys.d2ydt2(
                         self._r.t, self._r.y, param_val_lst))
                 self._r.integrate(tend, step=True)
@@ -191,9 +192,9 @@ class SciPy_IVP_Integrator(IVP_Integrator):
             warnings.resetwarnings()
             tout = np.array(tout)
             yout, dyout, ddyout = map(np.array, (yout, dyout, ddyout))
-            if order == 0:
+            if nderiv == 0:
                 self.Yout = yout.reshape((yout.shape[0], yout.shape[1], 1))
-            elif order == 1:
+            elif nderiv == 1:
                 self.Yout = np.concatenate((yout[...,np.newaxis], dyout[...,np.newaxis]), axis=2)
             else:
                 self.Yout = np.concatenate((yout[...,np.newaxis], dyout[...,np.newaxis],

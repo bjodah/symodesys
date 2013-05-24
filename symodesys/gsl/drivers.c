@@ -38,9 +38,9 @@ gsl_odeiv2_step_type * get_step_type(int index){
 int
 integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_steps,
                                        double h_init, double h_max, double eps_abs,
-                                       double eps_rel, void * params, size_t dim, int order, double tout[], double Yout[], int step_type_idx)
+                                       double eps_rel, void * params, size_t dim, int nderiv, double tout[], double Yout[], int step_type_idx)
 {
-  /* Order can be 0, 1 or 2 */
+  /* Nderiv can be 0, 1 or 2 */
   size_t i; /* Counter in macro-step loop */
   size_t j; /* Counter in print loop */
   size_t k; /* Counter in dfdy loop */
@@ -70,24 +70,24 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
   for (i = 0; i < n_steps; ++i)
     {
       tout[i] = t;
-      if (order > 0)
+      if (nderiv > 0)
         func(t, y, f, params);
-      if (order > 1)
+      if (nderiv > 1)
         jac(t, y, dfdy->data, dfdt, params);
 
       for (j = 0; j < dim; ++j)
         {
-          Yout[i*dim*(order+1)+j*(order+1)+0] = y[j];
-          if (order > 0)
-            Yout[i*dim*(order+1)+j*(order+1)+1] = f[j];
-          if (order > 1)
+          Yout[i*dim*(nderiv+1)+j*(nderiv+1)+0] = y[j];
+          if (nderiv > 0)
+            Yout[i*dim*(nderiv+1)+j*(nderiv+1)+1] = f[j];
+          if (nderiv > 1)
             {
               temp = 0;
               for (k=0; k<dim; ++k)
                 {
                   temp += gsl_matrix_get(dfdy, j, k)*f[k];
                 }
-              Yout[i*dim*(order+1)+j*(order+1)+2] = dfdt[j]+temp;
+              Yout[i*dim*(nderiv+1)+j*(nderiv+1)+2] = dfdt[j]+temp;
             }
         }
       /* Macro-step loop */
@@ -116,7 +116,7 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
 int
 integrate_ode_using_driver_fixed_step_print(double t, double t1, double y[], int n_steps,
                                             double h_init, double h_max, double eps_abs,
-                                            double eps_rel, void *params, size_t dim, int order,
+                                            double eps_rel, void *params, size_t dim, int nderiv,
 					    int step_type_idx)
 {
   int status;
@@ -125,9 +125,9 @@ integrate_ode_using_driver_fixed_step_print(double t, double t1, double y[], int
   double * Yout;
 
   tout = malloc(sizeof(double)*n_steps);
-  Yout = malloc(sizeof(double)*n_steps*dim*(order+1));
+  Yout = malloc(sizeof(double)*n_steps*dim*(nderiv+1));
   status = integrate_ode_using_driver_fixed_step(t, t1, y, n_steps, h_init, h_max, eps_abs,
-                                                 eps_rel, params, dim, order, tout, Yout, 
+                                                 eps_rel, params, dim, nderiv, tout, Yout, 
 						 step_type_idx);
   if (status != GSL_SUCCESS)
     {
@@ -139,9 +139,9 @@ integrate_ode_using_driver_fixed_step_print(double t, double t1, double y[], int
 	  printf(STRINGIFY(PRECISION), tout[i]);
 	  for (j = 0; j < dim; ++j)
 	    {
-          for (k = 0; k<=order; ++k)
+          for (k = 0; k<=nderiv; ++k)
             {
-              printf(" " STRINGIFY(PRECISION), Yout[i*dim*(order+1)+j*(order+1)+k]);
+              printf(" " STRINGIFY(PRECISION), Yout[i*dim*(nderiv+1)+j*(nderiv+1)+k]);
             }
 	    }
 	  printf("\n");

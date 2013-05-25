@@ -6,7 +6,7 @@ import numpy as np
 
 # Package imports
 from symodesys import SimpleFirstOrderODESystem
-from symodesys.ivp import plot_numeric_vs_analytic
+from symodesys.convenience import plot_numeric_error
 
 class Decay(SimpleFirstOrderODESystem):
 
@@ -17,7 +17,7 @@ class Decay(SimpleFirstOrderODESystem):
     def expressions(self):
         return {self['u']: self['lambda_u'] * -self['u']}
 
-    def analytic_u(self, indep_vals, y0, params):
+    def analytic_u(self, indep_vals, y0, params, t0):
         return y0['u'] * np.exp(-params['lambda_u']*indep_vals)
 
     analytic_sol = {'u': analytic_u}

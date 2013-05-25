@@ -192,7 +192,7 @@ class IVP(object):
             self._fo_odesys.subs({sol_symb: sol_init_val})
             self._solved_init_val_symbs[yi] = init_val_symb
             new_init_val_symbs.append(init_val_symb)
-            return new_init_val_symbs
+            return new_init_val_symbs # <--- Double check this... looks weird
         if len(new_init_val_symbs) > 0:
             self.analytic_evalr.configure(self._fo_odesys,
                                           self.param_vals)
@@ -205,6 +205,8 @@ class IVP(object):
         are any).
         """
         assert float(tend) == tend
+        self.indep_out.cache_clear()
+        self._Yres.cache_clear()
         self.interpolators.cache_clear()
         self.trajectories.cache_clear()
 
@@ -280,7 +282,7 @@ class IVP(object):
         """
         #if not hasattr(self, 'tout'): return None
         Yres = np.empty((len(self.indep_out()), len(self._fo_odesys.all_depv),
-                          self.integrator.nderiv), self._dtype)
+                          self.integrator.nderiv+1), self._dtype)
         for i, yi in enumerate(self._fo_odesys.all_depv):
             if yi in self._fo_odesys.analytic_depv:
                 Yres[:, i, :] = self.analytic_evalr.Yout[
@@ -376,13 +378,15 @@ class IVP(object):
                 ax.plot(self.indep_out(), self.trajectories()[depv][:, 0], label = lbl,
                          marker = mi, ls = lsi, color = ci)
 
-        # Shrink box by 20%
-        box = ax.get_position()
-        ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
 
         # Put a legend to the right of the current axis
-        ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        if show: plt.show()
+        if show:
+            # Shrink box by 20%
+            box = ax.get_position()
+            ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+            ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+            plt.show()
+        return ax
 
     def __enter__(self): return self
 
@@ -396,32 +400,3 @@ class IVP(object):
 
     def clean(self):
         self.integrator.clean()
-
-
-def plot_numeric_vs_analytic(ODESys, y0, params, tend, t0=0.0, N=0):
-    """
-    Convenience function for instantiating ODESys class and assigning
-    it to an associated IVP instance, run the integration and in the case
-    of ODESys having 'analytic_sol', plot the absolute and relative errors
-    made during the integration.
-    """
-    odesys = ODESys()
-    ivp = IVP(odesys, y0, params, t0)
-    ivp.integrate(tend, N)
-    t, y = ivp.indep_out(), ivp.trajectories()
-
-    ivp.plot(interpolate = True, show = False, ax=plt.subplot(311))
-    print y, odesys.analytic_sol.items()
-
-    for i, (k, cb) in enumerate(odesys.analytic_sol.items()):
-        analytic = cb(odesys, t, y0, params)
-        plt.subplot(312)
-        plt.plot(t, (y[odesys[k]][:, 0] - analytic) / ivp.integrator.abstol,
-                 label = k+': abserr / abstol')
-        plt.legend()
-        plt.subplot(313)
-        plt.plot(t, (y[odesys[k]][:, 0] - analytic) / analytic / ivp.integrator.reltol,
-                 label = k+': relerr / reltol')
-        plt.legend()
-
-    plt.show()

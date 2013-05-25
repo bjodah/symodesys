@@ -14,8 +14,8 @@ from interpol import X5
 # TODO: Let IVP do transfm and back-transfm internally + convert PiecewisePolynomial
 
 
-def plot_numeric_vs_analytic(ODESys, indep_var_lim,
-                             init_dep_var_vals_by_token, param_vals, N = 0):
+def main(ODESys, indep_var_lim,
+         init_dep_var_vals_by_token, param_vals, N = 0):
     """
     Integrate
     """
@@ -57,7 +57,7 @@ def plot_numeric_vs_analytic(ODESys, indep_var_lim,
 
 
 if __name__ == '__main__':
-    plot_numeric_vs_analytic(
+    main(
         ODESys = X5,
         indep_var_lim = (0, 10.0),
         init_dep_var_vals_by_token = {'y': 1.0},

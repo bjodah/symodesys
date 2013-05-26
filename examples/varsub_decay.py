@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+ #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 import sys
@@ -11,11 +11,14 @@ from symodesys.ivp import IVP
 from decay import Decay
 
 
-def main_analytic(ODESys, y0, t0, tend, params N = 0):
+def main(ODESys, y0, t0, tend, params, N=0):
     """
     This example does not use the transform hiding mechanisms
     of IVP but directly acts on FirstOrderODESystem methods
     for variable transformations.
+
+    For a more convinient way  to do variable substitutions look
+    at varsub_interpol.py
     """
     odesys = ODESys()
 
@@ -24,21 +27,24 @@ def main_analytic(ODESys, y0, t0, tend, params N = 0):
     u = odesys['u']
     trnsfm = {z: sympy.log(u)}
     inv_trsfm = {u: sympy.exp(z)}
-    odesys = odesys.transform_depv(trnsfm, inv_trsfm)
+    new_odesys = odesys.transform_depv(trnsfm, inv_trsfm)
     sympy.pprint(odesys.eqs)
     # Convert initial values:
-    y0 = {odesys[dv]: y0[dv] if dv in y0 else trnsfm[dv].subs(y0) for \
-          dv in odesys.all_depv}
+    new_y0 = {new_odesys[dv]: y0[dv] if dv in y0 else trnsfm[dv].subs(
+        odesys.ensure_dictkeys_as_symbs(y0)) for \
+          dv in new_odesys.all_depv}
 
-    ivp = IVP(odesys, y0, param_vals_by_symb, t0)
+    ivp = IVP(new_odesys, new_y0, params, t0)
     ivp.integrate(tend, N = N)
-    t, z = ivp.tout, ivp.yout
+    t, z = ivp.indep_out(), ivp.trajectories()[new_odesys['z']]
 
-    plt.subplot(311)
-    ivp.plot(interpolate = True, show = False)
+    ax = plt.subplot(311)
+    ivp.plot(ax=ax, interpolate=True, show=False)
+    ax.legend()
+    # ax.xlabel('t')
+    # ax.ylabel('z')
 
-    analytic_u = odesys.analytic_u(
-        t, init_dep_var_vals_by_token, param_vals_by_symb)
+    analytic_u = odesys.analytic_u(t, y0, params, t0)
     analytic_z = np.log(analytic_u)
 
     plt.subplot(312)
@@ -53,10 +59,10 @@ def main_analytic(ODESys, y0, t0, tend, params N = 0):
 
 
 if __name__ == '__main__':
-    plot_numeric_vs_analytic(
+    main(
         Decay,
         y0 = {'u': 1.0},
         t0 = 0.0,
         tend = 10.0,
         params = {'lambda_u': 0.2},
-        N = 0)
+        N = 10)

@@ -10,20 +10,14 @@ import matplotlib.pyplot as plt
 from symodesys.ivp import IVP
 from decay import Decay
 
-# TODO: Let IVP do transfm and back-transfm internally + convert PiecewisePolynomial
 
-
-def plot_numeric_vs_analytic(ODESys, indep_var_lim,
-                             init_dep_var_vals_by_token, param_vals, N = 0):
+def main_analytic(ODESys, y0, t0, tend, params N = 0):
     """
-    Integrate
+    This example does not use the transform hiding mechanisms
+    of IVP but directly acts on FirstOrderODESystem methods
+    for variable transformations.
     """
     odesys = ODESys()
-    param_vals_by_symb = odesys.get_param_vals_by_symb_from_by_token(
-        param_vals)
-
-    y0 = {odesys[k]: v for k, v in init_dep_var_vals_by_token.items()}
-    t0, tend = indep_var_lim
 
     # Substitute u for v=log(u)
     z = sympy.Function('z')(odesys.indepv)
@@ -33,7 +27,8 @@ def plot_numeric_vs_analytic(ODESys, indep_var_lim,
     odesys = odesys.transform_depv(trnsfm, inv_trsfm)
     sympy.pprint(odesys.eqs)
     # Convert initial values:
-    y0 = {odesys[dv]: y0[dv] if dv in y0 else trnsfm[dv].subs(y0) for dv in odesys.all_depv}
+    y0 = {odesys[dv]: y0[dv] if dv in y0 else trnsfm[dv].subs(y0) for \
+          dv in odesys.all_depv}
 
     ivp = IVP(odesys, y0, param_vals_by_symb, t0)
     ivp.integrate(tend, N = N)
@@ -59,8 +54,9 @@ def plot_numeric_vs_analytic(ODESys, indep_var_lim,
 
 if __name__ == '__main__':
     plot_numeric_vs_analytic(
-        Sys = Decay,
-        indep_var_lim = (0, 10.0),
-        init_dep_var_vals_by_token = {'u': 1.0},
-        param_vals = {'lambda_u': 0.2},
+        Decay,
+        y0 = {'u': 1.0},
+        t0 = 0.0,
+        tend = 10.0,
+        params = {'lambda_u': 0.2},
         N = 0)

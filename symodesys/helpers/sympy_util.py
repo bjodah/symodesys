@@ -35,8 +35,8 @@ def alt_ufuncify(args, expr, **kwargs):
     f = implemented_function('f', l)
 
     # first argument accepts an array
-    return autowrap(C.Equality(y[i], f(*[C.IndexedBase(C.Dummy(a.name))[i] for a \
-                                         in args])), **kwargs)
+    internal_args = [C.IndexedBase(C.Dummy(a.name)) for a in args]
+    return autowrap(C.Equality(y[i], f(*[a[i] for a in internal_args])), **kwargs)
 
 
 @cache
@@ -98,8 +98,25 @@ def _array_subs_ufuncifier(expr, keys):
         # derivatives first
         for deriv, symb in derivs[n].items():
             expr = expr.subs({deriv: symb})
-    ufunc = alt_ufuncify(used_keys_symbs, expr, tempdir='/tmp/tmp0')
-    return ufunc, tuple(used_keys)
+
+    # Now we are almost there..
+    # But e.g. z(t) has included t into used_keys
+    # we need to double check that t is truly used
+    # now that z(t) has been turned into z
+    truly_used_keys, truly_used_keys_symbs = [], []
+    for k, ks in zip(used_keys, used_keys_symbs):
+        if expr.has(ks):
+            truly_used_keys.append(k)
+            truly_used_keys_symbs.append(ks)
+
+    ufunc = alt_ufuncify(tuple(truly_used_keys_symbs), expr)
+
+    # autowrap is not called (from within alt_ufuncify) with args
+    # specified, hence we need to sort alphabetically our used_keys
+    # _based on_ alphabetic order of used_keys_symbs
+    return ufunc, tuple(sorted(
+        truly_used_keys,
+        key=lambda x: truly_used_keys_symbs[truly_used_keys.index(x)]))
 
 def array_subs(expr, array_dict):
     """

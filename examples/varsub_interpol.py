@@ -14,44 +14,50 @@ from interpol import X5
 # TODO: Let IVP do transfm and back-transfm internally + convert PiecewisePolynomial
 
 
-def main(ODESys, indep_var_lim,
-         init_dep_var_vals_by_token, param_vals, N = 0):
+def main(ODESys, y0, params, t0, tend, N = 0):
     """
     Integrate
     """
 
     # Setup
     odesys = ODESys()
-    param_vals_by_symb = odesys.get_param_vals_by_symb_from_by_token(
-        param_vals)
-
-    t0, tend = indep_var_lim
-    y0 = {odesys[k]: v for k, v in init_dep_var_vals_by_token.items()}
 
     # Instantiate Initial Value Problem:
-    ivp = IVP(odesys, y0, param_vals_by_symb, t0)
+    ivp = IVP(odesys, y0, params, t0)
 
     # Set IVP to interally use variable substitution:
     # z=log(u)
-    z = sympy.Function('z')(odesys.indepv)
+    z = ivp.mk_depv_symbol('z')
     y = odesys['y']
     trnsfm = {z: sympy.log(y)}
     inv_trsfm = {y: sympy.exp(z)}
+
     # This call also converts initial values:
-    ivp.use_internal_depv_trnsfm(trnsfm, inv_trsfm)
-    y0 = {odesys[dv]: y0[dv] if dv in y0 else trnsfm[dv].subs(y0) for dv in odesys.all_depv}
+    ivp2 = ivp.use_internal_depv_trnsfm(trnsfm, inv_trsfm)
 
     # Solve IVP
-    ivp.integrate(tend, N = N)
+    ivp2.integrate(tend, N=N)
+
+    print '== t    ====='
+    t = ivp2.integrator.tout
+    print t
+    print '== y(t) ===== (y=t**5/5+1.0, dydt = t**4))'
+    num_y    = ivp2.trajectories()[ivp2.get_depv_from_token('y')][:,0]
+    num_dydt = ivp2.trajectories()[ivp2.get_depv_from_token('y')][:,1]
+    print num_y - (t**5/5+1.0)
+    print num_dydt - t**4
+    print '== z(t) ===== (z=log(y), dzdt = t**4*exp(-z))'
+    num_z, num_dzdt = ivp2._Yres()[:,0,0], ivp2._Yres()[:,0,1]
+    print num_z - np.log(t**5/5+1.0)
+    print num_dzdt - t**4/(t**5/5+1.0)
 
     # Anlyse output
-    t, y = ivp.tout, ivp.yout
-
-    ivp.plot(interpolate = True, show = False)
-    analytic_y = odesys.analytic_y(t, t0, init_dep_var_vals_by_token)
     plot_t = np.linspace(t0, tend, 50)
-    plot_ay = odesys.analytic_y(plot_t, t0, init_dep_var_vals_by_token)
-    plt.plot(plot_t, plot_ay, ls = '--', label = 'Analytic')
+
+    ax = ivp2.plot(interpolate = True, show = False)
+    for depv, cb in odesys.analytic_sol.items():
+        ax.plot(plot_t, cb(odesys, plot_t, y0, params, t0), label='Analytic {}'.format(depv))
+
     plt.legend()
     plt.show()
 
@@ -59,7 +65,8 @@ def main(ODESys, indep_var_lim,
 if __name__ == '__main__':
     main(
         ODESys = X5,
-        indep_var_lim = (0, 10.0),
-        init_dep_var_vals_by_token = {'y': 1.0},
-        param_vals = {},
-        N = 0)
+        y0={'y': 1.0},
+        t0=0.0,
+        tend=3.0,
+        params = {},
+        N=10)

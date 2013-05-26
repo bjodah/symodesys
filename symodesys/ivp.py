@@ -240,6 +240,7 @@ class IVP(object):
         tout = self.integrator.tout
         if self._indepv_inv_trnsfm:
             new_tout = tout.copy()
+            raise NotImplementedError
         else:
             return tout
 
@@ -250,6 +251,7 @@ class IVP(object):
         depv: nt×nderiv
         """
         Yres = self._Yres()
+        tout = self.integrator.tout
         nt, ndepv, ndatapp = Yres.shape # time, dependent variables, data per point (nderiv+1)
         indepv = self._fo_odesys.indepv
         if self._depv_inv_trnsfm:
@@ -258,7 +260,10 @@ class IVP(object):
             od = OrderedDict()
             deriv_data = {depv.diff(indepv, j): Yres[:,i,j] for j in range(ndatapp) \
                            for i, depv in enumerate(self._fo_odesys.all_depv)}
+            deriv_data[indepv] = tout
             def transform(data, expr):
+                # Convert data for all derivatives in transformed system
+                # to corresponding derivatives in original system
                 result = np.empty((nt, ndatapp))
                 for j in range(ndatapp):
                     der_expr = expr.diff(indepv, j)
@@ -297,8 +302,8 @@ class IVP(object):
         """
         Resolves current depv (in case of internal variables transformation in use)
         """
-        if self._indepv_inv_trnsfm:
-            return self._indepv_inv_trnsfm.keys()
+        if self._depv_inv_trnsfm:
+            return self._depv_inv_trnsfm.keys()
         else:
             return self._fo_odesys.all_depv
 

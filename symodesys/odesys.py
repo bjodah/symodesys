@@ -117,14 +117,17 @@ class ODESystem(object):
         return [self.solved[yi][0] for yi in self.analytic_depv]
 
     @property
-    def param_and_sol_symbs(self):
-        """ Convenience attribute """
-        analytic_sol_symbs = set()
+    def analytic_sol_symbs(self):
+        symbs = set()
         if len(self.solved) > 0:
             for expr, sol_symbs in self.solved.values():
-                analytic_sol_symbs = analytic_sol_symbs.union(sol_symbs)
-        analytic_sol_symbs = list(analytic_sol_symbs)
-        return self.param_symbs + analytic_sol_symbs
+                symbs = symbs.union(sol_symbs)
+        return list(symbs)
+
+    @property
+    def param_and_sol_symbs(self):
+        """ Convenience attribute """
+        return self.param_symbs + self.analytic_sol_symbs
 
     @property
     def known_symbs(self):
@@ -132,7 +135,7 @@ class ODESystem(object):
         return [self.indepv] + self.all_depv + self.param_and_sol_symbs
 
     def subs(self, subsd):
-        for key in subsd.keys():
+        for key, value in subsd.items():
             if not key in self.known_symbs:
                 raise KeyError(
                     'Symbol: {} not known in odesys'.format(key))
@@ -141,19 +144,31 @@ class ODESystem(object):
                 raise KeyError('Symbol: {} is a dependent variable,' + \
                                ' use `transform_depvs`'.format(key))
             elif key == self.indepv:
-                self.transform_indep(subsd[key], key)
-            elif key in self.param_symbs:
-                i = self.param_symbs.index(key)
-                self.param_symbs[i] = self.param_symbs[i].subs(
-                    {key: subsd[key]})
+                self.transform_indep(value, key)
+            elif key in self.param_and_sol_symbs:
+                if key in self.param_symbs:
+                    self.param_symbs[self.param_symbs.index(key)] = value
+                else:
+                    # Sanity check (param_and_sol_symbs)
+                    assert key in self.analytic_sol_symbs
+                    new_solved = {}
+                    for depv, (expr, sol_symb) in self.solved.items():
+                        if expr.has(key):
+                            new_solved[depv] = (expr.subs({key: value}),
+                                               subs_set(sol_symb, {key: value}))
+                        else:
+                            new_solved[depv] = (expr, sol_symb)
+                    self.solved = new_solved
                 for key, odeexpr in self.odeqs.iteritems():
                     self.odeqs[key] = ODEExpr(
                         odeexpr.order, odeexpr.expr.subs(
-                            {key: subsd[key]}))
+                            {key: value}))
                 for key, (expr, sol_symbs) in self.solved.iteritems():
-                    self.solved[key] = expr.subs({key: subsd[key]}),\
+                    self.solved[key] = expr.subs({key: value}),\
                                        subs_set(sol_symbs,
-                                                {key: subsd[key]})
+                                                {key: value})
+            else:
+                raise KeyError("{} not known in ODE system".format(key))
 
 
     @property
@@ -374,6 +389,8 @@ class FirstOrderODESystem(ODESystem):
     def recursive_analytic_auto_sol(self):
         """
         Solves equations one by one
+        (hence it can only find solutions for
+         independent equations)
         """
         changed_last_loop = True
         # new_y = []

@@ -36,12 +36,16 @@ Other software built using symodesys:
   chemical reactions
 
 # Prerequisities
-Python 2.x (TODO: determine x, probably x=7)
-Sympy 0.y (TODO: determine y, probably y=6)
-Cython 0.z (TODO: determine z, probably z=18)
+(Tested against)
+Python 2.7
+Sympy 0.7.2-git 
+Cython 0.19
 
 # Optional packages
-Sundials u (TODO: determine u, probably u=)
+Gnu sciencific library (GSL v. 1.15)
+[TODO] Sundials 
+[TODO] ODEPACK
+[TODO] RODAS
 
 # Installation
 Clone git-repo. Add to $PYTHONPATH
@@ -59,14 +63,14 @@ expected time frame for this: months)
 4. Write proper documentation and doctests (in Sympy style)
 5. Announce on Sympy maillist for comments.
 6. If received well, and as the project matures, it might be included
-in Sympy in some way.
+(incrementally) in Sympy in some way.
 
 # Philosophy
-* Small codebase to aid future maintainence
+* "Small" codebase to aid future maintainence
 * Write programs that do one thing and do it well (Unix) - let's avoid feature creep
 * Code reuse - Leverage other peoples code as much as possible (external dependencies
   is _not_ a problem thanks to PyPI) and provide means good class hierarchy for 3rd party extensions.
-* KISS (Keep it simple stupid) - Minimum amount of magic code in the project
+* KISS (Keep it simple stupid) - Minimum amount of magic code in the project (might need to rewrite as own SymPy capabilityes progress)
 * Try to be in line with best practices (code reviews are welcome).
 
 ## Author
@@ -74,4 +78,4 @@ Written by Björn Dahlgren. Copyright 2012-2013.
 
 ## License
 Open Soucrce. Released under the very permissive simplified
-(2-clause) BSD license. See LICENCE.tx for further details.
+(2-clause) BSD license. See LICENCE.txt for further details.

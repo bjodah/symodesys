@@ -200,3 +200,55 @@ class SciPy_IVP_Integrator(IVP_Integrator):
                 self.Yout = np.concatenate((yout[...,np.newaxis], dyout[...,np.newaxis],
                                            ddyout[...,np.newaxis]), axis=2)
             self.tout = tout
+
+class SympyEvalr(object):
+    """
+    Specialized class to mimic the interface of IVP_Integrator
+    class. It is used when an ODE has an analytic solution.
+
+    Instances evaluates sympy expressions dependent on one variable and
+    also substitutes parameters in expression using provided instance
+    of FirstOrderODESystem
+    The instances also evaluates the derivates in the independent variable
+    up to requested order. (to facilitate interpolation)
+    """
+
+    default_dtype = np.float64
+
+    def __init__(self, nderiv=0, dtype=None):
+        """
+
+        Arguments:
+        - `exprs`: List of expressions to be evaluated
+        - `indep_var_symb`: Sympy symbol of the independent variable
+        - `params_by_symb`: Dictionary mapping sympy symbols of parameters to values
+        - `nderiv`: set higher than 0 (default) in nderiv to also evaluate derivatives.
+                   (output is sotred in self.Yout)
+        """
+        self.nderiv = nderiv
+        if dtype == None: dtype = self.default_dtype
+        self._dtype = dtype
+
+
+    def configure(self, fo_odesys, param_vals):
+        self._exprs = fo_odesys.solved_exprs
+        self._indep_var_symb = fo_odesys.indepv
+        self._params_by_symb = param_vals
+
+
+    def eval_for_indep_array(self, arr, extra_params_by_symb):
+        """
+        Evaluate all expressions for values of indepedndent variable
+        in array `arr` using self._params_symb and `extra_params_by_symb`
+        for static substitution in sympy expressions in the list self._exprs
+        """
+        _Yout = np.empty((len(arr), len(self._exprs), self.nderiv+1), dtype=self._dtype)
+        for expr_idx, expr in enumerate(self._exprs):
+            for nderiv in range(self._nderiv):
+                subs = self._params_by_symb
+                subs.update(extra_params_by_symb)
+                for i, t in enumerate(arr):
+                    subs.update({self._indep_var_symb: t})
+                    diff_expr = expr.diff(self._indep_var_symb, nderiv)
+                    _Yout[i, expr_idx, nderiv] = diff_expr.subs(subs)
+        self.Yout = _Yout

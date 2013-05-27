@@ -11,8 +11,8 @@ except ImportError:
 import matplotlib.pyplot as plt
 import sympy
 
-from symodesys.helpers import SympyEvalr, cache, array_subs
-from symodesys.integrator import Mpmath_IVP_Integrator
+from symodesys.helpers import cache, array_subs
+from symodesys.integrator import Mpmath_IVP_Integrator, SympyEvalr
 from symodesys.odesys import FirstOrderODESystem
 
 # LONG-TERM FUTURE TODO: Support uncertainties as parameter inputs
@@ -184,7 +184,7 @@ class IVP(object):
         self._fo_odesys.recursive_analytic_auto_sol()
         for yi, (expr, sol_symbs) in self._fo_odesys.solved.iteritems():
             if yi in self._solved_init_val_symbs: continue
-            assert len(sol_symbs) == 1
+            assert len(sol_symbs) == 1 # Only one new constant per equation
             sol_symb = sol_symbs.copy().pop()
             init_val_symb = self.mk_init_val_symb(yi)
             sol_init_val = determine_const_val_for_init_val(
@@ -192,10 +192,11 @@ class IVP(object):
             self._fo_odesys.subs({sol_symb: sol_init_val})
             self._solved_init_val_symbs[yi] = init_val_symb
             new_init_val_symbs.append(init_val_symb)
-            return new_init_val_symbs # <--- Double check this... looks weird
         if len(new_init_val_symbs) > 0:
+            print "calling again" ###
             self.analytic_evalr.configure(self._fo_odesys,
                                           self.param_vals)
+        return new_init_val_symbs
 
 
     def integrate(self, tend, N=0, h=None, nderiv=1):
@@ -225,6 +226,7 @@ class IVP(object):
             self.integrator.tout = np.linspace(self._indepv_init_val, tend, N)
 
         if len(self._solved_init_val_symbs) > 0:
+            self.analytic_evalr._nderiv = nderiv
             self.analytic_evalr.eval_for_indep_array(
                 self.indep_out(), {
                     self._solved_init_val_symbs[yi]: self.init_vals[yi]\
@@ -293,8 +295,9 @@ class IVP(object):
                 Yres[:, i, :] = self.analytic_evalr.Yout[
                     :, self._fo_odesys.analytic_depv.index(yi),:]
             else:
-                Yres[:, i, :] = self.integrator.Yout[
-                    :, self._fo_odesys.non_analytic_depv.index(yi),:]
+                if len(self._fo_odesys.non_analytic_depv) > 0:
+                    Yres[:, i, :] = self.integrator.Yout[
+                        :, self._fo_odesys.non_analytic_depv.index(yi),:]
         return Yres
 
     @property

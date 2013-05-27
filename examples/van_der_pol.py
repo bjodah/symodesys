@@ -20,13 +20,13 @@ class VanDerPolOscillator(SimpleFirstOrderODESystem):
                 }
 
 
-def main(y0, params, tend, t0 = 0.0, N = 0):
+def main(y0, params, tend, t0 = 0.0, N = 50):
     """
     Example program integrating an IVP problem of van der Pol oscillator
     default is adaptive step size (N=0)
     """
     vdpo = VanDerPolOscillator()
-    ivp = IVP(vdpo, y0, params, t0, abstol=1e-6, reltol=1e-6)
+    ivp = IVP(vdpo, y0, params, t0)
 
     ivp.integrate(tend, N)
     ivp.plot(interpolate = True, datapoints=False, show = True)

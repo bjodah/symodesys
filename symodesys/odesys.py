@@ -1,10 +1,15 @@
-from symodesys.helpers import OrderedDefaultdict, subs_set, get_new_symbs, deprecated
-
-import sympy
-
+# stdlib imports
 from functools import reduce
 from operator import add
 from collections import namedtuple, OrderedDict
+import new
+
+# other imports
+import sympy
+
+# project imports
+from symodesys.helpers import OrderedDefaultdict, subs_set, get_new_symbs, deprecated
+
 
 #This might be implemented+named better (unclear if namedtuple appropriate/adds value):
 ODEExpr = namedtuple('ODEExpr', 'order expr')
@@ -84,9 +89,23 @@ class ODESystem(object):
         return match
 
     def mk_func(self, key):
-        RealFunction = sympy.Function(key)
-        setattr(RealFunction, '_eval_is_real', lambda self: self.real)
-        return RealFunction(self.indepv)
+        """
+        Returns an sympy.Function instance with name key and correct
+        dependent variable
+        """
+        # metaclasses and special behaviour of subclassed
+        # classes of sympy.Function makes this tricky.. see tests
+        try:
+            ori_eval_is_real = sympy.Function._eval_is_real
+        except AttributeError:
+            ori_eval_is_real = None
+        setattr(sympy.Function, '_eval_is_real', lambda self_: self.real)
+        instance = sympy.Function(key)(self.indepv)
+        if ori_eval_is_real:
+            setattr(sympy.Function, '_eval_is_real', ori_eval_is_real)
+        else:
+            delattr(sympy.Function, '_eval_is_real')
+        return instance
 
 
     def ensure_dictkeys_as_symbs(self, val_by_token):
@@ -175,6 +194,7 @@ class ODESystem(object):
     def is_first_order(self):
         return all([v.order == 1 for v in self.odeqs.values()])
 
+
     @property
     def is_autonomous(self):
         for depv, (order, expr) in \
@@ -183,26 +203,17 @@ class ODESystem(object):
                 return False
         return True
 
-    @property
-    def is_linear(self):
-        # Most easily done for first order system?
-        for depv, (order, expr) in \
-                self.odeqs.iteritems():
-            for wrt in self.all_depv:
-                expr = expr.diff(wrt)
-
-            if self.unfunc_depv(expr).diff(self.indepv) != 0:
-                return False
-        return True
 
     def unfunc_depv(self, expr):
         unfunc_subs = {dvfs: sympy.Symbol(dvfs.func.__name__, real=self.real) for \
                        dvfs in self.all_depv}
         return expr.subs(unfunc_subs)
 
+
     @property
     def is_homogeneous(self):
         pass
+
 
     def do_sanity_check_of_odeqs(self):
         for fnc, (order, expr) in self.odeqs.iteritems():
@@ -218,10 +229,12 @@ class ODESystem(object):
                                 assert not len(wrt) > \
                                        odeqs[check_fnc][0]
 
+
     def __eq__(self, other):
         for attr in self._attrs_to_cmp_for_eq:
             if getattr(self, attr) != getattr(other, attr): return False
         return True
+
 
     @property
     def eqs(self):
@@ -230,12 +243,14 @@ class ODESystem(object):
         """
         return [self.eq(depv) for depv in self.all_depv]
 
+
     def eq(self, depv):
         """
         Returns a sympy.Eq for diff eq of ``depv''
         """
         order, expr = self.odeqs[depv]
         return sympy.Eq(depv.diff(self.indepv, order), expr)
+
 
     @classmethod
     def from_list_of_eqs(cls, lst):
@@ -264,8 +279,8 @@ class ODESystem(object):
             param_symbs = param_symbs.union(get_new_symbs(
                 expr, odeqs.keys() + \
                 [indepv]))
-        new_instance = cls(odeqs, indepv,
-                           list(param_symbs))
+        new_instance = cls(odeqs=odeqs, indepv=indepv,
+                           param_symbs=list(param_symbs))
         new_instance.do_sanity_check_of_odeqs()
         return new_instance
 
@@ -319,8 +334,12 @@ class AnyOrderODESystem(ODESystem):
             helpers[i] = candidate
         return helpers
 
-    def reduce_to_sys_of_first_order(self):
-        """ Returns a new instance with reduced order (1st) """
+    def reduce_to_sys_of_first_order(self, y0=None, default_red_init_val=None):
+        """
+        Returns a new instance with reduced order (1st).
+        If y0 and default_red_init_val are provided, y0 will be updated
+        with key,value entries (helper_function, default_red_init_val)
+        """
         new_odeqs = self.mkodeqs()
         frst_red_hlprs = self.frst_red_hlprs[:]
         # TODO, revise frst_red_hlprs format (cur.  len 3 tuple)
@@ -338,9 +357,14 @@ class AnyOrderODESystem(ODESystem):
             new_odeqs[hlpr[order - 1]] = ODEExpr(1, expr.subs(subsd))
             frst_red_hlprs.extend([
                 (fnc, o, expr) for o, expr in hlpr.iteritems()])
-        new_instance = self.__class__(new_odeqs, self.indepv,
-                                      self.param_symbs[:])
+        new_instance = FirstOrderODESystem(
+            f=OrderedDict([(k, v.expr)for k,v in new_odeqs.items()]),
+            indepv=self.indepv, param_symbs=self.param_symbs[:])
         new_instance.frst_red_hlprs = frst_red_hlprs
+        if y0:
+            for source, order, helper in frst_red_hlprs:
+                if not helper in y0:
+                    y0[helper] = default_red_init_val
         return new_instance
 
 
@@ -376,6 +400,19 @@ class FirstOrderODESystem(ODESystem):
         if self.f == None:
             self.init_f()
         assert self.is_first_order
+
+
+    @property
+    def is_linear(self):
+        for depv, (order, expr) in \
+                self.odeqs.iteritems():
+            for wrt in self.all_depv:
+                expr = expr.diff(wrt)
+
+            if self.unfunc_depv(expr).diff(self.indepv) != 0:
+                return False
+        return True
+
 
     @property
     def all_depv(self):
@@ -619,17 +656,6 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
         self.param_tokens = self.param_tokens or []
         super(SimpleFirstOrderODESystem, self).__init__(*args, **kwargs)
 
-    @deprecated
-    def get_param_vals_by_symb_from_by_token(self, param_vals_by_token):
-        """
-        Convenience function
-        """
-        for token in param_vals_by_token:
-            if not token in self.param_tokens: raise KeyError(
-                'Parameter token ``{}" unknown'.format(token))
-        return {self[k]: v for k, v in param_vals_by_token.iteritems()}
-
-    # Begin overloading
 
     def init_f(self):
         # First we need to set the keys (needed when self.expressions()
@@ -651,5 +677,3 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
         if self.param_symbs == None:
             self.param_symbs = [sympy.Symbol(k, real=self.real) for k in\
                                 self.param_tokens]
-
-    # End overloading

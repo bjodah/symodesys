@@ -10,7 +10,7 @@ from symodesys.gsl import GSL_IVP_Integrator
 from coupled_decay import CoupledDecay
 
 if __name__ == '__main__':
-    plot_numeric_vs_analytic(
+    ax = plot_numeric_vs_analytic(
         ODESys = CoupledDecay,
         y0 = {'u': 1.0, 'v': 1.0, 'w': 1.0},
         params = {'lambda_u': 1/3,'lambda_v': 1/5,'lambda_w': 1/7},
@@ -21,4 +21,5 @@ if __name__ == '__main__':
             ),
         N = 100,
         tend = 5.0,
+        show=True
        )

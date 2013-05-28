@@ -72,16 +72,12 @@ class IVP_Integrator(object):
         """
         pass
 
-    def init_Yout_tout_for_fixed_step_size(self, t0, tend, N, nderiv=None):
-        if nderiv == None:
-            nderiv = self.nderiv
-        else:
-            self.nderiv = nderiv
+    def init_Yout_tout_for_fixed_step_size(self, t0, tend, N):
         dt = (tend-t0) / (N-1)
         NY = len(self._fo_odesys.non_analytic_depv)
         self.tout = np.asarray(np.linspace(t0, tend, N), dtype = self._dtype)
         # Handle other dtype for tout here? linspace doesn't support dtype arg..
-        self.Yout = np.zeros((N, NY, nderiv+1), dtype = self._dtype)
+        self.Yout = np.zeros((N, NY, self.nderiv+1), dtype = self._dtype)
 
 
 class Mpmath_IVP_Integrator(IVP_Integrator):
@@ -92,27 +88,24 @@ class Mpmath_IVP_Integrator(IVP_Integrator):
     def run(self, y0, t0, tend, param_vals,
                   N, abstol = None, reltol = None, h = None,
             nderiv=None):
-        if nderiv == None:
-            nderiv = self.nderiv
-        else:
-            self.nderiv = nderiv
+        self.nderiv = nderiv or self.nderiv
         y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
         param_val_lst = self._fo_odesys.param_val_lst(param_vals)
         cb = lambda x, y: self._fo_odesys.dydt(x, y, param_val_lst)
         self._num_y = sympy.mpmath.odefun(cb, t0, y0_val_lst, tol = abstol)
         if N > 0:
             # Fixed stepsize
-            self.init_Yout_tout_for_fixed_step_size(t0, tend, N, nderiv)
+            self.init_Yout_tout_for_fixed_step_size(t0, tend, N)
             for i, t in enumerate(self.tout):
                 if i == 0:
                     self.Yout[i, :, 0] = y0_val_lst
                 else:
                     self.Yout[i, :, 0] = self._num_y(self.tout[i])
 
-                if nderiv > 0:
+                if self.nderiv > 0:
                     self.Yout[i, :, 1] = self._fo_odesys.dydt(
                         self.tout[i], self.Yout[i, :, 0], param_val_lst)
-                if nderiv > 1:
+                if self.nderiv > 1:
                     self.Yout[i, :, 2] = self._fo_odesys.d2ydt2(
                         self.tout[i], self.Yout[i, :, 0], param_val_lst)
 
@@ -141,10 +134,7 @@ class SciPy_IVP_Integrator(IVP_Integrator):
     def run(self, y0, t0, tend, param_vals,
                   N, abstol=None, reltol=None, h=None,
                   nderiv=None):
-        if nderiv == None:
-            nderiv = self.nderiv
-        else:
-            self.nderiv = nderiv
+        self.nderiv = nderiv or self.nderiv
         y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
         param_val_lst = self._fo_odesys.param_val_lst(param_vals)
         self._r.set_initial_value(y0_val_lst, t0)
@@ -153,17 +143,17 @@ class SciPy_IVP_Integrator(IVP_Integrator):
         if N > 0:
             # Fixed stepsize
             self._r.set_integrator('vode', method = 'bdf', with_jacobian = True)
-            self.init_Yout_tout_for_fixed_step_size(t0, tend, N, nderiv)
+            self.init_Yout_tout_for_fixed_step_size(t0, tend, N)
             for i, t in enumerate(self.tout):
                 if i == 0:
                     self.Yout[i, :, 0] = y0_val_lst
                 else:
                     self.Yout[i, :, 0] = self._r.integrate(self.tout[i])
 
-                if nderiv > 0:
+                if self.nderiv > 0:
                     self.Yout[i, :, 1] = self._fo_odesys.dydt(
                         self.tout[i], self.Yout[i, :, 0], param_val_lst)
-                if nderiv > 1:
+                if self.nderiv > 1:
                     self.Yout[i, :, 2] = self._fo_odesys.d2ydt2(
                         self.tout[i], self.Yout[i, :, 0], param_val_lst)
                 assert self._r.successful()
@@ -180,10 +170,10 @@ class SciPy_IVP_Integrator(IVP_Integrator):
             keep_going = True
             while keep_going:
                 keep_going = self._r.t < tend
-                if nderiv > 0:
+                if self.nderiv > 0:
                     dyout.append(self._fo_odesys.dydt(
                         self._r.t, self._r.y, param_val_lst))
-                if nderiv > 1:
+                if self.nderiv > 1:
                     ddyout.append(self._fo_odesys.d2ydt2(
                         self._r.t, self._r.y, param_val_lst))
                 self._r.integrate(tend, step=True)
@@ -192,9 +182,9 @@ class SciPy_IVP_Integrator(IVP_Integrator):
             warnings.resetwarnings()
             tout = np.array(tout)
             yout, dyout, ddyout = map(np.array, (yout, dyout, ddyout))
-            if nderiv == 0:
+            if self.nderiv == 0:
                 self.Yout = yout.reshape((yout.shape[0], yout.shape[1], 1))
-            elif nderiv == 1:
+            elif self.nderiv == 1:
                 self.Yout = np.concatenate((yout[...,np.newaxis], dyout[...,np.newaxis]), axis=2)
             else:
                 self.Yout = np.concatenate((yout[...,np.newaxis], dyout[...,np.newaxis],
@@ -244,11 +234,12 @@ class SympyEvalr(object):
         """
         _Yout = np.empty((len(arr), len(self._exprs), self.nderiv+1), dtype=self._dtype)
         for expr_idx, expr in enumerate(self._exprs):
-            for nderiv in range(self._nderiv):
+            for nderiv in range(self.nderiv+1):
                 subs = self._params_by_symb
                 subs.update(extra_params_by_symb)
+                diff_expr = expr.diff(self._indep_var_symb, nderiv)
+                print diff_expr
                 for i, t in enumerate(arr):
                     subs.update({self._indep_var_symb: t})
-                    diff_expr = expr.diff(self._indep_var_symb, nderiv)
                     _Yout[i, expr_idx, nderiv] = diff_expr.subs(subs)
         self.Yout = _Yout

@@ -11,7 +11,7 @@ from symodesys.ivp import IVP
 from decay import Decay
 
 
-def main(Sys, y0, t0, tend, params, N=0):
+def main(Sys, y0, t0, tend, params, N=20):
     """
     Integrate
     """
@@ -20,10 +20,16 @@ def main(Sys, y0, t0, tend, params, N=0):
     ivp = IVP(odesys, y0, params, t0)
 
     # Attempt analytic reduction
-    print ivp.recursive_analytic_reduction()
 
-    ivp.integrate(tend, N=N)
+    ivp.integrate(tend, N=N, nderiv=2) # <--- Confirm that it works with nderiv=2
     t, u = ivp.indep_out(), ivp.trajectories()[odesys['u']]
+
+    expected_u = np.vstack((
+        y0['u']*np.exp(-params['lambda_u']*t),
+        y0['u']*np.exp(-params['lambda_u']*t)*-params['lambda_u'],
+        y0['u']*np.exp(-params['lambda_u']*t)*params['lambda_u']**2,
+        )).transpose()
+    assert np.allclose(u, expected_u)
 
     ax=plt.subplot(311)
     ivp.plot(ax=ax)
@@ -45,4 +51,4 @@ if __name__ == '__main__':
         t0=0.0,
         tend=3.0,
         params={'lambda_u': 0.2},
-        N=0)
+        )

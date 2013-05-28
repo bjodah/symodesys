@@ -13,8 +13,7 @@ system analysis tool.
 
 Systems of ODE's are appearing in all of the natural sciences. Sympy
 together with numpy + scipy + matplotlib etc makes python an excellent
-language to build a well tested and versatile common framework for
-models of ODE systems.
+language to build a versatile common framework for modelling of ODE systems.
 
 Central to symodesys is NOT to reinvent the wheel. The less code put
 into symodesys the better. Instead it aims to make sympy (as the most
@@ -22,11 +21,12 @@ promising free-software CAS in the views of the author) an efficient
 tool for dealing with systems of ODE's.
 
 Symodesys offers (for IVP's):
+* General Interactive plotting through Enthought's Chaco library
 * [TODO] Add options of dynamic step size GSL integrator
 * [TODO] Add code generation support for: Sundials, ODEPACK and RODAS (look at assimulo)
 * [TODO] Improve code generation to write loops when possible (let compiler unroll if optimal, decalare global const paramters)
 * [TODO] Look into generating Jacobian as a sympy.SparseMatrix
-* [TODO] General Interactive plotting through Enthought's Chaco library
+* [TODO] Visualization of sensitivity of system by accepting uncertain input parameters (normal distr for starters..)
 * [TODO] Optimization of paramters (fiting) to match e.g. numerical data.
 * [TODO] Add routines for scaling (and automatic rescaling) in e.g. the IVP class. Note: this is a simple special case of variable transformation and may hence be handled by that code, only convenience routines are needed to be added.
 * [TODO] Export of trajectories
@@ -69,8 +69,10 @@ expected time frame for this: months)
 * "Small" codebase to aid future maintainence
 * Write programs that do one thing and do it well (Unix) - let's avoid feature creep
 * Code reuse - Leverage other peoples code as much as possible (external dependencies
-  is _not_ a problem thanks to PyPI) and provide means good class hierarchy for 3rd party extensions.
-* KISS (Keep it simple stupid) - Minimum amount of magic code in the project (might need to rewrite as own SymPy capabilityes progress)
+  is _not_ a problem thanks to PyPI)
+* Provide a "value-added" API which enables 3rd party extensions to efficiently,
+  subclass from symodesys. 
+* Minimum amount of magic code in the project (might need to rewrite as own SymPy capabilityes progress)
 * Try to be in line with best practices (code reviews are welcome).
 
 ## Author

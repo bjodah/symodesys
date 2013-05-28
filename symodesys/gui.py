@@ -65,7 +65,8 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
                      Item(name='plot_type')]
 
             setattr(cls, str(odesys.indepv), Array)
-            setattr(cls, '_'+str(odesys.indepv)+'_default', lambda self: self.t_default)
+            setattr(cls, '_'+str(odesys.indepv)+'_default',
+                    lambda self: getattr(self, str(odesys.indepv)+'_default'))
 
             for depv in odesys.all_depv:
                 # TODO: enusre 'init_' + ... does not collide
@@ -113,11 +114,19 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
 
         def __init__(self, odesys_, y0, params, t0, tend, N, Integrator=GSL_IVP_Integrator):
             for k, v in y0.items():
-                if hasattr(self, 'init_'+k):
-                    setattr(self, 'init_'+k, v)
+                if hasattr(k, 'func'):
+                    s = k.func.__name__
                 else:
-                    raise AttributeError('No init cond. {}'.format('init_'+k))
+                    s = str(k)
+                if hasattr(self, 'init_'+s):
+                    setattr(self, 'init_'+s, v)
+                else:
+                    raise AttributeError('No init cond. {}'.format('init_'+s))
             for k, v in params.items():
+                if hasattr(k, 'func'):
+                    s = k.func.__name__
+                else:
+                    s = str(k)
                 if hasattr(self, k):
                     setattr(self, k, v)
                 else:
@@ -163,7 +172,7 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
             self.ivp.init_vals=init_vals
             self.ivp.param_vals=param_vals
             self.ivp.integrate(tend, N = N)
-            return self.ivp.get_interpolated(self.t)
+            return self.ivp.get_interpolated(getattr(self, str(odesys.indepv)))
 
         def clean_up(self):
             try:

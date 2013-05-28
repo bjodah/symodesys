@@ -255,14 +255,11 @@ class GSL_IVP_Integrator(IVP_Integrator):
 
 
     def run(self, y0, t0, tend, param_vals, N,
-                  abstol=None, reltol=None, h=None, h_init=None, h_max=0.0, nderiv =None):
+                  abstol=None, reltol=None, h=None, h_init=None, h_max=0.0, nderiv=None):
         """
         hmax won't be set if 0.0
         """
-        if nderiv == None:
-            nderiv = self.nderiv
-        else:
-            self.nderiv = nderiv
+        self.nderiv = nderiv or self.nderiv
         if h_init == None:
             h_init = 1e-9 # TODO: along the lines of: h_init=f(y0, dydt, jac, abstol, reltol)
 
@@ -283,9 +280,9 @@ class GSL_IVP_Integrator(IVP_Integrator):
                               dtype = np.float64)
         if N > 0:
             # Fixed stepsize
-            self.init_Yout_tout_for_fixed_step_size(t0, tend, N, nderiv)
+            self.init_Yout_tout_for_fixed_step_size(t0, tend, N)
             tout, Yout = self.binary.integrate_equidistant_output(
-                t0, tend, y0_arr, N, h_init, h_max, self.abstol, self.reltol, params_arr, nderiv)
+                t0, tend, y0_arr, N, h_init, h_max, self.abstol, self.reltol, params_arr, self.nderiv)
             self.tout = tout
             self.Yout = Yout
         else:

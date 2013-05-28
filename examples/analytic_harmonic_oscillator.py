@@ -12,6 +12,10 @@ from symodesys.odesys import AnyOrderODESystem, FirstOrderODESystem
 from harmonic_oscillator import HarmonicOscillator
 
 
+"""
+This example is work in progress...
+"""
+
 def main(init_y, k_val, indep_var_lim, N = 0):
     """
     Solves a 1D harmonic oscillator analytically

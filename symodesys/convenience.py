@@ -49,7 +49,7 @@ def plot_numeric_vs_analytic(ODESys, y0, params, t0, tend,
         # Anlyse output
         plot_t = np.linspace(t0, tend, 50)
 
-        ax = ivp.plot(interpolate = True, show = False, **kwargs)
+        ax = ivp.plot(interpolate = True, show = kwargs.pop('show', False), **kwargs)
         for depv, cb in odesys.analytic_sol.items():
             ax.plot(plot_t, cb(odesys, plot_t, y0, params, t0), label = 'Analytic {}'.format(depv))
     return ax

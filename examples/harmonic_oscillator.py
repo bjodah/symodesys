@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 from symodesys.ivp import IVP
 from symodesys.odesys import AnyOrderODESystem, FirstOrderODESystem
+from symodesys.gui import get_chaco_viewer
 
 def HarmonicOscillator():
     """
@@ -22,40 +23,18 @@ def HarmonicOscillator():
     return AnyOrderODESystem.from_list_of_eqs([harmonic_oscillator_eq])
 
 
-def main(init_y, k_val, indep_var_lim, N = 0):
+def main(y0, t0, tend, params, N = 20):
     """
     Integrate
     """
 
     odesys = HarmonicOscillator()
-
-    odesys = odesys.reduce_to_sys_of_first_order()
-
-    fo_odesys = FirstOrderODESystem(odesys) # FirstOrderODESystem is needed for IVP
-    print fo_odesys.indep_var_symb
-    param_vals_by_symb = {odesys['k']: k_val}
-
-    # TODO:This part is cryptic, enhance!
-    hlprs = odesys._1st_ordr_red_helper_fncs
-    y0 = {k[2]: 0.0 for k in hlprs}
-    # END TODO
-    y0.update({odesys['y(x)']: init_y})
-    t0, tend = indep_var_lim
-
-    print fo_odesys.dydt(t0, [y0[k] for k in fo_odesys.all_depvar], [k_val])
-
-    ivp = IVP(fo_odesys, y0, param_vals_by_symb, t0)
-
-    # Attempt analytic reduction
-    print ivp.recursive_analytic_reduction()
-
-    ivp.integrate(tend, N = N)
-    t, y = ivp.tout, ivp.yout
-
-    ivp.plot(interpolate = True, show = False)
-    plt.legend()
-    plt.show()
+    fo_odesys = odesys.reduce_to_sys_of_first_order(y0, 0.0)
+    print fo_odesys.all_depv
+    viewer = get_chaco_viewer(fo_odesys, y0, params, t0, tend, N)
+    viewer.configure_traits()
+    viewer.clean_up()
 
 
 if __name__ == '__main__':
-    main(1.0, 1.0, [0.0, 10.0], N = 0)
+    main({'y': 1.0}, 0.0, 10.0, {'k': 1.0})

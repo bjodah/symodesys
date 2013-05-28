@@ -47,6 +47,9 @@ class IVP(object):
     # and all analytic sol. (no stepper is run)
     default_N = 100
 
+    # Default highest order of derivatives to save for output
+    nderiv = 1
+
     _dtype = np.float64
 
     def __init__(self, fo_odesys, init_vals, param_vals, t0,
@@ -112,15 +115,13 @@ class IVP(object):
         -`strict`: make assertions that inv_trnsfm really is correct
 
         The user input and output of initial and resulting values
-        for the dependent variables will be agnostic of the
+        for the dependent variables will be independent of the
         transformation (the values will be converted internally)
         """
         assert len(trnsfm) == len(self._fo_odesys.all_depv)
         assert len(trnsfm) == len(inv_trnsfm)
 
-        # look into https://groups.google.com/forum/?fromgroups#!topic/sympy/DNm2SpOdNd0
-        if False: #strict:
-            # Do check on validity of transfomrms:
+        if strict:
             for new_depv, expr_in_old in trnsfm.items():
                 assert expr_in_old.subs(inv_trnsfm).simplify() == new_depv
 
@@ -193,13 +194,12 @@ class IVP(object):
             self._solved_init_val_symbs[yi] = init_val_symb
             new_init_val_symbs.append(init_val_symb)
         if len(new_init_val_symbs) > 0:
-            print "calling again" ###
             self.analytic_evalr.configure(self._fo_odesys,
                                           self.param_vals)
         return new_init_val_symbs
 
 
-    def integrate(self, tend, N=0, h=None, nderiv=1):
+    def integrate(self, tend, N=0, h=None, nderiv=None):
         """
         Integrates the non-analytic odesystem and evaluates the
         analytic functions for the dependent variables (if there
@@ -210,6 +210,8 @@ class IVP(object):
         self._Yres.cache_clear()
         self.interpolators.cache_clear()
         self.trajectories.cache_clear()
+        self.nderiv = nderiv or self.nderiv
+
 
         if len(self._solved_init_val_symbs) < len(self.init_vals):
             # If there are any non-analytic equations left
@@ -218,7 +220,7 @@ class IVP(object):
             self.integrator.run(y0,
                 t0=self._indepv_init_val, tend=tend,
                 param_vals=self.param_vals,
-                N=N, h=h, nderiv=nderiv)
+                N=N, h=h, nderiv=self.nderiv)
             #self.tout = self.integrator.tout
         else:
             # If all equations were solved analytically
@@ -226,7 +228,7 @@ class IVP(object):
             self.integrator.tout = np.linspace(self._indepv_init_val, tend, N)
 
         if len(self._solved_init_val_symbs) > 0:
-            self.analytic_evalr._nderiv = nderiv
+            self.analytic_evalr.nderiv = self.nderiv
             self.analytic_evalr.eval_for_indep_array(
                 self.indep_out(), {
                     self._solved_init_val_symbs[yi]: self.init_vals[yi]\
@@ -287,9 +289,8 @@ class IVP(object):
         second axis: dependent variable index (_fo_odesys.all_depv)
         third axis: 0-th, 1st, ... derivatives
         """
-        #if not hasattr(self, 'tout'): return None
         Yres = np.empty((len(self.indep_out()), len(self._fo_odesys.all_depv),
-                          self.integrator.nderiv+1), self._dtype)
+                          self.nderiv+1), self._dtype)
         for i, yi in enumerate(self._fo_odesys.all_depv):
             if yi in self._fo_odesys.analytic_depv:
                 Yres[:, i, :] = self.analytic_evalr.Yout[
@@ -346,9 +347,7 @@ class IVP(object):
              ax=None):
         """
         Rudimentary plotting utility for quick inspection of solutions
-        TODO: move this from here,  make more general to accept mixed ODE sol +
-        analytic y curves
-
+        TODO: move to symodesys.convenience ?
         Arguments:
         - `depvs`: A sequence of depv to be plotted, plots all if it is None (default)
         """

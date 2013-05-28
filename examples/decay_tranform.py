@@ -9,6 +9,9 @@ from symodesys.ivp import IVP
 def main(y0={'u':1.0}, params={'lambda_u':1.0}, t0=0.0, tend=5.0, N=20):
     """
     Solve decay with variable substitution
+
+    by calling use_internal_depv_trnsfm the analytic solution which
+    we compare with is unaware of the variable substitution
     """
     d = Decay()
     ivp = IVP(d, y0, params, t0)

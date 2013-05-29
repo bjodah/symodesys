@@ -154,28 +154,37 @@ class Generic_Code(object):
         na_f = map(self._fo_odesys.unfunc_depv, self._fo_odesys.non_analytic_f.values())
         indepv = self._fo_odesys.indepv
 
-        sparse_jac = OrderedDict(reduce(add, [
+        # GSL doesn't seem to reliably keep jacobian matrix elements zero
+        # even though the gsl_matrix_calloc is used to initialize it, hence
+        # we assign zero in each function call
+        # Old code which caused singular matrices:
+        # sparse_jac = OrderedDict(reduce(add, [
+        #     [((i, j), expr) for j, expr in enumerate(row) if expr != 0]\
+        #     for i, row in enumerate(na_jac.tolist())
+        #     ]))
+        jac = OrderedDict(reduce(add, [
             [((i, j), expr) for j, expr in enumerate(row) if expr != 0]\
             for i, row in enumerate(na_jac.tolist())
             ]))
+
         dfdt = OrderedDict([
             (i, expr) for i, expr in enumerate(
                 [x.diff(indepv) for x in na_f]
                 ) if expr != 0
             ])
         cse_defs, cse_exprs = sympy.cse(
-            sparse_jac.values() + dfdt.values(),
+            jac.values() + dfdt.values(),
             symbols = sympy.numbered_symbols('cse')
             )
 
-        jac_cexprs = zip(sparse_jac.keys(), [
+        jac_cexprs = zip(jac.keys(), [
             self.arrayify(sympy.ccode(x)) for x \
-            in cse_exprs[:len(sparse_jac)]
+            in cse_exprs[:len(jac)]
             ])
 
         dfdt_cexprs = zip(dfdt.keys(), [
             self.arrayify(sympy.ccode(x)) for x \
-            in cse_exprs[len(sparse_jac):]
+            in cse_exprs[len(jac):]
             ])
 
         cse_jac = []

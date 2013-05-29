@@ -3,12 +3,18 @@
 
 from __future__ import division, print_function
 
+# stdlib imports
 import sys
+from collections import OrderedDict
 
+# External package imports
 import sympy
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib.collections import PolyCollection
 
+# Project internal imports
 from symodesys.odesys import SimpleFirstOrderODESystem
 from symodesys.ivp import IVP
 from symodesys.gsl import GSL_IVP_Integrator
@@ -47,29 +53,66 @@ class BirthDeathSystem(SimpleFirstOrderODESystem):
         })
         return first_last
 
-def main(n):
-    """
-    Plot the evolutoin of a birth death network
-    """
+def plot_population(ivp, depv_z_map):
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    verts=[]
+    nt = 1000
+    t = np.linspace(ivp.indep_out()[0],ivp.indep_out()[-1], nt)
+    n = len(depv_z_map)
+    maxval = 0
+    for depv, x in depv_z_map.items():
+	interpol = ivp.get_interpolated(t, [depv])
+	# Let polygons be aligned with bottom (important: choose nt large!)
+	interpol[0,0] = 0.0
+	interpol[0,-1] = 0.0
+        # Check fo new max value:
+	maxval = max(maxval, np.max(interpol))
+	stacked = zip(t,interpol.reshape(nt))
+        verts.append(stacked)#.transpose())
+    poly = PolyCollection(verts, facecolors = ['rgbk'[i%4] for i in range(len(verts))])
+    poly.set_alpha(0.7)
+    ax.add_collection3d(poly, zs=[1.0*x/n for x in depv_z_map.values()], zdir='y')
 
+    ax.set_xlabel('t')
+    ax.set_xlim3d(0, t[-1])
+    ax.set_ylabel('y')
+    #ax.set_ylim3d(0, n)
+    ax.set_zlabel('z')
+    ax.set_zlim3d(0, maxval)
+
+    plt.show()
+
+def get_transformed_ivp(n):
     bd = BirthDeathSystem.mk_of_dim(n)
     y0 = {'y{}'.format(i): (n-i)*1.0 for i in range(n)}
     params = {'l{}'.format(i): (n-i)/10.0 for i in range(n)}
     t0, tend, N = 0, 10.0, 500
-    with IVP(bd, y0, params, t0, integrator=GSL_IVP_Integrator()) as ivp:
+    #with IVP(bd, y0, params, t0, integrator=GSL_IVP_Integrator()) as ivp:
         # ivp.clean() will be called on exception
-        trnsfm, inv_trnsfm = {}, {}
-        for i in range(n):
-            # Generate the transform (incl. inverse)
-            lny = ivp.mk_depv_symbol('lny{}'.format(i))
-            y = bd['y{}'.format(i)]
-            trnsfm[lny] = sympy.log(y)
-            inv_trnsfm[y] = sympy.exp(lny)
-        # Apply the transform
-        ivp2 = ivp.use_internal_depv_trnsfm(trnsfm, inv_trnsfm)
-        ivp2.integrate(tend, N)
-        ivp2.plot(interpolate=True, datapoints=False, show=True)
+    ivp = IVP(bd, y0, params, t0, integrator=GSL_IVP_Integrator())
+    trnsfm, inv_trnsfm = {}, {}
+    for i in range(n):
+        # Generate the transform (incl. inverse)
+        lny = ivp.mk_depv_symbol('lny{}'.format(i))
+        y = bd['y{}'.format(i)]
+        trnsfm[lny] = sympy.log(y)
+        inv_trnsfm[y] = sympy.exp(lny)
+    # Apply the transform
+    ivp2 = ivp.use_internal_depv_trnsfm(trnsfm, inv_trnsfm)
+    ivp2.integrate(tend, N)
+    return ivp2
 
+
+def main(n):
+    """
+    Plot the evolutoin of a birth death network
+    """
+    ivp = get_transformed_ivp(n)
+    # ivp.plot(interpolate=True, datapoints=False, show=True)
+    sorted_keys = sorted(ivp.all_depv, key=lambda x: str(x))
+    plot_population(ivp, depv_z_map=OrderedDict([(k, sorted_keys.index(k)) for k in sorted_keys]))
+    ivp.clean()
 
 if __name__ == '__main__':
     main(10)

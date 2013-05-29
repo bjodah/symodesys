@@ -4,3 +4,7 @@ Add lsode
 
 solved provides DAE functionality, generalizing?
 Pure root finding module, similiar syntax?
+
+There is a bug in GSL driver which produces different results on different runs, it
+is not due to not assigning zero to elements of dydt in jac() (established). The
+reason is currently unknown..

@@ -374,7 +374,8 @@ class IVP(object):
             mi  = m[i % len(m)]
             lsi = ls[i % len(ls)]
             ci  = c[i % len(c)]
-            lbl = str(self._fo_odesys.all_depv[i])
+            # Assign label
+            lbl = str(depv)
             if usetex and texnames != None:
                 lbl = texnames[lbl]
             if interpolate:

@@ -1,0 +1,92 @@
+! Template for generating Fortran 90 code to wrapped using Cython for calling lsodes from python.
+! mako template variables: NY, NNZ, IA, JA, NPARAM, f, cse_func, cse_jac, nnz_expr_jac, dfdt
+
+module ode
+use types, only: dp
+implicit none
+! Set problem specific values:
+integer, parameter :: nnz=${NNZ}, neq=${NY}, nparams=${NPARAM}
+!real(dp), save :: params(nparams)
+! Sparsity structure
+integer, parameter :: ia(neq) = ${IA}
+integer, parameter :: ja(nnz) = ${JA}
+
+public func, jac
+
+contains
+
+
+subroutine func(neq, t, y, ydot)
+  integer, intent(in) :: neq
+  real(dp), intent(in) :: t, y(${NY}+${NPARAM})
+  real(dp), intent(inout) :: ydot(${NY})
+% for cse_token, cse_expr in cse_func.items():
+  real(dp) :: ${cse_token}
+% endfor
+% for cse_token, cse_expr in cse_func.items():
+  ${cse_token} :: ${cse_expr}
+% endfor
+% for i, expr in enumerate(f, 1):
+  ydot(${i}) = ${expr}
+% endfor
+  return
+end subroutine
+
+subroutine jac(neq, t, y, j, ian, jan, pdj)
+  integer, intent(in) :: neq, j, ian(${NY}), jan(${NNZ})
+  real(dp), intent(in) :: t, y(${NY}+${NPARAM})
+  real(dp), intent(inout) :: pdj(${NY})
+% for i in range(1,NY+1):
+% for cse_token, cse_expr in cse_jac[i]:
+  real(dp) :: ${cse_token}
+% endfor
+% endfor
+  select case (j)
+  ! e.g.: pdj(1) = -1.0_dp - 2.0_dp*y(1)*y(2)*y(nparams+1)
+% for i in range(1,NY+1):
+  case (${i})
+  % for cse_token, cse_expr in cse_jac[i]:
+     ${cse_token} = ${cse_expr}
+  % endfor
+  % for k, expr in nnz_expr_jac[i]:
+     pdj(${k}) = ${expr}
+  % endfor
+     return
+% endfor
+  end select
+end subroutine
+
+subroutine dfdt(t, y, pdt)
+  real(dp), intent(in) :: t, y(${NY}+${NPARAM})
+  real(dp), intent(inout) :: pdt(${NY})
+  integer :: i
+  ! used fo explicit calc of d2ydt2
+% for k, expr in enumerate(dfdt, 1):
+  pdt(${k}) = ${expr}
+% endfor
+end subroutine
+
+subroutine d2ydt2(neq, t, y, yddot, ian, jan)
+  integer, intent(in) :: neq, ian(${NY}), jan(${NNZ})
+  real(dp), intent(in) :: t, y(${NY}+${NPARAM})
+  real(dp), intent(inout) :: yddot(${NY})
+  real(dp) :: pdj(${NY}), ydot(${NY}), pdt(${NY})
+  integer :: i, j
+
+  call func(neq, t, y, ydot)
+  call dfdt(t, y, pdt)
+  ! TODO: exploit ian & jan,
+  ! as it stands now it scales N**2
+  do i = 1,neq
+     yddot(i) = pdt(i)
+     do j = 1,neq
+        pdj(j) = 0.0_dp
+     end do
+     call jac(neq, t, y, i, ian, jan, pdj)
+     do j = 1,neq
+        yddot(i) = yddot(i) + pdj(j)*ydot(j)
+     end do
+  end do
+end subroutine
+
+end module

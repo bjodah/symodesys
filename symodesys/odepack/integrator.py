@@ -9,48 +9,59 @@ import cython_gsl
 
 # Intrapackage imports
 from symodesys.codeexport import Generic_Code, Binary_IVP_Integrator
+from symodesys.helpers.compilation import FortranCompilerRunner
 
+class LSODES_Code(Generic_Code):
 
-class GSL_Code(Generic_Code):
+    syntax = 'F'
 
-    # Implement hash of fo_odesys and hash of code?
-    # Serialization to double check against collision?
-
-    copy_files = ('drivers.c', 'pyinterface.pyx') + \
-                 ('drivers.h', 'func.h', 'jac.h', 'Makefile')
+    copy_files = (
+        'prebuilt/opkda1.o',
+        'prebuilt/opkda2.o',
+        'prebuilt/opkdmain.o',
+        'types.f90',
+        'ode_template.f90',
+        'lsodes_bdf.f90',
+        'lsodes_bdf_wrapper_template.f90',
+        'prebuilt/pylsodes_bdf.o',
+    )
 
     templates = {
-        'dydt': ('func_template.c', 'code_func'),
-        'dydt_jac': ('jac_template.c', 'code_jac'),
-        'main_ex': ('main_ex_template.c', 'code_main_ex')
+        'wrapper': ('lsodes_bdf_wrapper_template.f90', 'sysdict')
+        'ode': ('ode_template.f90', 'sysdict')
         }
 
     _ori_sources = list(copy_files[:2]) + [templates[k][0] for k in ['dydt', 'dydt_jac']]
 
-    def __init__(self, *args, **kwargs):
-        self._basedir = os.path.dirname(__file__)
-        super(GSL_Code, self).__init__(*args, **kwargs)
-        self._include_dirs.append(cython_gsl.get_include())
-        self._libraries.extend(cython_gsl.get_libraries())
-        self._library_dirs.append(cython_gsl.get_library_dir())
-        self._include_dirs.append(cython_gsl.get_cython_include_dir())
 
+    def _compile(self, extension_name='pyinterface'):
+        # Generate shared object for importing:
+        from distutils.sysconfig import get_config_vars
+        pylibs = [x for x in get_config_vars('BLDLIBRARY').split() if x.startswith('-l')]
+        cc = get_config_vars('BLDSHARED')
+        compilername, flags = cc.split()[0], cc.split()[1:] # e.g. gcc, ['-pthread', ...
+        so_file = 'pylsodes_bdf.so'
+        runner=FortranCompilerRunner(
+            ['opkda1.o', 'opkda2.o', 'opkdmain.o', 'types.o', 'ode.o',
+             'lsodes_bdf.o', 'lsodes_bdf_wrapper.o', 'pylsodes_bdf.o'],
+            so_file, flags, compiler=[compilername]*2,
+            cwd=self._tempdir, libs=pylibs, verbose=True)
+        out, err, exit_status = runner.run()
+        if exit_status != 0:
+            print(out)
+            print(err)
+        else:
+            print('...Success!')
+        return os.path.join(self._tempdir, so_file)
 
-class GSL_IVP_Integrator(Binary_IVP_Integrator):
+class LSODES_IVP_Integrator(Binary_IVP_Integrator):
     """
-    IVP integrator using GNU Scientific Library routines odeiv2
+    IVP integrator using the sparse LSODES solver in ODEPACK (double precision)
 
     remember to run `clean()` on the instance on program exit. (or use IVP's context manager)
     """
 
-    CodeClass = GSL_Code
-
-    # step_type choices are in `step_types` in pyinterface.pyx
-    integrate_args = {'step_type': (
-        'rk2','rk4','rkf45','rkck','rk8pd','rk2imp',
-        'rk4imp','bsimp','rk1imp','msadams','msbdf'),
-    }
-
+    CodeClass = LSODES_Code
 
     def run(self, y0, t0, tend, param_vals, N,
                   abstol=None, reltol=None, h=None, h_init=None, h_max=0.0, nderiv=None):

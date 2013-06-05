@@ -11,6 +11,9 @@ built upon Sympy and can be seen as a set of convenience classes and
 templates for code generation which turns Sympy into a poverful ODE
 system analysis tool.
 
+The code is generated using templates, and hence no restriction
+exists on what langauges are used (C/Fortran/C++ used for GSL/ODEPACK/odeint).
+
 Systems of ODE's are appearing in all of the natural sciences. Sympy
 together with numpy + scipy + matplotlib etc makes python an excellent
 language to build a versatile common framework for modelling of ODE systems.

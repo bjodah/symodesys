@@ -44,11 +44,15 @@ def cache(f):
 
 
 def md5_of_file(path):
+    """
+    Use .digest() or .hexdigest() on returned object
+    to get binary or hex encoded string.
+    """
     md = md5()
     with open(path,'rb') as f:
         for chunk in iter(lambda: f.read(128*md.block_size), b''):
              md.update(chunk)
-    return md.digest()
+    return md
 
 
 def subs_set(s, subsd):

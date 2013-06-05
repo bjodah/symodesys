@@ -1,7 +1,7 @@
 Refactor gsl.integrator to use codegen (and factor out general bits)
 Add sundials
 Add lsode
-
+Add odeint (www.odeint.com C++ library which exploits OpenCL)
 solved provides DAE functionality, generalizing?
 Pure root finding module, similiar syntax?
 

@@ -90,6 +90,16 @@ class IVP(object):
         self._solved_init_val_symbs = {}
 
 
+    def is_stiff(self, t0, tend, criteria=1e2):
+        """
+        Queries system using inintal values.
+        """
+        # Not working yet... (This is pseudo code mixed with to be fixed python)
+        y0_val_lst = [self.init_vals[k] for k in self._fo_odesys.non_analytic_depv]
+        param_val_lst = self._fo_odesys.param_val_lst(param_vals)
+        return self._fo_odesys.is_stiff(t0, y0_val_lss, param_val_lst, criteria)
+
+
     @property
     def init_vals(self):
         return self._init_vals

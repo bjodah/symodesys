@@ -33,6 +33,8 @@ class LSODES_Code(Generic_Code):
     def __init__(self, *args, **kwargs):
         self._basedir = os.path.dirname(__file__)
         super(LSODES_Code, self).__init__(*args, **kwargs)
+        self._cached_files = ['ode.mod', 'types.mod',
+                              'lsodes_bdf.mod', 'lsodes_bdf_wrapper.mod']
 
     def _compile(self, extension_name='pyinterface'):
         # Compile types.o ode,o lsodes_bdf.o lsodes_bdf_wrapper.o

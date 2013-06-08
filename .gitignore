@@ -18,7 +18,7 @@ examples/profile.out
 symodesys/odepack/opkdmain.f
 symodesys/odepack/opkda1.f
 symodesys/odepack/opkda2.f
-symodesys/odepack/*__*.*
+symodesys/odepack/?__*.*
 # Cython generated C file not tracked (might be provided as bz2 in future release though)
 symodesys/odepack/pylsodes_bdf.c
 symodesys/odepack/prebuilt/*.c

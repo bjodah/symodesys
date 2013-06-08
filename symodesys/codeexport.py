@@ -60,6 +60,7 @@ class Generic_Code(object):
             self._remove_tempdir_on_clean = True
 
         self._written_files = []
+        self._cached_files = [] # Cached files are files that needs to be removed
         self._include_dirs = []
         self._libraries = []
         self._library_dirs = []
@@ -67,6 +68,11 @@ class Generic_Code(object):
         self._write_code()
 
     def _write_code(self):
+        for path in self._cached_files:
+            # Make sure we start with a clean slate
+            rel_path = os.path.join(self._tempdir, path)
+            if os.path.exists(rel_path):
+                os.unlink(rel_path)
         for path in self.copy_files:
             # Copy files
             srcpath = os.path.join(self._basedir, path)
@@ -142,32 +148,33 @@ class Generic_Code(object):
         suitable for use in the templates (formated according
         to the syntax of the language)
         """
-        non_analytic_expr = self._fo_odesys.non_analytic_f.values()
-        func_cse_defs, func_cse_exprs = sympy.cse(
-            non_analytic_expr, symbols = sympy.numbered_symbols('csefunc'))
 
-        code_func_exprs = [self.arrayify(self.wcode(x)) for x in func_cse_exprs]
+
+        func_cse_defs, func_cse_exprs = sympy.cse(
+            self._fo_odesys.non_analytic_f.values(),
+            symbols = sympy.numbered_symbols('csefunc'))
+
+        code_func_exprs = [self.as_arrayified_code(x) for x in func_cse_exprs]
 
         code_func_cse = []
         for var_name, var_expr in func_cse_defs:
-            code_var_expr = self.arrayify(self.wcode(var_expr))
+            code_var_expr = self.as_arrayified_code(var_expr)
             code_func_cse.append((var_name, code_var_expr))
 
         params = [(str(p), 1.0) for p in self.prog_param_symbs]
         y0 = ', '.join(['1.0'] * self.NY)
         params = ', '.join(['1.0'] * len(self.prog_param_symbs))
 
-        na_jac = self._fo_odesys.non_analytic_jac
-        na_f = map(self._fo_odesys.unfunc_depv, self._fo_odesys.non_analytic_f.values())
         indepv = self._fo_odesys.indepv
 
         # TODO: this is inefficient, implement linear scaling algo in
         # FirstOrderODESystem
         sparse_jac = OrderedDict(reduce(add, [
             [((i, j), expr) for j, expr in enumerate(row) if expr != 0]\
-            for i, row in enumerate(na_jac.tolist())
+            for i, row in enumerate(self._fo_odesys.non_analytic_jac.tolist())
             ]))
 
+        na_f = map(self._fo_odesys.unfunc_depv, self._fo_odesys.non_analytic_f.values())
         dfdt = OrderedDict([
             (i, expr) for i, expr in enumerate(
                 [x.diff(indepv) for x in na_f]
@@ -181,18 +188,18 @@ class Generic_Code(object):
 
 
         code_jac_exprs = zip(sparse_jac.keys(), [
-            self.arrayify(self.wcode(x)) for x \
+            self.as_arrayified_code(x) for x \
             in jac_cse_exprs[:len(sparse_jac)]
             ])
 
         code_dfdt_exprs = zip(dfdt.keys(), [
-            self.arrayify(self.wcode(x)) for x \
+            self.as_arrayified_code(x) for x \
             in jac_cse_exprs[len(sparse_jac):]
             ])
 
         code_jac_cse = []
         for var_name, var_expr in jac_cse_defs:
-            code_var_expr = self.arrayify(self.wcode(var_expr))
+            code_var_expr = self.as_arrayified_code(var_expr)
             code_jac_cse.append((var_name, code_var_expr))
 
 
@@ -227,7 +234,7 @@ class Generic_Code(object):
 
             # Format code: expressions in cse terms
             code_exprs = zip(cur_ja, [
-                self.arrayify(self.wcode(x)) for x \
+                self.as_arrayified_code(x) for x \
                 in cse_exprs
             ])
             code_yale_jac_exprs.append(code_exprs)
@@ -235,7 +242,7 @@ class Generic_Code(object):
             # Format code: CSE definitions
             code_cse_defs=[]
             for var_name, var_expr in cse_defs:
-                code_var_expr = self.arrayify(self.wcode(var_expr))
+                code_var_expr = self.as_arrayified_code(var_expr)
                 code_cse_defs.append((var_name, code_var_expr))
             code_yale_jac_cse.append(code_cse_defs)
         ia = ia [:-1]
@@ -254,6 +261,21 @@ class Generic_Code(object):
                 'dfdt': code_dfdt_exprs,
         }
 
+
+    def as_arrayified_code(self, expr):
+        dummies = sympy.symbols('depvdummies:'+str(len(
+            self._fo_odesys.non_analytic_depv)))
+        for i, depv in enumerate(self._fo_odesys.non_analytic_depv):
+            expr = expr.subs({depv: dummies[i]})
+        scode = self.wcode(expr)
+        tgt = {'C':r'y[\1]', 'F':r'y(\1+1)'}.get(self.syntax)
+        scode = re.sub('depvdummies(\d+)', tgt, scode)
+        for i, param in enumerate(self.prog_param_symbs):
+            tgt = {'C':'k[{}]', 'F':'y({}+1+'+str(self.NY)+')'}.get(self.syntax)
+            scode = scode.replace(str(param), tgt.format(i))
+        tgt = {'C':r'[\1]', 'F':r'(\1+1)'}.get(self.syntax)
+        scode = re.sub('_(\d+)', tgt, scode)
+        return scode
 
     def arrayify(self, scode):
         """

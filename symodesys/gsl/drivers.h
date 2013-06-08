@@ -8,7 +8,7 @@
 
 #define PRECISION %.9e
 
-gsl_odeiv2_step_type *
+const gsl_odeiv2_step_type *
 get_step_type(int index);
 
 int

@@ -1,15 +1,16 @@
 from numpy cimport ndarray
 from numpy import zeros, ascontiguousarray, float64, swapaxes, concatenate
 
-cdef extern void c_integrate(double * y, double * t0, double * tend, double * atol, double * rtol, int * nt, int * nderiv, double * yres, double * tres)
+cdef extern void c_integrate(double * y, double * t0, double * tend, double * atol, double * rtol, int * nt, double * h_init, double * h_max, int * nderiv, double * yres, double * tres)
 
-def integrate(double [:] y0, double t0, double tend, double [:] params, double atol, double rtol, int nt, int nderiv):
+def integrate_equidistant_output(double t0, double tend, double [:] y0, int nt, double h_init, double h_max,
+                                 double atol, double rtol, double [:] params, int nderiv):
     cdef ndarray[double] y = ascontiguousarray(concatenate((y0, params)), dtype=float64)
     cdef ndarray[double, mode="fortran", ndim=3] yres = zeros((len(y0), nderiv+1, nt+1), order='F', dtype=float64)
     cdef ndarray[double] tres = zeros(nt+1, dtype=float64)
 
     # integrate
-    c_integrate(&y[0], &t0, &tend, &atol, &rtol, &nt, &nderiv, &yres[0,0,0], &tres[0])
+    c_integrate(&y[0], &t0, &tend, &atol, &rtol, &nt, &h_init, &h_max, &nderiv, &yres[0,0,0], &tres[0])
 
     # yres axes are now: depv, nderiv, nt
     # swap to make them nt, depv, nderiv and change

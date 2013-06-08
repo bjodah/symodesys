@@ -13,7 +13,8 @@ from enthought.traits.ui.api import Item, View
 
 from van_der_pol import VanDerPolOscillator
 from symodesys.ivp import IVP
-from symodesys.gsl import GSL_IVP_Integrator
+#from symodesys.gsl import GSL_IVP_Integrator as Binary_IVP_Integrator
+from symodesys.odepack import LSODES_IVP_Integrator as Binary_IVP_Integrator
 from symodesys.helpers import cache
 
 class ODESolViewer(HasTraits):
@@ -77,7 +78,7 @@ class ODESolViewer(HasTraits):
         self.run_integration()
         return self.interpolated_yres[self.ivp.get_index_of_depv('v'),:]
 
-    def __init__(self, ODESys, y0, params, t0, tend, N, Integrator=GSL_IVP_Integrator):
+    def __init__(self, ODESys, y0, params, t0, tend, N, Integrator=Binary_IVP_Integrator):
         for k, v in y0.items():
             if hasattr(self, k+'0'):
                 setattr(self, k+'0', v)
@@ -89,7 +90,7 @@ class ODESolViewer(HasTraits):
             else:
                 raise AttributeError('No param {}'.format(k))
         self.t_default = np.linspace(t0, tend, 500)
-        self.ivp = IVP(ODESys(), y0, params, t0, integrator=GSL_IVP_Integrator())
+        self.ivp = IVP(ODESys(), y0, params, t0, integrator=Integrator(tempdir='tmp', save_temp=True))
         self.N = N
         super(ODESolViewer, self).__init__()
         self.run_integration()
@@ -121,3 +122,4 @@ if __name__ == '__main__':
     N=50
     viewer = ODESolViewer(ODESys, y0, params, t0, tend, N)
     viewer.configure_traits()
+    View.clean()

@@ -1,5 +1,15 @@
 from __future__ import print_function, division
 
+# For performance reasons it is preferable that the
+# numeric integration is performed in a compiled language
+# the codeexport module provide classes enabling FirstOrderODESystem
+# instances to be used as blueprint for generating, compiling
+# and importing a binary which performs the computations.
+
+# Both C, C++ and Fortran is considered, but since
+# the codegeneration uses templates, one can easily extend
+# the functionality to other languages.
+
 # stdlib imports
 import tempfile
 import shutil
@@ -8,18 +18,19 @@ import os
 from collections import OrderedDict
 from functools import reduce
 from operator import add
-
 from distutils.core import setup
 from distutils.extension import Extension
-from Cython.Distutils import build_ext
+
 
 # External imports
 import sympy
 import mako
 import mako.template
+from Cython.Distutils import build_ext
+
 
 # Intrapackage imports
-from symodesys.helpers import import_
+from symodesys.helpers import import_, render_mako_template_to
 from symodesys.integrator import IVP_Integrator
 
 
@@ -29,12 +40,13 @@ class Generic_Code(object):
     returned by FirstOrderODESystem.dydt and FirstOrderODESystem.dydt_jac
     """
 
-    wcode = staticmethod(sympy.ccode)
     syntax = 'C'
 
-    _basedir = '.' # source file paths relative to _basedir
-
     def __init__(self, fo_odesys, tempdir = None, save_temp = False):
+        if self.syntax == 'C':
+            self.wcode = sympy.ccode #staticmethod(sympy.ccode)
+        elif self.syntax == 'F':
+            self.wcode = sympy.fcode #staticmethod(sympy.fcode)
         self._fo_odesys = fo_odesys
         if tempdir:
             self._tempdir = tempdir
@@ -46,8 +58,8 @@ class Generic_Code(object):
         if not os.path.isdir(self._tempdir):
             os.makedirs(self._tempdir)
             self._remove_tempdir_on_clean = True
+
         self._written_files = []
-        self._source_files = []
         self._include_dirs = []
         self._libraries = []
         self._library_dirs = []
@@ -56,27 +68,20 @@ class Generic_Code(object):
 
     def _write_code(self):
         for path in self.copy_files:
+            # Copy files
             srcpath = os.path.join(self._basedir, path)
             dstpath = os.path.join(self._tempdir,
-                         os.path.basename(path).replace('_template', ''))
+                         os.path.basename(path))
             shutil.copy(srcpath, dstpath)
-            if path in self._ori_sources:
-                self._source_files.append(dstpath)
+            self._written_files.append(dstpath)
 
-        for k, (path, attr) in self.templates.iteritems():
+        subs = self.variables()
+        for path in self.templates:
+            # Render templates
             srcpath = os.path.join(self._basedir, path)
             outpath = os.path.join(self._tempdir,
                          os.path.basename(path).replace('_template', ''))
-            subs = getattr(self, attr)
-            template = mako.template.Template(open(srcpath, 'rt').read())
-            try:
-                rendered = template.render(**subs)
-            except:
-                print(mako.exceptions.text_error_template().render())
-                raise
-            open(outpath, 'wt').write(rendered)
-            if path in self._ori_sources:
-                self._source_files.append(outpath)
+            render_mako_template_to(srcpath, outpath, subs)
             self._written_files.append(outpath)
 
     def compile_and_import_binary(self):
@@ -84,6 +89,10 @@ class Generic_Code(object):
         return import_(binary_path)
 
     def _compile(self, extension_name = 'pyinterface'):
+        sources = [os.path.join(
+            self._tempdir, os.path.basename(x).replace(
+                '_template', '')) for x \
+            in self._source_files]
         setup(
             script_name =  'DUMMY_SCRIPT_NAME',
             script_args =  ['build_ext',  '--build-lib', self._tempdir],
@@ -92,7 +101,7 @@ class Generic_Code(object):
             ext_modules = [
                 Extension(
                     extension_name,
-                    self._source_files,
+                    sources,
                     libraries=self._libraries,
                     library_dirs=self._library_dirs,
                     include_dirs=self._include_dirs),
@@ -127,40 +136,33 @@ class Generic_Code(object):
         """
         return self._fo_odesys.param_and_sol_symbs
 
-    @property
-    def code_func(self):
+    def variables(self):
+        """
+        Returns dictionary of variables for substituion
+        suitable for use in the templates (formated according
+        to the syntax of the language)
+        """
         non_analytic_expr = self._fo_odesys.non_analytic_f.values()
-        cse_defs, cse_exprs = sympy.cse(
-            non_analytic_expr, symbols = sympy.numbered_symbols('cse'))
+        func_cse_defs, func_cse_exprs = sympy.cse(
+            non_analytic_expr, symbols = sympy.numbered_symbols('csefunc'))
 
-        f_cexprs = [self.arrayify(self.wcode(x)) for x in cse_exprs]
+        code_func_exprs = [self.arrayify(self.wcode(x)) for x in func_cse_exprs]
 
-        cse_func = []
-        for var_name, var_expr in cse_defs:
-            c_var_expr = self.arrayify(self.wcode(var_expr))
-            cse_func.append((var_name, c_var_expr))
+        code_func_cse = []
+        for var_name, var_expr in func_cse_defs:
+            code_var_expr = self.arrayify(self.wcode(var_expr))
+            code_func_cse.append((var_name, code_var_expr))
 
-        return {'cse_func': cse_func, 'f': f_cexprs}
-
-    @property
-    def code_ode(self):
-        return {'NY': self.NY}
-
-    @property
-    def code_main_ex(self):
         params = [(str(p), 1.0) for p in self.prog_param_symbs]
         y0 = ', '.join(['1.0'] * self.NY)
         params = ', '.join(['1.0'] * len(self.prog_param_symbs))
-        return {'NY': self.NY,
-                'Y0_COMMA_SEP_STR': y0,
-                'PARAM_VALS_COMMA_SEP_STR': params}
 
-    @property
-    def code_jac(self):
         na_jac = self._fo_odesys.non_analytic_jac
         na_f = map(self._fo_odesys.unfunc_depv, self._fo_odesys.non_analytic_f.values())
         indepv = self._fo_odesys.indepv
 
+        # TODO: this is inefficient, implement linear scaling algo in
+        # FirstOrderODESystem
         sparse_jac = OrderedDict(reduce(add, [
             [((i, j), expr) for j, expr in enumerate(row) if expr != 0]\
             for i, row in enumerate(na_jac.tolist())
@@ -171,29 +173,86 @@ class Generic_Code(object):
                 [x.diff(indepv) for x in na_f]
                 ) if expr != 0
             ])
-        cse_defs, cse_exprs = sympy.cse(
+
+        jac_cse_defs, jac_cse_exprs = sympy.cse(
             sparse_jac.values() + dfdt.values(),
-            symbols = sympy.numbered_symbols('cse')
+            symbols = sympy.numbered_symbols('csejac')
             )
 
-        jac_cexprs = zip(sparse_jac.keys(), [
+
+        code_jac_exprs = zip(sparse_jac.keys(), [
             self.arrayify(self.wcode(x)) for x \
-            in cse_exprs[:len(sparse_jac)]
+            in jac_cse_exprs[:len(sparse_jac)]
             ])
 
-        dfdt_cexprs = zip(dfdt.keys(), [
+        code_dfdt_exprs = zip(dfdt.keys(), [
             self.arrayify(self.wcode(x)) for x \
-            in cse_exprs[len(sparse_jac):]
+            in jac_cse_exprs[len(sparse_jac):]
             ])
 
-        cse_jac = []
-        for var_name, var_expr in cse_defs:
-            c_var_expr = self.arrayify(self.wcode(var_expr))
-            cse_jac.append((var_name, c_var_expr))
+        code_jac_cse = []
+        for var_name, var_expr in jac_cse_defs:
+            code_var_expr = self.arrayify(self.wcode(var_expr))
+            code_jac_cse.append((var_name, code_var_expr))
 
-        return {'cse_jac': cse_jac, 'jac': jac_cexprs,
-                'dfdt': dfdt_cexprs,
-                'NY': self.NY}
+
+        # Populate ia, ja (sparse index specifiers using fortran indexing)
+        # see documentation of LSODES in ODEPACK for definition
+        # (Yale sparse matrix)
+        # ja contains row indices of nonzero elements
+        # ia contains index in ja where row i starts
+        ia, ja = [1], []
+        k = 1 # <--- index starts at 1 in fortran, not at 0 as in C/Python
+        code_yale_jac_exprs = []
+        code_yale_jac_cse = []
+        for ci in range(self.NY):
+            col_exprs = []
+            cur_ja = []
+            for ri in [sri for sri, sci in sparse_jac.keys() if sci == ci]:
+                cur_ja.append(ri+1) # Fortran index
+                k += 1
+                col_exprs.append(sparse_jac[(ri,ci)])
+
+            # Store indices in ja
+            ja.extend(cur_ja)
+
+            # Store indicies in ia
+            ia.append(k)
+
+            # Extract common subexpressions for this column
+            cse_defs, cse_exprs = sympy.cse(
+                col_exprs, symbols = sympy.numbered_symbols(
+                    'csejaccol{}'.format(ci)))
+
+
+            # Format code: expressions in cse terms
+            code_exprs = zip(cur_ja, [
+                self.arrayify(self.wcode(x)) for x \
+                in cse_exprs
+            ])
+            code_yale_jac_exprs.append(code_exprs)
+
+            # Format code: CSE definitions
+            code_cse_defs=[]
+            for var_name, var_expr in cse_defs:
+                code_var_expr = self.arrayify(self.wcode(var_expr))
+                code_cse_defs.append((var_name, code_var_expr))
+            code_yale_jac_cse.append(code_cse_defs)
+        ia = ia [:-1]
+
+        return {'NY': self.NY,
+                'NNZ': len(sparse_jac),
+                'IA': ia,
+                'JA': ja,
+                'NPARAM': len(self.prog_param_symbs),
+                'Y0_COMMA_SEP_STR': y0,
+                'PARAM_VALS_COMMA_SEP_STR': params,
+                'cse_func': code_func_cse, 'f': code_func_exprs,
+                'cse_jac': code_jac_cse, 'jac': code_jac_exprs,
+                'yale_jac_exprs': code_yale_jac_exprs,
+                'yale_jac_cse': code_yale_jac_cse,
+                'dfdt': code_dfdt_exprs,
+        }
 
 
     def arrayify(self, scode):
@@ -202,15 +261,12 @@ class Generic_Code(object):
         self.syntax='C' implies C syntax, 'F' fortran respectively.
         """
         for i, depv in enumerate(self._fo_odesys.non_analytic_depv):
-            tgt = {'C':'y[{}]', 'F':'y({})'}.get(self.syntax)
+            tgt = {'C':'y[{}]', 'F':'y({}+1)'}.get(self.syntax)
             scode = scode.replace(str(depv), tgt.format(i))
-        # for i, depv in enumerate(self._fo_odesys.analytic_depv):
-        #     scode = scode.replace(
-        #         str(depv), depv.func.__name__ + '(t, y, params)')
         for i, param in enumerate(self.prog_param_symbs):
-            tgt = {'C':'k[{}]', 'F':'k({})'}.get(self.syntax)
+            tgt = {'C':'k[{}]', 'F':'y({}+1+'+str(self.NY)+')'}.get(self.syntax)
             scode = scode.replace(str(param), tgt.format(i))
-        tgt = {'C':r'[\1]', 'F':r'(\1)'}.get(self.syntax)
+        tgt = {'C':r'[\1]', 'F':r'(\1+1)'}.get(self.syntax)
         scode = re.sub('_(\d+)', tgt, scode)
         return scode
 
@@ -231,9 +287,9 @@ class Binary_IVP_Integrator(IVP_Integrator):
     def set_fo_odesys(self, fo_odesys):
         super(Binary_IVP_Integrator, self).set_fo_odesys(fo_odesys)
         self._binary = None # <-- Clears cache
-        self._code = self.CodeClass(self._fo_odesys,
-                              tempdir = self.tempdir,
-                              save_temp = self.save_temp)
+        self._code = self.CodeClass(
+            self._fo_odesys, tempdir = self.tempdir,
+            save_temp = self.save_temp)
 
     def clean(self):
         self._code.clean()

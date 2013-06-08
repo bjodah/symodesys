@@ -11,6 +11,19 @@ from hashlib import md5
 # other imports
 import sympy
 from sympy.utilities.autowrap import autowrap, ufuncify
+from mako.template import Template
+from mako.exceptions import text_error_template
+
+def render_mako_template_to(template_path, outpath, subsd):
+    template_str = open(template_path, 'rt').read()
+    with open(outpath, 'wt') as ofh:
+        try:
+            rendered = Template(template_str).render(**subsd)
+        except:
+            print(text_error_template().render())
+            raise
+
+        ofh.write(rendered)
 
 
 def deprecated(f):
@@ -105,3 +118,9 @@ def import_(filename):
     fobj, filename, data = imp.find_module(name, [path])
     mod = imp.load_module(name, fobj, filename, data)
     return mod
+
+def missing_or_other_newer(path, other_path):
+    if not os.path.exists(path) or \
+       os.path.getmtime(other_path) > os.path.getmtime(path):
+        return True
+    return False

@@ -1,5 +1,5 @@
 ! Template for generating Fortran 90 code to wrapped using Cython for calling lsodes from python.
-! mako template variables: NY, NNZ, IA, JA, NPARAM, f, cse_func, cse_jac, nnz_expr_jac, dfdt
+! mako template variables: NY, NNZ, IA, JA, NPARAM, f, cse_func, yale_jac_cse, yale_jac_expr, dfdt
 
 module ode
 use types, only: dp
@@ -8,8 +8,8 @@ implicit none
 integer, parameter :: nnz=${NNZ}, neq=${NY}, nparams=${NPARAM}
 !real(dp), save :: params(nparams)
 ! Sparsity structure
-integer, parameter :: ia(neq) = ${IA}
-integer, parameter :: ja(nnz) = ${JA}
+integer, parameter :: ia(neq) = ${IA} ! used in lsodes_bdf.f90
+integer, parameter :: ja(nnz) = ${JA} ! used in lsodes_bdf.f90
 
 public func, jac
 
@@ -20,11 +20,11 @@ subroutine func(neq, t, y, ydot)
   integer, intent(in) :: neq
   real(dp), intent(in) :: t, y(${NY}+${NPARAM})
   real(dp), intent(inout) :: ydot(${NY})
-% for cse_token, cse_expr in cse_func.items():
+% for cse_token, cse_expr in cse_func:
   real(dp) :: ${cse_token}
 % endfor
-% for cse_token, cse_expr in cse_func.items():
-  ${cse_token} :: ${cse_expr}
+% for cse_token, cse_expr in cse_func:
+  ${cse_token} = ${cse_expr}
 % endfor
 % for i, expr in enumerate(f, 1):
   ydot(${i}) = ${expr}
@@ -37,7 +37,7 @@ subroutine jac(neq, t, y, j, ian, jan, pdj)
   real(dp), intent(in) :: t, y(${NY}+${NPARAM})
   real(dp), intent(inout) :: pdj(${NY})
 % for i in range(1,NY+1):
-% for cse_token, cse_expr in cse_jac[i]:
+% for cse_token, cse_expr in yale_jac_cse[i-1]:
   real(dp) :: ${cse_token}
 % endfor
 % endfor
@@ -45,10 +45,10 @@ subroutine jac(neq, t, y, j, ian, jan, pdj)
   ! e.g.: pdj(1) = -1.0_dp - 2.0_dp*y(1)*y(2)*y(nparams+1)
 % for i in range(1,NY+1):
   case (${i})
-  % for cse_token, cse_expr in cse_jac[i]:
+  % for cse_token, cse_expr in yale_jac_cse[i-1]:
      ${cse_token} = ${cse_expr}
   % endfor
-  % for k, expr in nnz_expr_jac[i]:
+  % for k, expr in yale_jac_exprs[i-1]:
      pdj(${k}) = ${expr}
   % endfor
      return

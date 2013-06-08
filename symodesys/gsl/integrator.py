@@ -16,16 +16,15 @@ class GSL_Code(Generic_Code):
     # Implement hash of fo_odesys and hash of code?
     # Serialization to double check against collision?
 
-    copy_files = ('drivers.c', 'pyinterface.pyx') + \
-                 ('drivers.h', 'func.h', 'jac.h', 'Makefile')
+    copy_files = ['drivers.c', 'pyinterface.pyx',
+                  'drivers.h', 'func.h', 'jac.h', 'Makefile']
 
-    templates = {
-        'dydt': ('func_template.c', 'code_func'),
-        'dydt_jac': ('jac_template.c', 'code_jac'),
-        'main_ex': ('main_ex_template.c', 'code_main_ex')
-        }
+    templates = ['func_template.c',
+                 'jac_template.c',
+                 'main_ex_template.c',
+             ]
 
-    _ori_sources = list(copy_files[:2]) + [templates[k][0] for k in ['dydt', 'dydt_jac']]
+    _source_files = copy_files[:2] + templates[:2]
 
     def __init__(self, *args, **kwargs):
         self._basedir = os.path.dirname(__file__)

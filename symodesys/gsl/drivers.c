@@ -8,7 +8,7 @@
 #include "func.h"
 #include "jac.h"
 
-gsl_odeiv2_step_type * get_step_type(int index){
+const gsl_odeiv2_step_type * get_step_type(int index){
   switch(index){
   case 0:
     return gsl_odeiv2_step_rk2;
@@ -32,6 +32,8 @@ gsl_odeiv2_step_type * get_step_type(int index){
     return gsl_odeiv2_step_msadams;
   case 10:
     return gsl_odeiv2_step_msbdf;
+  default:
+    return gsl_odeiv2_step_bsimp;
   }
 }
 

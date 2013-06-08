@@ -11,7 +11,8 @@ TAGS
 */#*#
 */*.so
 */build/
-examples/codegen_out/*
+examples/build_*/
+examples/tmp/
 examples/profile.out
 # ODEPACK is downloaded at setup (see setup_odepack.py)
 symodesys/odepack/opkdmain.f
@@ -20,5 +21,5 @@ symodesys/odepack/opkda2.f
 symodesys/odepack/*__*.*
 # Cython generated C file not tracked (might be provided as bz2 in future release though)
 symodesys/odepack/pylsodes_bdf.c
-symodesys/odepack/prebuilt/*
-symodesys/odepack/prebuilt/*
+symodesys/odepack/prebuilt/*.c
+symodesys/odepack/prebuilt/*.o

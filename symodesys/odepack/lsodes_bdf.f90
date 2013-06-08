@@ -10,7 +10,7 @@ public integrate
 
 contains
 
-subroutine integrate(y, t0, tend, atol, rtol, nt, nderiv, yres, tres)
+subroutine integrate(y, t0, tend, atol, rtol, nt, h_init, h_max, nderiv, yres, tres)
   ! This template is for BDF (5th order) with analytic Jac provided as callback
   integer, parameter :: mf=121, maxord=5 ! method flag, this means: MOSS=1, METH=2, MITER=1
   ! MOSS=1: user supplied JAC (generated symbolically)
@@ -30,7 +30,7 @@ subroutine integrate(y, t0, tend, atol, rtol, nt, nderiv, yres, tres)
 
   ! Define input variables
   real(dp), intent(in) :: y(neq+nparams) ! params are stored in end of y
-  real(dp), intent(in) :: t0, tend, atol, rtol
+  real(dp), intent(in) :: t0, tend, atol, rtol, h_init, h_max
   integer, intent(in) :: nt
   integer, intent(in) :: nderiv
   real(dp), intent(inout) :: yres(:, :, :)
@@ -53,6 +53,10 @@ subroutine integrate(y, t0, tend, atol, rtol, nt, nderiv, yres, tres)
   do i = 1,lrw
      rwork(i) = 0.0
   end do
+
+  ! Set h_init and h_max
+  rwork(5) = h_init
+  rwork(6) = h_max
 
   ! Sparsity
   do i = 1,neq

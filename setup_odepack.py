@@ -5,7 +5,7 @@ import sys
 import subprocess
 import shutil
 
-from symodesys.helpers import md5_of_file
+from symodesys.helpers import md5_of_file, missing_or_other_newer
 from symodesys.helpers.compilation import FortranCompilerRunner, CCompilerRunner
 
 optimize = True
@@ -46,7 +46,7 @@ for f in opkfiles:
     # compiles to: prebuilt/opkd{a1,a2,main}.o
     name, ext = os.path.splitext(f)
     dst = os.path.join('prebuilt', name+'.o') # .ext -> .o
-    if not os.path.exists(os.path.join(cwd, dst)):
+    if missing_or_other_newer(os.path.join(cwd, dst), f):
         runner = FortranCompilerRunner([f], dst, run_linker=False, cwd=cwd,
             options=['pic', 'warn', 'fast'], verbose=True)
         out, err, exit_status = runner.run()
@@ -60,27 +60,30 @@ for f in opkfiles:
 
 
 # Cythonize pyx file
+src = 'pylsodes_bdf.pyx'
 dst = 'pylsodes_bdf.c'
-if not os.path.exists(os.path.join(cwd, dst)):
+if missing_or_other_newer(os.path.join(cwd, dst), src):
     from Cython.Compiler.Main import default_options, compile, CompilationOptions
-    cy_sources = ['pylsodes_bdf.pyx']
+    cy_sources = [src]
     cy_options = CompilationOptions(default_options)
+    print("Cythonizing {} to {}".format(src,dst))
     compile(cy_sources, cy_options)
 else:
     print("Found {}, did not re-cythonize.".format(dst))
 
 # Compile cython generated .c file to object file
+src = 'pylsodes_bdf.c'
 dst = 'prebuilt/pylsodes_bdf.o'
-if not os.path.exists(os.path.join(cwd, dst)):
+if missing_or_other_newer(os.path.join(cwd, dst), src):
     from distutils.sysconfig import get_python_inc, get_config_vars
     import numpy
     includes = [get_python_inc(), numpy.get_include()]
     cc = " ".join(get_config_vars('CC', 'BASECFLAGS', 'OPT', 'CFLAGSFORSHARED'))
     compilern, flags = cc.split()[0], cc.split()[1:]
-    print(includes)
-    runner =CCompilerRunner(['pylsodes_bdf.c'], dst, flags, run_linker=False,
+    runner =CCompilerRunner([src], dst, flags, run_linker=False,
                             compiler=[compilern]*2, cwd=cwd,
                             inc_dirs=includes, verbose=True)
+    print("Compiling cythonized...")
     out, err, exit_status = runner.run()
     if exit_status != 0:
         print(out)

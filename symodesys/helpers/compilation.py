@@ -31,13 +31,12 @@ class CompilerRunner(object):
                  lib_dirs=None,
                  options=None, verbose=False):
 
-        self.sources = sources
+        self.sources = sources if hasattr(sources,'__iter__') else [sources]
         self.out = out
         self.flags = flags or []
         #self.run_linker = run_linker
         if compiler:
             self.compiler_name, self.compiler_binary = compiler
-            assert self.compiler_name in self.flag_dict
         else:
             # Find a compiler
             self.compiler_name, self.compiler_binary = self.find_compiler()
@@ -49,7 +48,7 @@ class CompilerRunner(object):
         self.verbose = verbose
         if run_linker:
             # both gcc and ifort have '-c' flag for disabling linker
-            self.flags = filter(lambda x: x == '-c', self.flags)
+            self.flags = filter(lambda x: x != '-c', self.flags)
         else:
             self.flags.append('-c')
 

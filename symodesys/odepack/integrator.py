@@ -9,43 +9,57 @@ import cython_gsl
 
 # Intrapackage imports
 from symodesys.codeexport import Generic_Code, Binary_IVP_Integrator
-from symodesys.helpers.compilation import FortranCompilerRunner
+from symodesys.helpers.compilation import FortranCompilerRunner #, CCompilerRunner
 
 class LSODES_Code(Generic_Code):
 
     syntax = 'F'
 
-    copy_files = (
+    copy_files = [
         'prebuilt/opkda1.o',
         'prebuilt/opkda2.o',
         'prebuilt/opkdmain.o',
-        'types.f90',
-        'ode_template.f90',
-        'lsodes_bdf.f90',
-        'lsodes_bdf_wrapper_template.f90',
         'prebuilt/pylsodes_bdf.o',
-    )
+        'types.f90',
+        'lsodes_bdf.f90',
+    ]
 
-    templates = {
-        'wrapper': ('lsodes_bdf_wrapper_template.f90', 'sysdict')
-        'ode': ('ode_template.f90', 'sysdict')
-        }
+    templates = ['lsodes_bdf_wrapper_template.f90',
+                 'ode_template.f90',
+        ]
 
-    _ori_sources = list(copy_files[:2]) + [templates[k][0] for k in ['dydt', 'dydt_jac']]
+    _source_files = None
 
+    def __init__(self, *args, **kwargs):
+        self._basedir = os.path.dirname(__file__)
+        super(LSODES_Code, self).__init__(*args, **kwargs)
 
     def _compile(self, extension_name='pyinterface'):
+        # Compile types.o ode,o lsodes_bdf.o lsodes_bdf_wrapper.o
+        for f in ['types.f90', 'ode.f90', 'lsodes_bdf.f90',
+                  'lsodes_bdf_wrapper.f90']:
+            runner = FortranCompilerRunner(
+                f, f.replace('.f90','.o'), run_linker=False,
+                cwd=self._tempdir, options=['pic', 'warn', 'fast'], verbose=True)
+            out, err, exit_status = runner.run()
+            if exit_status != 0:
+                print(out)
+                print(err)
+            else:
+                print('...Success!')
+
         # Generate shared object for importing:
         from distutils.sysconfig import get_config_vars
-        pylibs = [x for x in get_config_vars('BLDLIBRARY').split() if x.startswith('-l')]
-        cc = get_config_vars('BLDSHARED')
+        pylibs = [x[2:] for x in get_config_vars('BLDLIBRARY')[0].split() if x.startswith('-l')]
+        cc = get_config_vars('BLDSHARED')[0]
         compilername, flags = cc.split()[0], cc.split()[1:] # e.g. gcc, ['-pthread', ...
         so_file = 'pylsodes_bdf.so'
-        runner=FortranCompilerRunner(
+        runner = FortranCompilerRunner(
             ['opkda1.o', 'opkda2.o', 'opkdmain.o', 'types.o', 'ode.o',
              'lsodes_bdf.o', 'lsodes_bdf_wrapper.o', 'pylsodes_bdf.o'],
-            so_file, flags, compiler=[compilername]*2,
-            cwd=self._tempdir, libs=pylibs, verbose=True)
+            so_file, flags, #,compiler=   <--- We need fortran compiler.
+            cwd=self._tempdir, libs=pylibs,
+            verbose=True)
         out, err, exit_status = runner.run()
         if exit_status != 0:
             print(out)

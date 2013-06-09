@@ -16,7 +16,7 @@ import shutil
 import re
 import os
 from collections import OrderedDict
-from functools import reduce
+from functools import reduce, partial
 from operator import add
 from distutils.core import setup
 from distutils.extension import Extension
@@ -46,7 +46,7 @@ class Generic_Code(object):
         if self.syntax == 'C':
             self.wcode = sympy.ccode #staticmethod(sympy.ccode)
         elif self.syntax == 'F':
-            self.wcode = sympy.fcode #staticmethod(sympy.fcode)
+            self.wcode = partial(sympy.fcode, source_format='free') #staticmethod(sympy.fcode)
         self._fo_odesys = fo_odesys
         if tempdir:
             self._tempdir = tempdir
@@ -263,16 +263,29 @@ class Generic_Code(object):
 
 
     def as_arrayified_code(self, expr):
-        dummies = sympy.symbols('depvdummies:'+str(len(
+        # Dummify dependent variable symbols
+        depvdummies = sympy.symbols('depvdummies:'+str(len(
             self._fo_odesys.non_analytic_depv)))
         for i, depv in enumerate(self._fo_odesys.non_analytic_depv):
-            expr = expr.subs({depv: dummies[i]})
+            expr = expr.subs({depv: depvdummies[i]})
+
+        # Dummify parameter symbols
+        paramdummies = sympy.symbols('paramdummies:'+str(len(
+            self._fo_odesys.param_and_sol_symbs)))
+        for i, param in enumerate(self._fo_odesys.param_and_sol_symbs):
+            expr = expr.subs({param: paramdummies[i]})
+
+        # Generate code string
         scode = self.wcode(expr)
+
+        # Convert depv dummies into array expression:
         tgt = {'C':r'y[\1]', 'F':r'y(\1+1)'}.get(self.syntax)
         scode = re.sub('depvdummies(\d+)', tgt, scode)
-        for i, param in enumerate(self.prog_param_symbs):
-            tgt = {'C':'k[{}]', 'F':'y({}+1+'+str(self.NY)+')'}.get(self.syntax)
-            scode = scode.replace(str(param), tgt.format(i))
+
+        # Convert param dummies into array expression:
+        tgt = {'C':r'k[\1]', 'F':r'y(\1+1+'+str(self.NY)+')'}.get(self.syntax)
+        scode = re.sub('paramdummies(\d+)', tgt, scode)
+
         tgt = {'C':r'[\1]', 'F':r'(\1+1)'}.get(self.syntax)
         scode = re.sub('_(\d+)', tgt, scode)
         return scode

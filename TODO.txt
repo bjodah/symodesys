@@ -1,10 +1,17 @@
+There is a bug in GSL_IVP_Integrator (or rather the generated C-code or driver.c) which
+causes integration sometimes to fail with singular matrix. Runs are inconsisteent - suggesting that some array is not initiliazed to zero (or data is being read outside bounds)
+
 Refactor gsl.integrator to use codegen (and factor out general bits)
 Add sundials
-Add lsode
 Add odeint (www.odeint.com C++ library which exploits OpenCL)
-solved provides DAE functionality, generalizing?
 Pure root finding module, similiar syntax?
 
 There is a bug in GSL driver which produces different results on different runs, it
 is not due to not assigning zero to elements of dydt in jac() (established). The
 reason is currently unknown..
+
+
+Long-term:
+==========
+DAE functionality
+

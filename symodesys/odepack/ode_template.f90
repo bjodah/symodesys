@@ -43,11 +43,13 @@ subroutine jac(neq, t, y, j, ian, jan, pdj)
 % endfor
   select case (j)
   ! e.g.: pdj(1) = -1.0_dp - 2.0_dp*y(1)*y(2)*y(nparams+1)
+! i loops over column indices
 % for i in range(1,NY+1):
   case (${i})
   % for cse_token, cse_expr in yale_jac_cse[i-1]:
      ${cse_token} = ${cse_expr}
   % endfor
+  ! k loops over row indices
   % for k, expr in yale_jac_exprs[i-1]:
      pdj(${k}) = ${expr}
   % endfor

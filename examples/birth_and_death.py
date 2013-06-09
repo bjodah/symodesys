@@ -17,7 +17,7 @@ from matplotlib.collections import PolyCollection
 # Project internal imports
 from symodesys.odesys import SimpleFirstOrderODESystem
 from symodesys.ivp import IVP
-from symodesys.gsl import GSL_IVP_Integrator
+from symodesys.odepack import LSODES_IVP_Integrator as Binary_IVP_Integrator
 
 """
 This example illustrates the need of symodesys
@@ -88,9 +88,7 @@ def get_transformed_ivp(n):
     y0 = {'y{}'.format(i): (n-i)*1.0 for i in range(n)}
     params = {'l{}'.format(i): (n-i)/10.0 for i in range(n)}
     t0, tend, N = 0, 10.0, 500
-    #with IVP(bd, y0, params, t0, integrator=GSL_IVP_Integrator()) as ivp:
-        # ivp.clean() will be called on exception
-    ivp = IVP(bd, y0, params, t0, integrator=GSL_IVP_Integrator())
+    ivp = IVP(bd, y0, params, t0, integrator=Binary_IVP_Integrator(save_temp=True, tempdir='tmp/'))
     trnsfm, inv_trnsfm = {}, {}
     for i in range(n):
         # Generate the transform (incl. inverse)
@@ -112,7 +110,7 @@ def main(n):
     # ivp.plot(interpolate=True, datapoints=False, show=True)
     sorted_keys = sorted(ivp.all_depv, key=lambda x: str(x))
     plot_population(ivp, depv_z_map=OrderedDict([(k, sorted_keys.index(k)) for k in sorted_keys]))
-    ivp.clean()
+    #ivp.clean()
 
 if __name__ == '__main__':
     main(10)

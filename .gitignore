@@ -19,8 +19,10 @@ symodesys/helpers/tests/build/
 symodesys/odepack/opkdmain.f
 symodesys/odepack/opkda1.f
 symodesys/odepack/opkda2.f
-symodesys/odepack/?__*.*
+# ifort generates some lint
+symodesys/odepack/*__genmod.*
 # Cython generated C file not tracked (might be provided as bz2 in future release though)
 symodesys/odepack/pylsodes_bdf.c
 symodesys/odepack/prebuilt/*.c
 symodesys/odepack/prebuilt/*.o
+symodesys/odepack/prebuilt/.metadata_CompilerRunner

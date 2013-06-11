@@ -51,7 +51,7 @@ class Generic_Code(object):
         if tempdir:
             self._tempdir = tempdir
         else:
-            self._tempdir = tempfile.mkdtemp()
+            self._tempdir = tempfile.mkdtemp("_symodesys_compile")
             self._remove_tempdir_on_clean = True
         self._save_temp = save_temp
 
@@ -59,13 +59,15 @@ class Generic_Code(object):
             os.makedirs(self._tempdir)
             self._remove_tempdir_on_clean = True
 
-        self._written_files = []
-        self._cached_files = [] # Cached files are files that needs to be removed
-        self._include_dirs = []
-        self._libraries = []
-        self._library_dirs = []
-        self._include_dirs = []
+        # '_cached_files' - Files that needs to be removed between compilations
+        for lstattr in ['_written_files', '_cached_files',
+                        '_include_dirs', '_libraries',
+                        '_library_dirs', '_include_dirs']:
+            if not hasattr(self, lstattr):
+                setattr(self, lstattr, [])
+
         self._write_code()
+
 
     def _write_code(self):
         for path in self._cached_files:

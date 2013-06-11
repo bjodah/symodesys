@@ -34,7 +34,7 @@ def alt_ufuncify(args, expr, **kwargs):
     l = C.Lambda(args, expr)
     f = implemented_function('f', l)
 
-    # first argument accepts an array
+    # all arguments accepts arrays
     internal_args = [C.IndexedBase(C.Dummy(a.name)) for a in args]
     return autowrap(C.Equality(y[i], f(*[a[i] for a in internal_args])), **kwargs)
 

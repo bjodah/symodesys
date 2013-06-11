@@ -14,6 +14,7 @@ TAGS
 examples/build_*/
 examples/tmp/
 examples/profile.out
+symodesys/helpers/tests/build/
 # ODEPACK is downloaded at setup (see setup_odepack.py)
 symodesys/odepack/opkdmain.f
 symodesys/odepack/opkda1.f

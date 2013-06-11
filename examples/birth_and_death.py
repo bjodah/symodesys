@@ -17,7 +17,8 @@ from matplotlib.collections import PolyCollection
 # Project internal imports
 from symodesys.odesys import SimpleFirstOrderODESystem
 from symodesys.ivp import IVP
-from symodesys.odepack import LSODES_IVP_Integrator as Binary_IVP_Integrator
+#from symodesys.odepack import LSODES_IVP_Integrator as Binary_IVP_Integrator
+from symodesys.gsl import GSL_IVP_Integrator as Binary_IVP_Integrator
 
 """
 This example illustrates the need of symodesys

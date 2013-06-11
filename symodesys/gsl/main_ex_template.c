@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <stdlib.h>
 #include <gsl/gsl_errno.h>
 
 #include "drivers.h"
@@ -22,13 +22,13 @@ main (void)
   double	eps_rel	= 1e-6;
   double y[]    = {${Y0_COMMA_SEP_STR}};
   double params[] = {${PARAM_VALS_COMMA_SEP_STR}};
-  double tout[] = malloc(sizeof(double)*n);
-  double Yout[] = malloc(sizeof(double)*n*(nderiv+1));
+  double * tout = malloc(sizeof(double)*n);
+  double * Yout = malloc(sizeof(double)*n*(nderiv+1));
   int step_type_idx = 7;
 
   status = integrate_ode_using_driver_fixed_step_print(
     t, t1, y, n, h, hmax, eps_abs, eps_rel, &params, dim, nderiv,
-    tout, Yout, step_type_idx);
+    &tout[0], &Yout[0], step_type_idx);
 
   if (status == GSL_SUCCESS)
     {

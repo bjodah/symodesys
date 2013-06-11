@@ -1,6 +1,8 @@
 #ifndef _DRIVERS_H_
 #define _DRIVERS_H_
 
+#include <gsl/gsl_odeiv2.h>
+
 /* http://stackoverflow.com/questions/2740039/ \ */
 /* using-c-preprocessor-to-construct-a-string-literal-for-scanf */
 #define STR_EVALUATE(x)   #x

@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_matrix.h>
-#include <gsl/gsl_odeiv2.h>
 #include <gsl/gsl_pow_int.h>
+#include <gsl/gsl_block.h>
 
 #include "drivers.h"
 #include "func.h"
@@ -60,13 +60,8 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
   gsl_odeiv2_driver * d = gsl_odeiv2_driver_alloc_y_new(&sys, gsl_odeiv2_step_msbdf, h_init, eps_abs, eps_rel);
   gsl_odeiv2_step_set_driver(s, d);
 
-  double *f = malloc(sizeof(double)*dim);
-  double *dfdt = malloc(sizeof(double)*dim);
-  for (i=0; i<dim; ++i)
-    {
-      f[i] = 0.0;
-      dfdt[i] = 0.0;
-    }
+  gsl_block * f = gsl_block_calloc(dim);
+  gsl_block * dfdt = gsl_block_calloc(dim);
   gsl_matrix *dfdy = gsl_matrix_calloc(dim, dim); // init to zero (calloc)
 
   if (h_max > 0.0)
@@ -78,23 +73,23 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
     {
       tout[i] = t;
       if (nderiv > 0)
-        func(t, y, f, params);
+        func(t, y, f->data, params);
       if (nderiv > 1)
-        jac(t, y, dfdy->data, dfdt, params);
+        jac(t, y, dfdy->data, dfdt->data, params);
 
       for (j = 0; j < dim; ++j)
         {
           Yout[i*dim*(nderiv+1)+j*(nderiv+1)+0] = y[j];
           if (nderiv > 0)
-            Yout[i*dim*(nderiv+1)+j*(nderiv+1)+1] = f[j];
+            Yout[i*dim*(nderiv+1)+j*(nderiv+1)+1] = f->data[j];
           if (nderiv > 1)
             {
               temp = 0;
               for (k=0; k<dim; ++k)
                 {
-                  temp += gsl_matrix_get(dfdy, j, k)*f[k];
+                  temp += gsl_matrix_get(dfdy, j, k)*f->data[k];
                 }
-              Yout[i*dim*(nderiv+1)+j*(nderiv+1)+2] = dfdt[j]+temp;
+              Yout[i*dim*(nderiv+1)+j*(nderiv+1)+2] = dfdt->data[j]+temp;
             }
         }
       /* Macro-step loop */
@@ -112,8 +107,8 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
   /* Memory management */
   gsl_odeiv2_driver_free (d);
   gsl_odeiv2_step_free (s);
-  free(f);
-  free(dfdt);
+  gsl_block_free(f);
+  gsl_block_free(dfdt);
   gsl_matrix_free(dfdy);
 
   return status;

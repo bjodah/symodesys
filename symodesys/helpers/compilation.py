@@ -1,16 +1,21 @@
 from __future__ import print_function, division
-import subprocess
 
+import os
+import subprocess
+import pickle
+
+from distutils.spawn import find_executable
+
+# TODO: change print statements to logging statements.
 
 def find_binary_of_command(candidates):
+    """
+    Currently only support *nix systems (invocation of which)
+    """
     for c in candidates:
-        p = subprocess.Popen(['which', c], stdout=subprocess.PIPE)
-        stdoutdata, stderrdata = p.communicate()
-        p.wait()
-        if p.returncode == 0:
-            chosen_candidate = c
-            binary_path = stdoutdata.split('\n')[0]
-            return chosen_candidate, binary_path
+        binary_path = find_executable(c)
+        if c:
+            return c, binary_path
     raise RuntimeError('No binary located for candidates: {}'.format(
         candidates))
 
@@ -25,11 +30,17 @@ def _uniquify(l):
 class CompilerRunner(object):
 
     flag_dict = None # Lazy unified defaults for compilers
+    metadata_filename = '.metadata_CompilerRunner'
 
     def __init__(self, sources, out, flags=None, run_linker=True,
                  compiler=None, cwd=None, inc_dirs=None, libs=None,
                  lib_dirs=None,
-                 options=None, verbose=False):
+                 options=None, verbose=False, preferred_vendor=None,
+                 metadir=None):
+        """
+        Arguments:
+        - `preferred_vendor`: key of compiler_dict
+        """
 
         self.sources = sources if hasattr(sources,'__iter__') else [sources]
         self.out = out
@@ -39,7 +50,9 @@ class CompilerRunner(object):
             self.compiler_name, self.compiler_binary = compiler
         else:
             # Find a compiler
-            self.compiler_name, self.compiler_binary = self.find_compiler()
+            preferred_compiler_name = self.compiler_dict.get(preferred_vendor,None)
+            self.compiler_name, self.compiler_binary = self.find_compiler(
+                preferred_compiler_name, metadir or cwd)
         self.cwd = cwd
         self.inc_dirs = inc_dirs or []
         self.libs = libs or []
@@ -63,13 +76,62 @@ class CompilerRunner(object):
             self.flags.extend(extra_flags)
 
 
-    def find_compiler(self):
+    @classmethod
+    def find_compiler(cls, preferred_compiler_name=None, load_save_choice=None):
         """
-        Identify a suitable fortran compiler
-        Currently only support *nix systems
-        """
-        return find_binary_of_command(self.flag_dict.keys())
+        Identify a suitable C/fortran/other compiler
 
+        When it is possible that the user (un)installs a compiler inbetween
+        compilations of object files we want to catch that. This method
+        allows compiler choice to be stored in a pickled metadata file.
+        Provide load_save_choice a dirpath to make the class save choice
+        there in a file with cls.metadata_filename as name.
+        """
+        if load_save_choice:
+            name_path = cls.get_from_metadata_file(load_save_choice, 'compiler')
+            if name_path != None: return name_path
+        candidates = cls.flag_dict.keys()
+        if preferred_compiler_name:
+            if preferred_compiler_name in candidates:
+                # Duplication doesn't matter
+                candidates = [preferred_compiler_name] + candidates
+        name_path = find_binary_of_command(candidates)
+        if load_save_choice:
+            cls.save_to_metadata_file(load_save_choice, 'compiler', name_path)
+        return name_path
+
+
+    @classmethod
+    def _get_metadata_key(cls, kw):
+        """ kw could be e.g. 'compiler' """
+        return cls.__name__+'_'+kw
+
+    @classmethod
+    def get_from_metadata_file(cls, dirpath, key):
+        """
+        Get value of key in metadata file dict.
+        """
+        fullpath = os.path.join(dirpath, cls.metadata_filename)
+        if os.path.exists(fullpath):
+            d = pickle.load(open(fullpath,'r'))
+            return d.get(cls._get_metadata_key(key), None)
+        else:
+            # Raise an exception instead?
+            return None
+
+    @classmethod
+    def save_to_metadata_file(cls, dirpath, key, value):
+        """
+        Store `key: value` in metadata file dict.
+        """
+        fullpath = os.path.join(dirpath, cls.metadata_filename)
+        if os.path.exists(fullpath):
+            d = pickle.load(open(fullpath,'r'))
+            d.update({key: value})
+            pickle.dump(d, open(fullpath,'w'))
+        else:
+            print({key: value}, fullpath)
+            pickle.dump({key: value}, open(fullpath,'w'))
 
     def run(self):
         self.flags = _uniquify(self.flags)
@@ -92,6 +154,11 @@ class CompilerRunner(object):
 
 class CCompilerRunner(CompilerRunner):
 
+    compiler_dict = {
+        'gnu': 'gcc',
+        'intel': 'icc',
+    }
+
     flag_dict = {
         'gcc': {
             'pic': ('-fPIC',),
@@ -106,6 +173,11 @@ class CCompilerRunner(CompilerRunner):
 
 
 class FortranCompilerRunner(CompilerRunner):
+
+    compiler_dict = {
+        'gnu': 'gfortran',
+        'intel': 'ifort',
+    }
 
     flag_dict = {
         'gfortran': {

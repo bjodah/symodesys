@@ -22,6 +22,7 @@ class LSODES_Code(Generic_Code):
         'prebuilt/pylsodes_bdf.o',
         'types.f90',
         'lsodes_bdf.f90',
+        'prebuilt/'+FortranCompilerRunner.metadata_filename, # <--- Make sure we compile with same compiler
     ]
 
     templates = ['lsodes_bdf_wrapper_template.f90',
@@ -42,7 +43,8 @@ class LSODES_Code(Generic_Code):
                   'lsodes_bdf_wrapper.f90']:
             runner = FortranCompilerRunner(
                 f, f.replace('.f90','.o'), run_linker=False,
-                cwd=self._tempdir, options=['pic', 'warn', 'fast'], verbose=True)
+                cwd=self._tempdir, options=['pic', 'warn', 'fast'], verbose=True,
+                preferred_vendor='gnu')
             out, err, exit_status = runner.run()
             if exit_status != 0:
                 print(out)
@@ -61,7 +63,7 @@ class LSODES_Code(Generic_Code):
              'lsodes_bdf.o', 'lsodes_bdf_wrapper.o', 'pylsodes_bdf.o'],
             so_file, flags, #,compiler=   <--- We need fortran compiler.
             cwd=self._tempdir, libs=pylibs,
-            verbose=True)
+            verbose=True, preferred_vendor='gnu')
         out, err, exit_status = runner.run()
         if exit_status != 0:
             print(out)
@@ -80,7 +82,7 @@ class LSODES_IVP_Integrator(Binary_IVP_Integrator):
     CodeClass = LSODES_Code
 
     def run(self, y0, t0, tend, param_vals, N,
-                  abstol=None, reltol=None, h=None, h_init=None, h_max=0.0, nderiv=None):
+            abstol=None, reltol=None, h=None, h_init=None, h_max=0.0, nderiv=None):
         """
         hmax won't be set if 0.0
         """
@@ -108,7 +110,8 @@ class LSODES_IVP_Integrator(Binary_IVP_Integrator):
             # Fixed stepsize
             #self.init_Yout_tout_for_fixed_step_size(t0, tend, N)
             tout, Yout = self.binary.integrate_equidistant_output(
-                t0, tend, y0_arr, N, h_init, h_max, self.abstol, self.reltol, params_arr, self.nderiv)
+                t0, tend, y0_arr, N, h_init, h_max,
+                self.abstol, self.reltol, params_arr, self.nderiv)
             self.tout = tout
             self.Yout = Yout
         else:

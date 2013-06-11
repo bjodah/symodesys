@@ -75,8 +75,24 @@ expected time frame for this: months)
   is _not_ a problem thanks to PyPI)
 * Provide a "value-added" API which enables 3rd party extensions to efficiently,
   subclass from symodesys. 
-* Minimum amount of magic code in the project (might need to rewrite as own SymPy capabilityes progress)
+* Minimum amount of magic code in the project (try to refactor to use SymPy's capabilityes)
 * Try to be in line with best practices (code reviews are welcome).
+
+# Contribute
+Contributions are very welcome. If you want some ideas to work on:
+Enhance the binary IVP integrators (code generation).
+Look at symodeys/odepack and symodesys/gsl respectively.
+odeint, sundials, rodas and rkc are 4 other that comes to mind to be nice to have.
+
+# Known issues
+## ODEPACK
+opkda1.f fails using ifort 13.0.1 with the following error
+`
+opkda1.f(9498): error #6633: The type of the actual argument differs from the type of the dummy argument.   [RWORK]
+     1   RWORK(LACOR), IA, JA, IC, JC, RWORK(LWM), RWORK(LWM), IPFLAG,
+---------------------------------------------------^
+compilation aborted for opkda1.f (code 1)
+`
 
 ## Author
 Written by Björn Dahlgren. Copyright 2012-2013.

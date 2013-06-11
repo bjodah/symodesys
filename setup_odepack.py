@@ -47,8 +47,11 @@ for f in opkfiles:
     name, ext = os.path.splitext(f)
     dst = os.path.join('prebuilt', name+'.o') # .ext -> .o
     if missing_or_other_newer(os.path.join(cwd, dst), f):
-        runner = FortranCompilerRunner([f], dst, run_linker=False, cwd=cwd,
-            options=['pic', 'warn', 'fast'], verbose=True)
+        # Intel Fortran fails for opkda1.f, hence prefer `gnu`
+        runner = FortranCompilerRunner(
+            [f], dst, run_linker=False,
+            cwd=cwd, options=['pic', 'warn', 'fast'], verbose=True,
+            preferred_vendor='gnu', metadir='prebuilt/')
         out, err, exit_status = runner.run()
         if exit_status != 0:
             print(out)

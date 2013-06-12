@@ -558,7 +558,7 @@ class FirstOrderODESystem(_ODESystemBase):
 
     def _init_param_symbs(self):
         """
-        To be subclassed (or add list prop: param_symbs)
+        To be subclassed (or add attribute (list): param_symbs)
 
         should return list of sympy.symbols(``token_string'') instances
         The order in this list defines indices in vectors and matrices
@@ -579,7 +579,7 @@ class FirstOrderODESystem(_ODESystemBase):
           derivatives as values (and dependent variable sympy.Function
           instances as keys)
         """
-        self.f = {}
+        self.f = OrderedDict()
 
 
     def _fmat(self):

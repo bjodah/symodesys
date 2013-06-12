@@ -37,16 +37,15 @@ def test_SimpleFirstOrderODESystem___1():
     assert d.mk_func('s') == s # <--- Needed by variable substitution dict lookups
 
 def _mk_brith_death_system(n):
-    b, d = map(sympy.symbols, ['b:'+str(n),'d:'str(n)])
-    b, d = b[1:], d[:-1] # First isn't born, last doesn't die
-    t = sympy.Symbol('t')
+    l = sympy.symbols('l:'+str(n-1))+[0] # Death prob. coefficient
     x = [sympy.Function('x'+i)(t) for i in range(n)]
-    births = [0]+[b[i]*x[i-1] for i in range(1:n)] # birth processes
-    deaths = [d[i]*x[i] for i in range(n-1)]+[0] # death processes
+    d = [x[i]*l[i] for i in range(n)] # death rate
+    b = [0]+[x[i-1]*l[i] for i in range(1:n)] # birth rate
+    t = sympy.Symbol('t')
     class BirthDeath(FirstOrderODESystem):
         indepv = t
         param_symbs = b+d
-        f = OrderedDict([(x[i].diff(t), births[i]-deaths[i]) for i in range(n)])
+        f = OrderedDict([(x[i].diff(t), b[i]-d[i]) for i in range(n)])
 
     return BirthDeath()
 
@@ -59,15 +58,14 @@ def test_FirstOrderODESystem___1():
     n = 3
     bd = _mk_brith_death_system(n)
 
-    b, d = map(sympy.symbols, ['b:'+str(n),'d:'str(n)])
-    b, d = b[1:], d[:-1] # First isn't born, last doesn't die
-    t = sympy.Symbol('t')
+    l = sympy.symbols('l:'+str(n-1))+[0] # Death prob. coefficient
     x = [sympy.Function('x'+i)(t) for i in range(n)]
-    births = [0]+[b[i]*x[i-1] for i in range(1:n)] # birth processes
-    deaths = [d[i]*x[i] for i in range(n-1)]+[0] # death processes
-
-    exprs = [births[i]-deaths[i] for i in range(n)]
-    # Test __getitem__
+    d = [x[i]*l[i] for i in range(n)] # death rate
+    b = [0]+[x[i-1]*l[i] for i in range(1:n)] # birth rate
+    t = sympy.Symbol('t')
+    exprs = [b[i]-d[i] for i in range(n)]
+    # _ODESystemBase
+    #   __getitem__
     assert bd['x0'] == x[0]
     assert bd['x1'] == x[1]
     assert bd['x2'] == x[2]
@@ -82,14 +80,30 @@ def test_FirstOrderODESystem___1():
     x_ = [sympy.Symbol('x'+i) for i in range(n)]
     assert bd.forbidden_symbs == [t]+x+b+d+x_
 
+    # FirstOrderODESystem specific
+    assert bd._odeqs == OrderedDict([
+        (y[i], (1, exprs[i])) for i in range(n)])
+    assert all([bd.f[k] == exprs[i] for i,k in enumerate(bd.all_depv)])
+
+    # _ODESystemBase
     y = [sympy.Function('y'+i)(t) for i in range(n)]
+    y_ = [sympy.Symbol('y'+i) for i in range(n)]
     bd.subs(dict(zip(x,y)))
     assert bd.is_first_order
     assert bd.get_highest_order() == 1
     assert bd.is_autonomous
-    assert map(bd.unfunc_depv, x) == x_
+    assert map(bd.unfunc_depv, y) == y_
     bd._do_sanity_check_of_odeqs()
-    assert bd.eqs == [sympy.Eq(x[i].diff(t), expr[i]) for i in range(i)]
+    assert bd.eqs == [sympy.Eq(y[i].diff(t), expr[i]) for i in range(i)]
+    assert bf.eq(bd['y0']) == sympy.Eq(y[0].diff(t), -d[0]*y[0])
+    assert bd.from_list_of_eqs(bd.eqs) == bd
+    C0 = sympy.Symbol('C0')
+    assert bd.attempt_analytic_sol(y[0], C0*sympy.exp(-d[0]*t), [C0])
+    C1 = sympy.Symbol('C1')
+    assert not bd.attempt_analytic_sol(y[1], C1*sympy.exp(-d[1]*t), [C1])
+    assert bd.is_linear
+
+    bd.recursive_analytic_auto_sol()
 
 
 if __name__ == '__main__':

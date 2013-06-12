@@ -13,8 +13,8 @@ from enthought.traits.ui.api import Item, View
 
 from van_der_pol import VanDerPolOscillator
 from symodesys.ivp import IVP
-#from symodesys.gsl import GSL_IVP_Integrator as Binary_IVP_Integrator
-from symodesys.odepack import LSODES_IVP_Integrator as Binary_IVP_Integrator
+from symodesys.gsl import GSL_IVP_Integrator as Binary_IVP_Integrator
+#from symodesys.odepack import LSODES_IVP_Integrator as Binary_IVP_Integrator
 from symodesys.helpers import cache
 
 class ODESolViewer(HasTraits):
@@ -89,7 +89,7 @@ class ODESolViewer(HasTraits):
                 setattr(self, k, v)
             else:
                 raise AttributeError('No param {}'.format(k))
-        self.t_default = np.linspace(t0, tend, 500)
+        self.t_default = np.linspace(t0, tend, 2048)
         self.ivp = IVP(ODESys(), y0, params, t0, integrator=Integrator(tempdir='tmp', save_temp=True))
         self.N = N
         super(ODESolViewer, self).__init__()
@@ -104,13 +104,14 @@ class ODESolViewer(HasTraits):
         return {'mu': self.mu}
 
     def run_integration(self):
-        self.interpolated_yres = self._integrate(self.init_vals, self.param_vals,
-                                                 self.t_default[-1], self.N)
+        self.interpolated_yres = self._integrate(
+            self.init_vals, self.param_vals, self.t_default[-1], self.N,
+        )
 
     def _integrate(self, init_vals, param_vals, tend, N):
         self.ivp.init_vals=init_vals
         self.ivp.param_vals=param_vals
-        self.ivp.integrate(tend, N = N)
+        self.ivp.integrate(tend, N=N, nderiv=2, step_type='bsimp')
         return self.ivp.get_interpolated(self.t)
 
 if __name__ == '__main__':
@@ -119,7 +120,7 @@ if __name__ == '__main__':
     params={'mu': 2.5}
     t0=0.0
     tend=10.0
-    N=50
+    N=100
     viewer = ODESolViewer(ODESys, y0, params, t0, tend, N)
     viewer.configure_traits()
-    View.clean()
+    viewer.ivp.clean()

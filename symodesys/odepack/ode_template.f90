@@ -63,8 +63,8 @@ subroutine dfdt(t, y, pdt)
   real(dp), intent(inout) :: pdt(${NY})
   integer :: i
   ! used fo explicit calc of d2ydt2
-% for k, expr in enumerate(dfdt, 1):
-  pdt(${k}) = ${expr}
+% for k, expr in dfdt:
+  pdt(${k}+1) = ${expr}
 % endfor
 end subroutine
 
@@ -73,20 +73,26 @@ subroutine d2ydt2(neq, t, y, yddot, ian, jan)
   real(dp), intent(in) :: t, y(${NY}+${NPARAM})
   real(dp), intent(inout) :: yddot(${NY})
   real(dp) :: pdj(${NY}), ydot(${NY}), pdt(${NY})
-  integer :: i, j
+  integer :: i, j, k
 
   call func(neq, t, y, ydot)
   call dfdt(t, y, pdt)
-  ! TODO: exploit ian & jan,
-  ! as it stands now it scales N**2
   do i = 1,neq
      yddot(i) = pdt(i)
      do j = 1,neq
         pdj(j) = 0.0_dp
      end do
      call jac(neq, t, y, i, ian, jan, pdj)
-     do j = 1,neq
-        yddot(i) = yddot(i) + pdj(j)*ydot(j)
+
+     ! since ian doesn't store the upper boundary for 
+     ! the last item, we need to handle this edge case
+     if (i == neq) then
+        k = ${NNZ}
+     else
+        k = iran(i+1)
+     end if
+     do j = ian(i),k
+        yddot(i) = yddot(i) + pdj(jan(j))*ydot(jan(j))
      end do
   end do
 end subroutine

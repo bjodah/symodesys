@@ -5,8 +5,7 @@
 #include <gsl/gsl_block.h>
 
 #include "drivers.h"
-#include "func.h"
-#include "jac.h"
+#include "ode.h"
 
 const gsl_odeiv2_step_type * get_step_type(int index){
   switch(index){
@@ -38,7 +37,7 @@ const gsl_odeiv2_step_type * get_step_type(int index){
 }
 
 int
-integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_steps,
+integrate_fixed_step (double t, double t1, double y[], int n_steps,
                                        double h_init, double h_max, double eps_abs,
                                        double eps_rel, void * params, size_t dim, int nderiv, double tout[], double Yout[], int step_type_idx)
 {
@@ -116,7 +115,7 @@ integrate_ode_using_driver_fixed_step (double t, double t1, double y[], int n_st
 
 
 int
-integrate_ode_using_driver_fixed_step_print(double t, double t1, double y[], int n_steps,
+integrate_fixed_step_print(double t, double t1, double y[], int n_steps,
                                             double h_init, double h_max, double eps_abs,
                                             double eps_rel, void *params, size_t dim, int nderiv,
 					    int step_type_idx)
@@ -128,7 +127,7 @@ integrate_ode_using_driver_fixed_step_print(double t, double t1, double y[], int
 
   tout = malloc(sizeof(double)*n_steps);
   Yout = malloc(sizeof(double)*n_steps*dim*(nderiv+1));
-  status = integrate_ode_using_driver_fixed_step(t, t1, y, n_steps, h_init, h_max, eps_abs,
+  status = integrate_fixed_step(t, t1, y, n_steps, h_init, h_max, eps_abs,
                                                  eps_rel, params, dim, nderiv, tout, Yout, 
 						 step_type_idx);
   if (status != GSL_SUCCESS)

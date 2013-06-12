@@ -180,7 +180,7 @@ class Generic_Code(object):
         dfdt = OrderedDict([
             (i, expr) for i, expr in enumerate(
                 [x.diff(indepv) for x in na_f]
-                ) if expr != 0
+                )
             ])
 
         jac_cse_defs, jac_cse_exprs = sympy.cse(

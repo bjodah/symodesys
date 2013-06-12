@@ -1,62 +1,82 @@
-#include <stdio.h>
-#include <gsl/gsl_errno.h>
 #include <gsl/gsl_matrix.h>
-#include <gsl/gsl_odeiv2.h>
-#include <gsl/gsl_pow_int.h>
+#include <gsl/gsl_errno.h>
+#include <math.h>
 
-#include "ode.h"
-#include "func.h"
-#include "jac.h"
+// Python Mako template of C file
+// Variables: f, cse_func
+// Variables: jac, dfdt, NY, cse_jac
+// CSE tokens: cse%d
 
 
 int
-integrate_ode_using_driver_fixed_step_print (double t, double t1, double y[], int n_steps,
-			    double h_init, double h_max, double eps_abs,
-			    double eps_rel, void *params)
+func (double t, const double y[], double f[], void * params)
 {
-  int i; /* Counter in macro-step loop */
-  int j; /* Counter in print loop */
-  int status;
-  size_t dim = ${NY};
-  double ti;
-  double dt = (t1-t)/(double)n_steps;
-  const gsl_odeiv2_step_type * T = gsl_odeiv2_step_msbdf;
-  gsl_odeiv2_step * s = gsl_odeiv2_step_alloc (T, dim);
-  /* gsl_odeiv2_control * c = gsl_odeiv2_control_y_new (eps_abs, eps_rel); */
-  /* gsl_odeiv2_evolve * e = gsl_odeiv2_evolve_alloc (dim); */
+  /*
+    Best is to name all parameters k[0] ... k[P]
+   */
+  /*int i;*/
+  double *k = (double *) params;
 
-  gsl_odeiv2_system sys = {func, jac, dim, params};
+  /*
+    Define variables for common subexpressions
+   */
+% for cse_token, cse_expr in cse_func:
+  double ${cse_token};
+% endfor
 
-  gsl_odeiv2_driver * d = gsl_odeiv2_driver_alloc_y_new(&sys, gsl_odeiv2_step_msbdf, h_init, eps_abs, eps_rel);
-  gsl_odeiv2_step_set_driver(s, d);
+  /*
+    Calculate common subexpressions
+   */
+% for cse_token, cse_expr in cse_func:
+  ${cse_token} = ${cse_expr};
+% endfor
 
-  if (h_max > 0.0)
-    {
-      gsl_odeiv2_driver_set_hmax(d, h_max);
-    }
+  /*
+    Assign derivatives
+   */
+% for i, expr in enumerate(f):
+  f[${i}] = ${expr};
+% endfor
 
-  for (i = 0; i < n_steps; ++i)
-    {
-      // Macro-step loop
-      ti = t + dt*(i+1);
-      status = gsl_odeiv2_driver_apply (d, &t, ti, y);
-
-      if (status != GSL_SUCCESS)
-        {
-          printf ("error, return value=%d\n", status);
-          break;
-        }
-	  printf(STRINGIFY(PRECISION), t);
-	  for (j = 0; j < ${NY}; ++j)
-	    {
-	      printf(" " STRINGIFY(PRECISION), y[j]);
-	    }
-	  printf("\n");
-    }
-
-  gsl_odeiv2_driver_free (d);
-  gsl_odeiv2_step_free (s);
-
-  return status;
+  return GSL_SUCCESS;
 }
 
+
+int
+jac (double t, const double y[], double *dfdy, double dfdt[], void *params)
+{
+  double *k = (double *) params;
+  gsl_matrix_view dfdy_mat = gsl_matrix_view_array(dfdy, ${NY}, ${NY});
+  gsl_matrix *m = &dfdy_mat.matrix;
+
+  /*
+    Define variables for common subexpressions
+   */
+% for cse_token, cse_expr in cse_jac:
+  double ${cse_token};
+% endfor
+
+  /*
+    Calculate common subexpressions
+   */
+% for cse_token, cse_expr in cse_jac:
+  ${cse_token} = ${cse_expr};
+% endfor
+
+  /*
+    Populate the NY times NY Jacobian matrix
+   */
+% for (i, j), expr in jac:
+    gsl_matrix_set (m, ${i}, ${j}, ${expr});
+% endfor
+
+
+  /*
+    Populate the array dfdt of length NY
+   */
+% for i, expr in dfdt:
+  dfdt[${i}] = ${expr};
+% endfor
+
+  return GSL_SUCCESS;
+}

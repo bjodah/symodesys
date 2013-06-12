@@ -17,14 +17,13 @@ class GSL_Code(Generic_Code):
     # Serialization to double check against collision?
 
     copy_files = ['drivers.c', 'pyinterface.pyx',
-                  'drivers.h', 'func.h', 'jac.h', 'Makefile']
+                  'drivers.h', 'ode.h', 'Makefile']
 
-    templates = ['func_template.c',
-                 'jac_template.c',
+    templates = ['ode_template.c',
                  'main_ex_template.c',
              ]
 
-    _source_files = copy_files[:2] + templates[:2]
+    _source_files = copy_files[:2] + templates[:1]
 
     def __init__(self, *args, **kwargs):
         self._basedir = os.path.dirname(__file__)
@@ -52,10 +51,15 @@ class GSL_IVP_Integrator(Binary_IVP_Integrator):
 
 
     def run(self, y0, t0, tend, param_vals, N,
-                  abstol=None, reltol=None, h=None, h_init=None, h_max=0.0, nderiv=None):
+                  abstol=None, reltol=None, h=None, h_init=None, h_max=0.0, nderiv=None,
+            **kwargs):
         """
         hmax won't be set if 0.0
         """
+        for k,v in kwargs.items():
+            # Assert valid option provided
+            if k in self.integrate_args:
+                assert v in self.integrate_args[k]
         self.nderiv = nderiv or self.nderiv
         if h_init == None:
             h_init = 1e-9 # TODO: along the lines of:
@@ -80,7 +84,8 @@ class GSL_IVP_Integrator(Binary_IVP_Integrator):
             # Fixed stepsize
             #self.init_Yout_tout_for_fixed_step_size(t0, tend, N)
             tout, Yout = self.binary.integrate_equidistant_output(
-                t0, tend, y0_arr, N, h_init, h_max, self.abstol, self.reltol, params_arr, self.nderiv)
+                t0, tend, y0_arr, N, h_init, h_max, self.abstol,
+                self.reltol, params_arr, self.nderiv, **kwargs)
             self.tout = tout
             self.Yout = Yout
         else:

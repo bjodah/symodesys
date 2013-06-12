@@ -3,24 +3,41 @@ from functools import reduce
 from operator import add
 from collections import namedtuple, OrderedDict
 import new
+import logging
 
 # other imports
 import sympy
 
 # project imports
-from symodesys.helpers import OrderedDefaultdict, subs_set, get_new_symbs, deprecated
+from symodesys.helpers import subs_set, get_new_symbs, deprecated
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def log_call_debug(func):
+    from functools import wraps
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        logging.debug(func.__name__ + 'called.')
+        return func(*args, **kwargs)
+    return wrapper
 
 
 #This might be implemented+named better (unclear if namedtuple appropriate/adds value):
 ODEExpr = namedtuple('ODEExpr', 'order expr')
 
 
-class ODESystem(object):
+class _ODESystemBase(object):
     """
-    Central to the ODESystem if the attribute odeqs
-    which should be an OrderedDefaultdict(ODEExpr). The keys in the
+    Central to the _ODESystemBase if the attribute _odeqs
+    which should be an OrderedDict(). The keys in the
     dictionary should be of the form:
        sympy.Function('name')(self.indepv)
+
+    User's should use or subclass either FirstOrderODESystem
+    or AnyOrderODESystem. _ODESystemBase defines common attributes
+    and methods of those derived classes.
     """
 
     # By default Symbols are taken to represent real valued
@@ -41,13 +58,13 @@ class ODESystem(object):
 
 
     #_attrs_to_cmp_for_eq is used for checking equality of instances
-    # of ODESystem and its subclasses, the latter requires the
+    # of _ODESystemBase and its subclasses, the latter requires the
     # list of attrs be a common subset of attributes
-    _attrs_to_cmp_for_eq = ['eqs', 'param_symbs', 'solved', 'all_depv']
+    _attrs_to_cmp_for_eq = ['_odeqs', 'param_symbs', 'solved', 'all_depv']
 
     # _canonical_attrs specifies what attributes are the _defining_
     # attributes of the (sub)class. Hence it maybe changed in subclasses
-    _canonical_attrs = ['odeqs', 'indepv', 'param_symbs',
+    _canonical_attrs = ['_odeqs', 'indepv', 'param_symbs',
                         'solved', 'frst_red_hlprs']
 
 
@@ -119,24 +136,41 @@ class ODESystem(object):
 
     @property
     def all_depv(self):
-        return self.odeqs.keys()
+        """ Returns all dependent variables of the system """
+        return self._odeqs.keys()
 
     @property
     def non_analytic_depv(self):
+        """
+        Returns all dependent variables of the system
+        that have not been solved analytically
+        """
         return [x for x in self.all_depv if not x in self.solved]
 
     @property
     def analytic_depv(self):
+        """
+        Returns all dependent variables of the system
+        that have been solved analytically
+        """
         return [x for x in self.all_depv if x in self.solved]
 
 
     @property
     def solved_exprs(self):
-        """ Convenience attribute """
+        """
+        Convenience attribute, returns all the expressions of the analytic
+        solutions corresponding to the dependent variables which have been solved
+        analytically.
+        """
         return [self.solved[yi][0] for yi in self.analytic_depv]
 
     @property
     def analytic_sol_symbs(self):
+        """
+        Returns a list of symbols introduced in when process of analytically
+        solving the expressions of the dependent variables.
+        """
         symbs = set()
         if len(self.solved) > 0:
             for expr, sol_symbs in self.solved.values():
@@ -145,15 +179,35 @@ class ODESystem(object):
 
     @property
     def param_and_sol_symbs(self):
-        """ Convenience attribute """
+        """
+        Convenience attribute, this is useful when interfacing with external
+        software solving ODE's since the notion of parameters is changed.
+        (New parameters might have been introduced when solving some of the
+        expressions of for the dependent variables analytically).
+        """
         return self.param_symbs + self.analytic_sol_symbs
 
     @property
     def known_symbs(self):
-        """ Convenience attribute """
+        """
+        Convenience attribute, returns a list of all Symbol/Function isntances
+        in use in the system.
+        """
         return [self.indepv] + self.all_depv + self.param_and_sol_symbs
 
+    def forbidden_symbs(self):
+        """
+        Extends self.known_symbs to symbols with names coinciding with e.g. dependent variables.
+        """
+        return self.known_symbs + [sympy.Symbol(dvfs.func.__name__, real=self.real) for \
+                                   dvfs in self.all_depv]
+
+
     def subs(self, subsd):
+        """
+        Performs variable substituions in the system according to the provided
+        dictionary `subsd`
+        """
         for key, value in subsd.items():
             if not key in self.known_symbs:
                 raise KeyError(
@@ -178,8 +232,8 @@ class ODESystem(object):
                         else:
                             new_solved[depv] = (expr, sol_symb)
                     self.solved = new_solved
-                for key, odeexpr in self.odeqs.iteritems():
-                    self.odeqs[key] = ODEExpr(
+                for key, odeexpr in self._odeqs.iteritems():
+                    self._odeqs[key] = ODEExpr(
                         odeexpr.order, odeexpr.expr.subs(
                             {key: value}))
                 for key, (expr, sol_symbs) in self.solved.iteritems():
@@ -192,19 +246,37 @@ class ODESystem(object):
 
     @property
     def is_first_order(self):
-        return all([v.order == 1 for v in self.odeqs.values()])
+        """
+        Returns true if the highest order of the ODE's in the system is 1.
+        """
+        return all([v.order == 1 for v in self._odeqs.values()])
+
+
+    def get_highest_order(self):
+        """
+        Returns the (highest) order of the ODE System
+        """
+        return max((order for order, expr in self._odeqs.values()))
 
 
     @property
     def is_autonomous(self):
+        """
+        Returns true if the system is autonomous (the independent variable is abscent
+        in all expressions for the derivatives of the dependent variables)
+        """
         for depv, (order, expr) in \
-                self.odeqs.iteritems():
+                self._odeqs.iteritems():
             if self.unfunc_depv(expr).diff(self.indepv) != 0:
                 return False
         return True
 
 
     def unfunc_depv(self, expr):
+        """
+        Convenience method, transforms the Function instances of the dependent variables
+        possibly present in provided argument `expr` into Symbol instances.
+        """
         unfunc_subs = {dvfs: sympy.Symbol(dvfs.func.__name__, real=self.real) for \
                        dvfs in self.all_depv}
         return expr.subs(unfunc_subs)
@@ -212,25 +284,36 @@ class ODESystem(object):
 
     @property
     def is_homogeneous(self):
+        """ TODO implement this """
         pass
 
 
-    def do_sanity_check_of_odeqs(self):
-        for fnc, (order, expr) in self.odeqs.iteritems():
+    @log_call_debug
+    def _do_sanity_check_of_odeqs(self):
+        """
+        Asserts that no expr contain dependent variable derivatives of higher order
+        than the one currently explicitly defined for that dependent variable.
+        """
+        for fnc, (order, expr) in self._odeqs.iteritems():
             # Sanity check (indentation level excluded ;-)
             for check_fnc in self.all_depv:
                 # Make sure expr don't contain derivatives larger
-                # than in odeqs order:
+                # than in _odeqs order:
                 if expr.has(check_fnc):
                     for arg in expr.args:
                         if arg.has(check_fnc):
                             if arg.is_Derivative:
                                 fnc, wrt = args[0], args[1:]
                                 assert not len(wrt) > \
-                                       odeqs[check_fnc][0]
+                                       _odeqs[check_fnc][0]
 
 
     def __eq__(self, other):
+        """
+        Some subclasses have different canonical attributes that
+        needs to be compared. These are collected in
+        self._attrs_to_cmp_for_eq
+        """
         for attr in self._attrs_to_cmp_for_eq:
             if getattr(self, attr) != getattr(other, attr): return False
         return True
@@ -239,7 +322,8 @@ class ODESystem(object):
     @property
     def eqs(self):
         """
-        Returns a list of Sympy Eq instances describing the ODE system
+        Returns a list of Sympy Eq instances describing the ODE system.
+        It may be useful for exporting to LaTeX etc.
         """
         return [self.eq(depv) for depv in self.all_depv]
 
@@ -248,60 +332,53 @@ class ODESystem(object):
         """
         Returns a sympy.Eq for diff eq of ``depv''
         """
-        order, expr = self.odeqs[depv]
+        order, expr = self._odeqs[depv]
         return sympy.Eq(depv.diff(self.indepv, order), expr)
 
 
     @classmethod
     def from_list_of_eqs(cls, lst):
         """
-        Determine independnt variable, dependent variables
-        and parameter variables and perform Sanity checks
+        Classmethod producing an instance from a list of
+        sympy Eq instances. The independent variable,
+        dependent variables and parameter variables are
+        determined from the Eq instances and finally
+        a sanity check is performed.
         """
         fncs = []
 
         # independet variable as key, (order, expr) as value
-        odeqs = OrderedDefaultdict(ODEExpr)
+        _odeqs = OrderedDict()
         indepv = None
         for eq in lst:
             assert eq.lhs.is_Derivative
             fnc, wrt = eq.lhs.args[0], eq.lhs.args[1:]
-            assert fnc not in odeqs
+            assert fnc not in _odeqs
             if indepv == None:
                 assert all([wrt[0] == x for x in wrt]) # No PDEs!
                 indepv = wrt[0]
             else:
                 assert all([indepv == x for x in wrt])
-            odeqs[fnc] = ODEExpr(len(wrt), eq.rhs)
+            _odeqs[fnc] = ODEExpr(len(wrt), eq.rhs)
 
         param_symbs = set()
-        for order, expr in odeqs.values():
+        for order, expr in _odeqs.values():
             param_symbs = param_symbs.union(get_new_symbs(
-                expr, odeqs.keys() + \
+                expr, _odeqs.keys() + \
                 [indepv]))
-        new_instance = cls(odeqs=odeqs, indepv=indepv,
+        new_instance = cls(_odeqs=_odeqs, indepv=indepv,
                            param_symbs=list(param_symbs))
-        new_instance.do_sanity_check_of_odeqs()
+        new_instance._do_sanity_check_of_odeqs()
         return new_instance
 
 
-class AnyOrderODESystem(ODESystem):
-
-    _attrs_to_cmp_for_eq = ODESystem._attrs_to_cmp_for_eq +\
-                           ['odeqs']
-
-    @staticmethod
-    def mkodeqs():
-        """ Convenience function for instantiating
-        OrderedDefaultdict(ODEExpr) """
-        return OrderedDefaultdict(ODEExpr)
-
-
+    @log_call_debug
     def attempt_analytic_sol(self, depv, hypoexpr, sol_consts):
         """
         Checks if provided analytic (similiar to
         sympy.solvers.ode.checkodesol) expr ``hypoexpr'' solves
-        diff eq of ``depv'' in odesys. If it does new symbols
+        diff eq of ``depv'' in odesys. If it does new symbols are
+        generated and saved toghether with hypoexpr in self.solved
         """
         eq = self.eq(depv).subs({depv: hypoexpr})
         if bool(eq.doit()):
@@ -312,13 +389,25 @@ class AnyOrderODESystem(ODESystem):
             return False
 
 
+class AnyOrderODESystem(_ODESystemBase):
+    """
+    AnyOrderODESystem is a useful class that is usually
+    used as an original representation which is processed
+    before treated analytically or numerically (or a combiation
+    thereof).
+    """
+
     @property
     def f(self):
+        """
+        The `f` attribute only makes sense if the System is first order
+        """
         assert self.is_first_order
-        return OrderedDefaultdict(ODEExpr, [\
-            (k, v.expr) for k, v in self.odeqs.items()])
+        return OrderedDict([\
+            ODEExpr(k, v.expr) for k, v in self._odeqs.items()])
 
-    def get_helper_fnc(self, fnc, order):
+
+    def _get_helper_fnc(self, fnc, order):
         """
         Returns a list of of length order - 1
         for use in reformulation of higher order
@@ -327,12 +416,11 @@ class AnyOrderODESystem(ODESystem):
         helpers = {}
         for i in range(1, order):
             candidate = self.mk_func(fnc.func.__name__ + '_h' + str(i))
-                # sympy.Function(str(fnc.func.__name__) + '_h' + \
-                #                        str(i))(self.indepv)
-            while candidate in self.odeqs:
+            while candidate in self._odeqs:
                 candidate = candidate + '_h'
             helpers[i] = candidate
         return helpers
+
 
     def reduce_to_sys_of_first_order(self, y0=None, default_red_init_val=None):
         """
@@ -340,15 +428,15 @@ class AnyOrderODESystem(ODESystem):
         If y0 and default_red_init_val are provided, y0 will be updated
         with key,value entries (helper_function, default_red_init_val)
         """
-        new_odeqs = self.mkodeqs()
+        new_odeqs = OrderedDict()
         frst_red_hlprs = self.frst_red_hlprs[:]
         # TODO, revise frst_red_hlprs format (cur.  len 3 tuple)
         # and update analytic_harmonic_oscillator.py and IVP.plot()
-        for fnc, (order, expr) in self.odeqs.iteritems():
+        for fnc, (order, expr) in self._odeqs.iteritems():
             if order == 1:
                 new_odeqs[fnc] = ODEExpr(order, expr)
                 continue
-            hlpr = self.get_helper_fnc(fnc, order)
+            hlpr = self._get_helper_fnc(fnc, order)
             new_odeqs[fnc] = ODEExpr(1, hlpr[1])
             for o in range(1, order - 1):
                new_odeqs[hlpr[o]] = ODEExpr(1, hlpr[o + 1])
@@ -368,22 +456,28 @@ class AnyOrderODESystem(ODESystem):
         return new_instance
 
 
-class FirstOrderODESystem(ODESystem):
+class FirstOrderODESystem(_ODESystemBase):
     """
-    Special case of ODESystem which the ODESystem is primarily
-    given by the attribute `f` which is a dictionary mapping the
-    symbol of the dependent variable to the expression of the first
-    derivative of same dependent variable with respect to the
-    independnt variable.
+    This class provides an efficient interface to the manipulation
+    and export of first order ODE Systems, it is a special case in the
+    sense that it only contains first order derivatives (which is a
+    requirement for the numerical treatment of ODE Systems).
+
+    The attribute `f` is given a special role. It is a simpliciation of _odeqs
+    attribute which now has a redundant order part of its (order, expr) tuples.
+    Hence, `f` is a dictionary mapping the Symbol of the dependent variable to
+    the expression of the first derivative of same dependent variable with respect
+    to the independnt variable.
 
     When the ODE systems equations is generated from user
-    data this class is to be subclassed to provide the routines
-    described below
+    data this class is to be subclassed to provide similar routines
+    of the SimpleFirstOrderODESystem which is to be used when explicitly
+    defining an ODE System.
     """
 
     f = None
 
-    _attrs_to_cmp_for_eq = ODESystem._attrs_to_cmp_for_eq +\
+    _attrs_to_cmp_for_eq = _ODESystemBase._attrs_to_cmp_for_eq +\
                            ['f']
 
     _canonical_attrs = ['f', 'indepv', 'param_symbs',
@@ -404,8 +498,12 @@ class FirstOrderODESystem(ODESystem):
 
     @property
     def is_linear(self):
+        """
+        is True if the dependent variables present in the expressions
+        are at most polynomial of degree one.
+        """
         for depv, (order, expr) in \
-                self.odeqs.iteritems():
+                self._odeqs.iteritems():
             for wrt in self.all_depv:
                 expr = expr.diff(wrt)
 
@@ -416,13 +514,21 @@ class FirstOrderODESystem(ODESystem):
 
     @property
     def all_depv(self):
+        """ Returns all dependent variables of the system """
         return self.f.keys()
 
-    @property
-    def odeqs(self):
-        return OrderedDefaultdict(ODEExpr, [
-            (k, ODEExpr(1, self.f[k])) for k in self.all_depv])
 
+    @property
+    def _odeqs(self):
+        """
+        In FirstOrderODESystem f is the canonical variable and
+        _odeqs can easily be generated from f.
+        """
+        return OrderedDict([
+            ODEExpr(k, ODEExpr(1, self.f[k])) for k in self.all_depv])
+
+
+    @log_call_debug
     def recursive_analytic_auto_sol(self):
         """
         Solves equations one by one
@@ -462,6 +568,7 @@ class FirstOrderODESystem(ODESystem):
         if self.param_symbs == None:
             self.param_symbs = []
 
+
     def init_f(self):
         """
         To be subclassed.
@@ -474,14 +581,16 @@ class FirstOrderODESystem(ODESystem):
         """
         self.f = {}
 
+
     def _fmat(self):
         """
-        Convert self.f to sympy Matrix
+        Convert self.f to sympy Matrix, used to generate Jacobian.
         """
         return sympy.Matrix(
             1, len(self.all_depv),
             lambda q, i: self.f[self.all_depv[i]]
             )
+
 
     @property
     def non_analytic_f(self):
@@ -492,6 +601,7 @@ class FirstOrderODESystem(ODESystem):
         else:
             return self.f
 
+
     @property
     def _non_analytic_fmat(self):
         return sympy.Matrix(
@@ -499,9 +609,11 @@ class FirstOrderODESystem(ODESystem):
             lambda q, i: self.f[self.non_analytic_depv[i]]
             )
 
+
     @property
     def non_analytic_jac(self):
         return self._non_analytic_fmat.jacobian(self.non_analytic_depv)
+
 
     def _get_all_num_subs(self, indep_val, dep_vals, param_vals):
         indep_subs = {self.indepv: indep_val}
@@ -511,6 +623,7 @@ class FirstOrderODESystem(ODESystem):
         for d in [indep_subs, dep_subs, param_subs]:
             all_subs.update(d)
         return all_subs
+
 
     def param_val_lst(self, param_vals_by_symb):
         return [param_vals_by_symb[k] for k in self.param_symbs]
@@ -618,6 +731,7 @@ class FirstOrderODESystem(ODESystem):
         new_instance = self.__class__(self, f=new_f, solved=new_solved)
         return new_instance
 
+
     def transform_indep(self, new_indep_symb, expr_in_old_indep):
         new_f = OrderedDict()
         for depv, old_expr in self.f.iteritems():
@@ -663,6 +777,7 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
     # Overwrite title for use in e.g. plots
     title = 'System of ordinary differential equations'
 
+
     def __init__(self, *args, **kwargs):
         self.param_tokens = self.param_tokens or []
         super(SimpleFirstOrderODESystem, self).__init__(*args, **kwargs)
@@ -676,6 +791,7 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
                               tok in self.dep_var_tokens])
         for tok in self.dep_var_tokens:
             self.f[self[tok]] = self.expressions[self[tok]]
+
 
     def param_vals_by_symb(self, params_by_token):
         return dict([(self[k], params_by_token[k]) for\

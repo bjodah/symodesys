@@ -5,7 +5,7 @@ from collections import OrderedDict
 
 import numpy as np
 try:
-    from cinterpol import PiecewisePolynomial
+    from cInterpol import PiecewisePolynomial
 except ImportError:
     from scipy.interpolate import PiecewisePolynomial
 import matplotlib.pyplot as plt
@@ -209,7 +209,7 @@ class IVP(object):
         return new_init_val_symbs
 
 
-    def integrate(self, tend, N=0, h=None, nderiv=None):
+    def integrate(self, tend, N=0, h=None, nderiv=None, **kwargs):
         """
         Integrates the non-analytic odesystem and evaluates the
         analytic functions for the dependent variables (if there
@@ -227,10 +227,10 @@ class IVP(object):
             # If there are any non-analytic equations left
             y0 = {yi: self.init_vals[yi] for yi \
                   in self._fo_odesys.non_analytic_depv}
-            self.integrator.run(y0,
-                t0=self._indepv_init_val, tend=tend,
-                param_vals=self.param_vals,
-                N=N, h=h, nderiv=self.nderiv)
+            self.integrator.run(
+                y0, t0=self._indepv_init_val, tend=tend,
+                param_vals=self.param_vals, N=N, h=h,
+                nderiv=self.nderiv, **kwargs)
             #self.tout = self.integrator.tout
         else:
             # If all equations were solved analytically

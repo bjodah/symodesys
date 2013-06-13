@@ -209,9 +209,6 @@ class SympyEvalr(object):
         """
 
         Arguments:
-        - `exprs`: List of expressions to be evaluated
-        - `indep_var_symb`: Sympy symbol of the independent variable
-        - `params_by_symb`: Dictionary mapping sympy symbols of parameters to values
         - `nderiv`: set higher than 0 (default) in nderiv to also evaluate derivatives.
                    (output is sotred in self.Yout)
         """
@@ -221,7 +218,7 @@ class SympyEvalr(object):
 
 
     def configure(self, fo_odesys, param_vals):
-        self._exprs = fo_odesys.solved_exprs
+        self._rels = fo_odesys.analytic_relations
         self._indep_var_symb = fo_odesys.indepv
         self._params_by_symb = param_vals
 
@@ -230,16 +227,15 @@ class SympyEvalr(object):
         """
         Evaluate all expressions for values of indepedndent variable
         in array `arr` using self._params_symb and `extra_params_by_symb`
-        for static substitution in sympy expressions in the list self._exprs
+        for static substitution in sympy expressions in the list self._rels
         """
-        _Yout = np.empty((len(arr), len(self._exprs), self.nderiv+1), dtype=self._dtype)
-        for expr_idx, expr in enumerate(self._exprs):
+        _Yout = np.empty((len(arr), len(self._rels), self.nderiv+1), dtype=self._dtype)
+        for rel_idx, rel in enumerate(self._rels):
             for nderiv in range(self.nderiv+1):
                 subs = self._params_by_symb
                 subs.update(extra_params_by_symb)
-                diff_expr = expr.diff(self._indep_var_symb, nderiv)
-                print diff_expr
+                diff_expr = rel.diff(self._indep_var_symb, nderiv)
                 for i, t in enumerate(arr):
                     subs.update({self._indep_var_symb: t})
-                    _Yout[i, expr_idx, nderiv] = diff_expr.subs(subs)
+                    _Yout[i, rel_idx, nderiv] = diff_expr.subs(subs)
         self.Yout = _Yout

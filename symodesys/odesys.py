@@ -50,7 +50,7 @@ class _ODESystemBase(object):
     frst_red_hlprs = None
 
     # We need holder for analytically solved parts (instantiate to dict):
-    solved = None
+    _solved = None
 
     indepv = None # ODE implies 1 indep. variable,
                           #  set to sympy.Symbol(...)
@@ -60,12 +60,12 @@ class _ODESystemBase(object):
     #_attrs_to_cmp_for_eq is used for checking equality of instances
     # of _ODESystemBase and its subclasses, the latter requires the
     # list of attrs be a common subset of attributes
-    _attrs_to_cmp_for_eq = ['_odeqs', 'param_symbs', 'solved', 'all_depv']
+    _attrs_to_cmp_for_eq = ['_odeqs', 'param_symbs', '_solved', 'all_depv']
 
     # _canonical_attrs specifies what attributes are the _defining_
     # attributes of the (sub)class. Hence it maybe changed in subclasses
     _canonical_attrs = ['_odeqs', 'indepv', 'param_symbs',
-                        'solved', 'frst_red_hlprs']
+                        '_solved', 'frst_red_hlprs']
 
 
     def __init__(self, odesys = None, **kwargs):
@@ -81,7 +81,7 @@ class _ODESystemBase(object):
                 if odesys != None:
                     setattr(self, attr, getattr(odesys, attr))
         # Idempotent initiation of attributes
-        self.solved = self.solved or {}
+        self._solved = self._solved or {}
         self.frst_red_hlprs = self.frst_red_hlprs or []
 
     def __getitem__(self, key):
@@ -145,7 +145,7 @@ class _ODESystemBase(object):
         Returns all dependent variables of the system
         that have not been solved analytically
         """
-        return [x for x in self.all_depv if not x in self.solved]
+        return [x for x in self.all_depv if not x in self._solved]
 
     @property
     def analytic_depv(self):
@@ -153,17 +153,17 @@ class _ODESystemBase(object):
         Returns all dependent variables of the system
         that have been solved analytically
         """
-        return [x for x in self.all_depv if x in self.solved]
+        return [x for x in self.all_depv if x in self._solved]
 
 
     @property
-    def solved_exprs(self):
+    def analytic_relations(self):
         """
         Convenience attribute, returns all the expressions of the analytic
         solutions corresponding to the dependent variables which have been solved
         analytically.
         """
-        return [self.solved[yi][0] for yi in self.analytic_depv]
+        return [self._solved[yi][0] for yi in self.analytic_depv]
 
     @property
     def analytic_sol_symbs(self):
@@ -172,8 +172,8 @@ class _ODESystemBase(object):
         solving the expressions of the dependent variables.
         """
         symbs = set()
-        if len(self.solved) > 0:
-            for expr, sol_symbs in self.solved.values():
+        if len(self._solved) > 0:
+            for expr, sol_symbs in self._solved.values():
                 symbs = symbs.union(sol_symbs)
         return list(symbs)
 
@@ -195,6 +195,7 @@ class _ODESystemBase(object):
         """
         return [self.indepv] + self.all_depv + self.param_and_sol_symbs
 
+    @property
     def forbidden_symbs(self):
         """
         Extends self.known_symbs to symbols with names coinciding with e.g. dependent variables.
@@ -214,8 +215,8 @@ class _ODESystemBase(object):
                     'Symbol: {} not known in odesys'.format(key))
 
             if key in self.all_depv:
-                raise KeyError('Symbol: {} is a dependent variable,' + \
-                               ' use `transform_depvs`'.format(key))
+                raise RuntimeError(('Symbol: {} is a dependent variable,' + \
+                                   ' use `transform_depvs`').format(key))
             elif key == self.indepv:
                 self.transform_indep(value, key)
             elif key in self.param_and_sol_symbs:
@@ -225,19 +226,19 @@ class _ODESystemBase(object):
                     # Sanity check (param_and_sol_symbs)
                     assert key in self.analytic_sol_symbs
                     new_solved = {}
-                    for depv, (expr, sol_symb) in self.solved.items():
+                    for depv, (expr, sol_symb) in self._solved.items():
                         if expr.has(key):
                             new_solved[depv] = (expr.subs({key: value}),
                                                subs_set(sol_symb, {key: value}))
                         else:
                             new_solved[depv] = (expr, sol_symb)
-                    self.solved = new_solved
+                    self._solved = new_solved
                 for key, odeexpr in self._odeqs.iteritems():
                     self._odeqs[key] = ODEExpr(
                         odeexpr.order, odeexpr.expr.subs(
                             {key: value}))
-                for key, (expr, sol_symbs) in self.solved.iteritems():
-                    self.solved[key] = expr.subs({key: value}),\
+                for key, (expr, sol_symbs) in self._solved.iteritems():
+                    self._solved[key] = expr.subs({key: value}),\
                                        subs_set(sol_symbs,
                                                 {key: value})
             else:
@@ -254,9 +255,13 @@ class _ODESystemBase(object):
 
     def get_highest_order(self):
         """
-        Returns the (highest) order of the ODE System
+        Returns the (highest) order of the ODE System.
+        If it has been completely solved analytically 0 is returned
         """
-        return max((order for order, expr in self._odeqs.values()))
+        if len(self._odeqs) > 0:
+            return max((order for order, expr in self._odeqs.values()))
+        else:
+            return 0 # Completely solved analytically
 
 
     @property
@@ -378,12 +383,12 @@ class _ODESystemBase(object):
         Checks if provided analytic (similiar to
         sympy.solvers.ode.checkodesol) expr ``hypoexpr'' solves
         diff eq of ``depv'' in odesys. If it does new symbols are
-        generated and saved toghether with hypoexpr in self.solved
+        generated and saved toghether with hypoexpr in self._solved
         """
         eq = self.eq(depv).subs({depv: hypoexpr})
         if bool(eq.doit()):
             hypoparams = get_new_symbs(hypoexpr, self.known_symbs)
-            self.solved[depv] = hypoexpr, sol_consts
+            self._solved[depv] = hypoexpr, sol_consts
             return True
         else:
             return False
@@ -465,6 +470,7 @@ class FirstOrderODESystem(_ODESystemBase):
 
     The attribute `f` is given a special role. It is a simpliciation of _odeqs
     attribute which now has a redundant order part of its (order, expr) tuples.
+    Furthermore
     Hence, `f` is a dictionary mapping the Symbol of the dependent variable to
     the expression of the first derivative of same dependent variable with respect
     to the independnt variable.
@@ -481,7 +487,7 @@ class FirstOrderODESystem(_ODESystemBase):
                            ['f']
 
     _canonical_attrs = ['f', 'indepv', 'param_symbs',
-                        'solved', 'frst_red_hlprs']
+                        '_solved', 'frst_red_hlprs']
 
 
     def __init__(self, odesys = None, **kwargs):
@@ -534,16 +540,22 @@ class FirstOrderODESystem(_ODESystemBase):
         Solves equations one by one
         (hence it can only find solutions for
          independent equations)
+
+        TODO: sometimes the different solutions are valid for different
+        conditions of choosen parameters. Best way avoid this problem
+        would be to run substitute all parameter symbols for chosen numeric
+        values (see self.subs) with the obvious caveat that the ODE System
+        is significantly less flexible from that point on.
         """
         changed_last_loop = True
         # new_y = []
         while changed_last_loop:
             changed_last_loop = False
             for yi, expr in self.f.iteritems():
-                if yi in self.solved: continue
+                if yi in self._solved: continue
                 # Check to see if it only depends on itself
                 expr = expr.subs({yi: expr for yi, (expr, sol_symbs) \
-                                  in self.solved.iteritems()})
+                                  in self._solved.iteritems()})
                 Jac_row_off_diag = [expr.diff(m) for m \
                                     in self.all_depv if m != yi]
                 if all([c == 0 for c in Jac_row_off_diag]):
@@ -552,7 +564,7 @@ class FirstOrderODESystem(_ODESystemBase):
                     sol = sympy.dsolve(rel, yi)
                     # Assign new symbol to inital value
                     sol_symbs = get_new_symbs(sol.rhs, self.known_symbs)
-                    self.solved[yi] = sol.rhs, sol_symbs
+                    self._solved[yi] = sol.rhs, sol_symbs
                     changed_last_loop = True
 
 
@@ -594,9 +606,9 @@ class FirstOrderODESystem(_ODESystemBase):
 
     @property
     def non_analytic_f(self):
-        if len(self.solved) > 0:
+        if len(self._solved) > 0:
             return OrderedDict(
-                [(k,  self.f[k].subs(self.solved)) for k in \
+                [(k,  self.f[k].subs(self._solved)) for k in \
                  self.non_analytic_depv])
         else:
             return self.f
@@ -701,34 +713,44 @@ class FirstOrderODESystem(_ODESystemBase):
     def transform_depv(self, trnsfm, inv_trnsfm):
         """
         trnsfm: dict mapping new_depv to expr_in_old
-        inv_subs: dict mapping old_depv to expression in new_depv
+        inv_trnsfm: dict mapping old_depv to expression in new_depv
         """
         new_f = OrderedDict()
-        for old_depv, old_expr in self.f.iteritems():
-            if not old_depv in inv_trnsfm:
-                new_f[old_depv] = self.f[old_depv].subs(inv_subs)
-                continue
-        for new_depv, rel in trnsfm.iteritems():
-            new_rel = rel.diff(self.indepv)
-            eqsd = {eq.lhs: eq.rhs for eq in self.eqs}
-            new_expr = new_rel.subs(eqsd)
-            new_expr = new_expr.subs(inv_trnsfm)
-            new_f[new_depv] = new_expr
+        # User must give transformation for same number of variables
+        assert len(trnsfm) == len(inv_trnsfm) == len(self.all_depv)
+        assert all([old_depv in self.all_depv for old_depv in inv_trnsfm.keys()])
 
-        # Handle solved:
+        # We do not accept that a dependent variable is lost in the transformation:
+        for old_depv in self.all_depv:
+            used = False
+            for rel in trnsfm.values():
+                if rel.has(old_depv):
+                    used = True
+                    break
+            assert used
+
+        eqsd = {eq.lhs: eq.rhs for eq in self.eqs} # d/dt(old): expr_in_old
         new_solved = {}
-        for old_depv, (old_expr, sol_symbs) in self.solved.iteritems():
-            if not old_depv in trnsfm:
-                # Save old analytic expr (expressed in new
-                # depv through inv_subs)
-                new_solved[old_depv] = old_expr.subs(inv_subs), sol_symbs
-                continue
-            new_depv, trnsfm_expr = trnsfm[old_depv]
-            # Save new analytic expr (expressed in new depv
-            # through inv_subs)
-            new_solved[new_depv] = old_expr.subs(inv_subs), sol_symbs
-        # Return new instance based on carbon copy of self
-        new_instance = self.__class__(self, f=new_f, solved=new_solved)
+        for new_depv, rel_in_old in trnsfm.iteritems():
+            # First use our expressions for solved variables
+            rel_in_old = rel_in_old.subs(dict(zip(
+                self.analytic_depv, self.analytic_relations)))
+            expr_in_old = rel_in_old.diff(self.indepv) # what does the derivatives look like?
+            analytic = True
+            for atom in expr_in_old.atoms():
+                if atom in self.non_analytic_f:
+                    analytic = False
+                    break
+            if analytic:
+                # This expression is known analytically
+                new_solved[new_depv] = rel_in_old.subs(inv_trnsfm)
+            else:
+                # Ok, so it is interconnected to non-analytic dependent variables
+                expr_in_old = expr_in_old.subs(eqsd) # df/dt -> x**2+x+...
+                expr_in_new = expr_in_old.subs(inv_trnsfm) # put the new variables in place
+                new_f[new_depv] = expr_in_new
+
+        new_instance = self.__class__(self, f=new_f, _solved=new_solved)
         return new_instance
 
 
@@ -744,14 +766,14 @@ class FirstOrderODESystem(_ODESystemBase):
 
         # Handle solved:
         new_solved = {}
-        for depv, (old_expr, sol_symbs) in self.solved.iteritems():
+        for depv, (old_expr, sol_symbs) in self._solved.iteritems():
             new_expr = old_expr / sympy.diff(expr_in_old_indep,
                                              self.indepv, order)
             new_expr = new_expr.subs({self.indepv: sympy.solve(
                 new_expr - new_indep_symb, self.indepv)[0]})
             new_expr = new_expr.subs({expr_in_old_indep: new_indep_symb})
             new_solved[depv] = new_expr, sol_symbs
-        return self.__class__(self, f=new_f, solved=new_solved,
+        return self.__class__(self, f=new_f, _solved=new_solved,
                               indepv=new_indep_symb)
 
 

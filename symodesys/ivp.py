@@ -193,7 +193,7 @@ class IVP(object):
         """
         new_init_val_symbs = []
         self._fo_odesys.recursive_analytic_auto_sol()
-        for yi, (expr, sol_symbs) in self._fo_odesys.solved.iteritems():
+        for yi, (expr, sol_symbs) in self._fo_odesys._solved.iteritems():
             if yi in self._solved_init_val_symbs: continue
             assert len(sol_symbs) == 1 # Only one new constant per equation
             sol_symb = sol_symbs.copy().pop()

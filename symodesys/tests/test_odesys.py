@@ -96,6 +96,7 @@ def test_FirstOrderODESystem___1():
     assert dc.param_and_sol_symbs == l
     assert dc.known_symbs == [t]+x+l
     assert dc == _mk_decay_chain_system(n)
+    assert dc.eqs == [sympy.Eq(x[i].diff(t), exprs[i]) for i in range(n)]
 
     x_ = [sympy.Symbol('x'+str(i), real=True) for i in range(n)]
     assert dc.forbidden_symbs == [t]+x+l+x_
@@ -107,15 +108,14 @@ def test_FirstOrderODESystem___1():
 
     # _ODESystemBase
     y  = [sympy.Function('y'+str(i))(t) for i in range(n)]
-    y_ = [sympy.Symbol('y'+str(i)) for i in range(n)]
+    y_ = [sympy.Symbol('y'+str(i), real=True) for i in range(n)]
     dc = dc.transform_depv(dict(zip(y,x)), dict(zip(x,y)))
     assert dc.is_first_order
     assert dc.get_highest_order() == 1
     assert dc.is_autonomous
     assert map(dc.unfunc_depv, y) == y_
     dc._do_sanity_check_of_odeqs()
-    assert dc.eqs == [sympy.Eq(y[i].diff(t), expr[i]) for i in range(i)]
-    assert bf.eq(dc['y0']) == sympy.Eq(y[0].diff(t), -d[0]*y[0])
+    assert dc.eq(dc['y0']) == sympy.Eq(y[0].diff(t), -d[0]*y[0])
     assert dc.from_list_of_eqs(dc.eqs) == dc
     C0 = sympy.Symbol('C0')
     assert dc.attempt_analytic_sol(y[0], C0*sympy.exp(-d[0]*t), [C0])

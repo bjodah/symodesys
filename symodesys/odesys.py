@@ -737,8 +737,8 @@ class FirstOrderODESystem(_ODESystemBase):
                 self.analytic_depv, self.analytic_relations)))
             expr_in_old = rel_in_old.diff(self.indepv) # what does the derivatives look like?
             analytic = True
-            for atom in expr_in_old.atoms():
-                if atom in self.non_analytic_f:
+            for depv in self.non_analytic_depv:
+                if expr_in_old.has(depv.diff(self.indepv)):
                     analytic = False
                     break
             if analytic:

@@ -65,15 +65,16 @@ class _ODESystemBase(object):
     # _canonical_attrs specifies what attributes are the _defining_
     # attributes of the (sub)class. Hence it maybe changed in subclasses
     _canonical_attrs = ['_odeqs', 'indepv', 'param_symbs',
-                        '_solved', 'frst_red_hlprs']
+                        '_solved', 'frst_red_hlprs'] # Minimum variables needed
 
+    _redundant_attrs = [] # May be passed as kwargs to __init__ but must not be
 
     def __init__(self, odesys = None, **kwargs):
         """
         Arguments:
         - `kwargs`: can be any of the keys in self._canonical_attrs
         """
-        for attr in self._canonical_attrs:
+        for attr in self._canonical_attrs + self._redundant_attrs:
             if attr in kwargs:
                 setattr(self, attr, kwargs[attr])
         for attr in self._canonical_attrs:
@@ -82,6 +83,7 @@ class _ODESystemBase(object):
                     setattr(self, attr, getattr(odesys, attr))
         # Idempotent initiation of attributes
         self._solved = self._solved or {}
+        self._solved_undefined = []
         self.frst_red_hlprs = self.frst_red_hlprs or []
 
     def __getitem__(self, key):
@@ -139,6 +141,7 @@ class _ODESystemBase(object):
         """ Returns all dependent variables of the system """
         return self._odeqs.keys()
 
+
     @property
     def non_analytic_depv(self):
         """
@@ -146,6 +149,7 @@ class _ODESystemBase(object):
         that have not been solved analytically
         """
         return [x for x in self.all_depv if not x in self._solved]
+
 
     @property
     def analytic_depv(self):
@@ -165,6 +169,7 @@ class _ODESystemBase(object):
         """
         return [self._solved[yi][0] for yi in self.analytic_depv]
 
+
     @property
     def analytic_sol_symbs(self):
         """
@@ -177,6 +182,7 @@ class _ODESystemBase(object):
                 symbs = symbs.union(sol_symbs)
         return list(symbs)
 
+
     @property
     def param_and_sol_symbs(self):
         """
@@ -186,6 +192,7 @@ class _ODESystemBase(object):
         expressions of for the dependent variables analytically).
         """
         return self.param_symbs + self.analytic_sol_symbs
+
 
     @property
     def known_symbs(self):
@@ -358,12 +365,12 @@ class _ODESystemBase(object):
         for eq in lst:
             assert eq.lhs.is_Derivative
             fnc, wrt = eq.lhs.args[0], eq.lhs.args[1:]
-            assert fnc not in _odeqs
+            assert fnc not in _odeqs # we cannot have multiple definitions
             if indepv == None:
                 assert all([wrt[0] == x for x in wrt]) # No PDEs!
                 indepv = wrt[0]
             else:
-                assert all([indepv == x for x in wrt])
+                assert all([indepv == x for x in wrt]) # System of same indepv
             _odeqs[fnc] = ODEExpr(len(wrt), eq.rhs)
 
         param_symbs = set()
@@ -402,6 +409,8 @@ class AnyOrderODESystem(_ODESystemBase):
     thereof).
     """
 
+    _redundant_attrs = ['f']
+
     @property
     def f(self):
         """
@@ -410,6 +419,16 @@ class AnyOrderODESystem(_ODESystemBase):
         assert self.is_first_order
         return OrderedDict([\
             ODEExpr(k, v.expr) for k, v in self._odeqs.items()])
+
+    @f.setter
+    def f(self, value):
+        """
+        The `f` attribute assumes expressions are for
+        the first order derivatives.
+        """
+        self._odeqs = OrderedDict()
+        for depv, expr in value.items():
+            self._odeqs[depv] = ODEExpr(1, expr)
 
 
     def _get_helper_fnc(self, fnc, order):
@@ -483,12 +502,10 @@ class FirstOrderODESystem(_ODESystemBase):
 
     f = None
 
-    _attrs_to_cmp_for_eq = _ODESystemBase._attrs_to_cmp_for_eq +\
-                           ['f']
-
     _canonical_attrs = ['f', 'indepv', 'param_symbs',
                         '_solved', 'frst_red_hlprs']
 
+    _redundant_attrs = ['_odeqs']
 
     def __init__(self, odesys = None, **kwargs):
         # Using property functions makes overwriting harder therefore
@@ -533,6 +550,17 @@ class FirstOrderODESystem(_ODESystemBase):
         return OrderedDict([
             ODEExpr(k, ODEExpr(1, self.f[k])) for k in self.all_depv])
 
+    @_odeqs.setter
+    def _odeqs(self, value):
+        """
+        In FirstOrderODESystem f is the canonical variable and
+        _odeqs can easily be generated from f.
+        """
+        self.f = OrderedDict()
+        for depv, odeexpr in value.items():
+            assert odeexpr.order == 1 # must be first order
+            self.f[depv] = odeexpr.expr
+
 
     @log_call_debug
     def recursive_analytic_auto_sol(self):
@@ -562,9 +590,30 @@ class FirstOrderODESystem(_ODESystemBase):
                     # Attempt solution (actually: assume success)
                     rel = sympy.Eq(yi.diff(self.indepv), expr)
                     sol = sympy.dsolve(rel, yi)
+                    # If sol contains a Piecewise definition,
+                    # accept the default solution and store
+                    # the others as undefined cases.
+                    if sol.has(sympy.Piecewise):
+                        args = sol.rhs.args
+                        for arg in args:
+                            if isinstance(arg, sympy.Piecewise):
+                                # found it
+                                for expr, cond in arg:
+                                    if isinstance(cond, sympy.Dummy):
+                                        # Someone with deeper insight
+                                        # might want to improve this..
+                                        assert cond.name == 'True'
+                                        sol_expr = sol.rhs.fromiter(
+                                            (x if x != arg else expr for x in args))
+                                    else:
+                                        self._solved_undefined.append(cond)
+                        else:
+                            raise RuntimeError("Piecewise extraction failed, improve code!")
+                    else:
+                        sol_expr = sol.rhs
                     # Assign new symbol to inital value
-                    sol_symbs = get_new_symbs(sol.rhs, self.known_symbs)
-                    self._solved[yi] = sol.rhs, sol_symbs
+                    sol_symbs = get_new_symbs(sol_expr, self.known_symbs)
+                    self._solved[yi] = sol_expr, sol_symbs
                     changed_last_loop = True
 
 

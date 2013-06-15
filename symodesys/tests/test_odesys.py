@@ -1,6 +1,7 @@
 import sympy
 
 from collections import OrderedDict
+from itertools import product
 
 from symodesys.odesys import _ODESystemBase, FirstOrderODESystem, SimpleFirstOrderODESystem, AnyOrderODESystem
 
@@ -129,6 +130,12 @@ def test_FirstOrderODESystem___2():
     assert len(dc.param_and_sol_symbs) == 5
 
     l = list(sympy.symbols('l:2')) # Decay prob. coefficient
+
+    undef_ref = [(l[1],l[0]), (l[1],0)] # what about l[0],0 ??
+    undef = [sorted((eq.rhs,eq.lhs)) for eq in dc._solved_undefined]
+    for a, b in undef_ref:
+        assert sorted((a,b)) in undef
+
     t = sympy.Symbol('t')
 
     # For 3 coupled decays we can solve by hand and compare
@@ -139,36 +146,46 @@ def test_FirstOrderODESystem___2():
     # Use integrating factor to solve by hand:
     analytic = [
         I[0]*e(-l[0]*t),
-        l[0]*I[0]*(e(-l[0]*t)-e(-l[1]*t))/(l[1]-l[0])+I[1]*e(-l[1]*t), # l[0] != l[1]
-        l[1]*I[0]/(l[1]-l[0])*(1-e(-l[0]*t))+\
-           (l[0]*I[0]/(l[1]-l[0])-I[1])*e(-l[1]*t)+I[2]+I[1],
+        l[0]*I[0]*(e(-l[0]*t)-e(-l[1]*t))/(l[1]-l[0])+\
+            I[1]*e(-l[1]*t), # l[0] != l[1]
+        I[0]/(l[1]-l[0])*(l[1]-l[0]+l[0]*e(-l[1]*t)-l[1]*e(-l[0]*t))+\
+            I[2]+I[1]*(1-e(-l[1]*t)),
     ]
 
     # let's see that our analytic solutions match
+    # symodesys solved expressoins for some (3x2x2)
+    # combintaions of variable values of t, l and I
     ts = (1.0, 5.0, 17.0)
-    ls = ([3.0, 5.0, 7.0], [17.0, 11.0, 13.0])
+    ls = ([3.0, 5.0], [17.0, 11.0])
     Is = ([23.0, 29.0, 31.0], [17.0, 3.0, 43.0])
     for t_, l_, I_ in product(ts, ls, Is):
-        subsd = {
-            t_: t,
+        subsd_t = {
+            t: t_,
             l[0]: l_[0],
             l[1]: l_[1],
-            l[2]: l_[2],
             I[0]: I_[0],
             I[1]: I_[1],
             I[2]: I_[2],
         }
-        subsd_t0 = subsd.copy().update({t: 0.0})
-        for i, analytic_expr in enumerate(bd.analytic):
-            # We need to solve sol symbs for t0:
-            sol_vals = []
-            for i, sol_symb in enumerate(bd.analytic_sol_symbs):
-                sol_vals.append(sympy.solve(bd._solved[i][0], sol_symb))
-            subsd.update(dict(zip(bd.analytic_sol_symbs,
-                                  sol_vals)))
-            assert sympy.N(bd.solved_exprs[i].subs(subsd_t)-\
-                           bd.solved_exprs[i].subs(subsd_t0)) -\
-                sympy.N(analytic[i].subs(subsd)) < 1e-10 # some tolerance
+        subsd_t0 = subsd_t.copy()
+        subsd_t0.update({t: 0.0})
+
+        # We need to solve sol symbs for t0:
+        for depv, (expr, sol_symbs) in dc._solved.items():
+            assert len(sol_symbs) == 1
+            sol_symb = sol_symbs[0]
+            j = dc.analytic_depv.index(depv)
+            sols = sympy.solve(expr.subs(subsd_t0) - I_[j],
+                                  sol_symb)
+            assert len(sols) == 1
+            sol_val = sols[0]
+            subsd_t0.update({sol_symb: sol_val})
+            subsd_t.update({sol_symb: sol_val})
+
+        for i, analytic_rel in enumerate(analytic):
+            # assert same within some tolerance
+            assert sympy.N(dc.analytic_relations[i].subs(subsd_t)) -\
+                sympy.N(analytic_rel.subs(subsd_t)) < 1e-10
 
 
 if __name__ == '__main__':

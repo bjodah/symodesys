@@ -89,7 +89,7 @@ subroutine d2ydt2(neq, t, y, yddot, ian, jan)
      if (i == neq) then
         k = ${NNZ}
      else
-        k = iran(i+1)
+        k = ian(i+1)
      end if
      do j = ian(i),k
         yddot(i) = yddot(i) + pdj(jan(j))*ydot(jan(j))

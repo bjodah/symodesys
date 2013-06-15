@@ -53,6 +53,9 @@ class CompilerRunner(object):
             preferred_compiler_name = self.compiler_dict.get(preferred_vendor,None)
             self.compiler_name, self.compiler_binary = self.find_compiler(
                 preferred_compiler_name, metadir or cwd)
+            if self.compiler_binary == None:
+                raise RuntimeError("No compiler found (searched: {})".format(
+                    ', '.join(self.compiler_dict.values())))
         self.cwd = cwd
         self.inc_dirs = inc_dirs or []
         self.libs = libs or []

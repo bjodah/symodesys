@@ -126,13 +126,10 @@ def test_FirstOrderODESystem___2():
 
     assert len(dc.analytic_depv) == 3
     assert len(dc.non_analytic_depv) == 0
-    assert len(dc.param_and_sol_symbs) == 6
+    assert len(dc.param_and_sol_symbs) == 5
 
-    l = list(sympy.symbols('l:'+str(n-1))) # Decay prob. coefficient
+    l = list(sympy.symbols('l:2')) # Decay prob. coefficient
     t = sympy.Symbol('t')
-    #x = [sympy.Function('x'+str(i))(t) for i in range(n)]
-    #d = [x[i]*l[i] for i in range(n-1)]+[0] # death rate
-    #exprs = [b[i]-d[i] for i in range(n)]
 
     # For 3 coupled decays we can solve by hand and compare
     # solution:

@@ -9,7 +9,7 @@ import logging
 import sympy
 
 # project imports
-from symodesys.helpers import subs_set, get_new_symbs, deprecated
+from symodesys.helpers import subs_set, get_new_symbs, deprecated, get_without_piecewise, reassign_const
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -593,27 +593,16 @@ class FirstOrderODESystem(_ODESystemBase):
                     # If sol contains a Piecewise definition,
                     # accept the default solution and store
                     # the others as undefined cases.
-                    if sol.has(sympy.Piecewise):
-                        args = sol.rhs.args
-                        for arg in args:
-                            if isinstance(arg, sympy.Piecewise):
-                                # found it
-                                for expr, cond in arg:
-                                    if isinstance(cond, sympy.Dummy):
-                                        # Someone with deeper insight
-                                        # might want to improve this..
-                                        assert cond.name == 'True'
-                                        sol_expr = sol.rhs.fromiter(
-                                            (x if x != arg else expr for x in args))
-                                    else:
-                                        self._solved_undefined.append(cond)
-                        else:
-                            raise RuntimeError("Piecewise extraction failed, improve code!")
+                    if sol.rhs.has(sympy.Piecewise):
+                        sol_expr, undefined_cases = get_without_piecewise(sol.rhs)
+                        self._solved_undefined.extend(undefined_cases)
                     else:
                         sol_expr = sol.rhs
                     # Assign new symbol to inital value
-                    sol_symbs = get_new_symbs(sol_expr, self.known_symbs)
-                    self._solved[yi] = sol_expr, sol_symbs
+                    sol_expr, rea, not_rea = reassign_const(
+                        sol_expr, yi.func.__name__+'C', self.known_symbs)
+                    assert len(not_rea) == 0
+                    self._solved[yi] = sol_expr, rea
                     changed_last_loop = True
 
 

@@ -627,7 +627,7 @@ class FirstOrderODESystem(_ODESystemBase):
         *self.init_f() must:
           set self.f to a OrderedDict with the first-order
           derivatives as values (and dependent variable sympy.Function
-          instances as keys)
+          instances as keys, use mk_func to create)
         """
         self.f = OrderedDict()
 
@@ -646,7 +646,8 @@ class FirstOrderODESystem(_ODESystemBase):
     def non_analytic_f(self):
         if len(self._solved) > 0:
             return OrderedDict(
-                [(k,  self.f[k].subs(self._solved)) for k in \
+                [(k,  self.f[k].subs({
+                    depv: expr for depv,(expr, symbs) in self._solved.items()})) for k in \
                  self.non_analytic_depv])
         else:
             return self.f

@@ -1,5 +1,5 @@
 import sympy
-
+import sys
 from collections import OrderedDict
 from itertools import product
 
@@ -98,29 +98,39 @@ def test_FirstOrderODESystem___1():
         (x[i], (1, exprs[i])) for i in range(n)])
     assert all([dc.f[k] == exprs[i] for i,k in enumerate(dc.all_depv)])
 
+    assert dc._fmat() == sympy.Matrix(1,3, lambda q, i: b[i]-d[i])
+
+
     # _ODESystemBase
     y  = [sympy.Function('y'+str(i))(t) for i in range(n)]
     y_ = [sympy.Symbol('y'+str(i), real=True) for i in range(n)]
-    dc = dc.transform_depv(dict(zip(y,x)), dict(zip(x,y)))
-    assert dc.f[dc['y0']] == -l[0]*y[0]
-    assert dc.eq(dc['y0']) == sympy.Eq(y[0].diff(t), -l[0]*y[0])
-    assert dc.is_first_order
-    assert dc.get_highest_order() == 1
-    assert dc.is_autonomous
-    assert map(dc.unfunc_depv, y) == y_
-    dc._do_sanity_check_of_odeqs()
-    assert dc.from_list_of_eqs(dc.eqs).f == dc.f
+    dcy = dc.transform_depv(OrderedDict(zip(y,x)),
+                            OrderedDict(zip(x,y)))
+    dy = [y[i]*l[i] for i in range(n-1)]+[0] # death rate
+    by = [0]+[y[i-1]*l[i-1] for i in range(1,n)] # birth rate
+
+    assert dcy.f[dcy['y0']] == -l[0]*y[0]
+    assert dcy.eq(dcy['y0']) == sympy.Eq(y[0].diff(t), -l[0]*y[0])
+    assert dcy.is_first_order
+    assert dcy.get_highest_order() == 1
+    assert dcy.is_autonomous
+    assert map(dcy.unfunc_depv, y) == y_
+    dcy._do_sanity_check_of_odeqs()
+    assert dcy.from_list_of_eqs(dcy.eqs).f == dcy.f
     C0 = sympy.Symbol('C0')
-    assert dc.attempt_analytic_sol(y[0], C0*sympy.exp(-l[0]*t), [C0])
+    assert dcy.attempt_analytic_sol(y[0], C0*sympy.exp(-l[0]*t), [C0])
     C1 = sympy.Symbol('C1')
-    assert not dc.attempt_analytic_sol(y[1], C1*sympy.exp(-l[1]*t), [C1])
+    assert not dcy.attempt_analytic_sol(y[1], C1*sympy.exp(-l[1]*t), [C1])
 
     # FirstOrderODESystem specific
-    assert dc.is_linear
+    assert dcy.is_linear
+    assert dcy._fmat() == sympy.Matrix(1,3, lambda q, i: by[i]-dy[i])
+    assert dcy.non_analytic_f == dcy.f
+    assert dcy.non_analytic_jac == sympy.Matrix(
+        3,3, lambda i,j: (by[i]-dy[i]).diff(dcy.non_analytic_depv[j]))
 
 def test_FirstOrderODESystem___2():
     """ Tests recursive_analytic_auto_sol """
-
     # recursive_analytic_auto_sol
     dc = _mk_decay_chain_system(3)
     dc.recursive_analytic_auto_sol()
@@ -192,4 +202,10 @@ if __name__ == '__main__':
     test_AnyOrderODESystem___1()
     test_FirstOrderODESystem___1()
     test_SimpleFirstOrderODESystem___1()
-    test_FirstOrderODESystem___2()
+
+    skip_slow = False
+    if len(sys.argv) > 1:
+        if sys.argv[1] == '-s': # skip slow
+            skip_slow = True
+
+    if not skip_slow: test_FirstOrderODESystem___2()

@@ -27,6 +27,36 @@ def _uniquify(l):
             result.append(x)
     return result
 
+def simple_cythonize(src):
+    from Cython.Compiler.Main import (
+        default_options, compile, CompilationOptions
+    )
+    cy_sources = [src]
+    cy_options = CompilationOptions(default_options)
+    dst = os.path.splitext(src) + '.c'
+    print("Cythonizing {} to {}".format(src, dst))
+    compile(cy_sources, cy_options)
+
+def simple_py_c_compile_obj(src, dst=None):
+    """
+    Use e.g. on *.c file written from `simple_cythonize`
+    """
+    from distutils.sysconfig import get_python_inc, get_config_vars
+    import numpy
+    includes = [get_python_inc(), numpy.get_include()]
+    cc = " ".join(get_config_vars('CC', 'BASECFLAGS', 'OPT', 'CFLAGSFORSHARED'))
+    compilern, flags = cc.split()[0], cc.split()[1:]
+    dst = dst or os.path.splitext(src)[0] + '.o'
+    runner =CCompilerRunner([src], dst, flags, run_linker=False,
+                            compiler=[compilern]*2, cwd=cwd,
+                            inc_dirs=includes, verbose=True)
+    out, err, exit_status = runner.run()
+
+def pyx2obj(pyxpath):
+    """ Conveninece function """
+    simple_cythonize(pyxpath)
+    simple_py_c_compile_obj(pyxpath[:-3]+'c')
+
 class CompilerRunner(object):
 
     flag_dict = None # Lazy unified defaults for compilers

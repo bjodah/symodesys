@@ -6,7 +6,7 @@ import subprocess
 import shutil
 
 from symodesys.helpers import md5_of_file, missing_or_other_newer
-from symodesys.helpers.compilation import FortranCompilerRunner, CCompilerRunner
+from symodesys.helpers.compilation import simple_cythonize, FortranCompilerRunner, CCompilerRunner
 
 optimize = True
 
@@ -66,11 +66,7 @@ for f in opkfiles:
 src = 'pylsodes_bdf.pyx'
 dst = 'pylsodes_bdf.c'
 if missing_or_other_newer(os.path.join(cwd, dst), src):
-    from Cython.Compiler.Main import default_options, compile, CompilationOptions
-    cy_sources = [src]
-    cy_options = CompilationOptions(default_options)
-    print("Cythonizing {} to {}".format(src,dst))
-    compile(cy_sources, cy_options)
+    simple_cythonize(src)
 else:
     print("Found {}, did not re-cythonize.".format(dst))
 
@@ -78,16 +74,8 @@ else:
 src = 'pylsodes_bdf.c'
 dst = 'prebuilt/pylsodes_bdf.o'
 if missing_or_other_newer(os.path.join(cwd, dst), src):
-    from distutils.sysconfig import get_python_inc, get_config_vars
-    import numpy
-    includes = [get_python_inc(), numpy.get_include()]
-    cc = " ".join(get_config_vars('CC', 'BASECFLAGS', 'OPT', 'CFLAGSFORSHARED'))
-    compilern, flags = cc.split()[0], cc.split()[1:]
-    runner =CCompilerRunner([src], dst, flags, run_linker=False,
-                            compiler=[compilern]*2, cwd=cwd,
-                            inc_dirs=includes, verbose=True)
     print("Compiling cythonized...")
-    out, err, exit_status = runner.run()
+    out, err, exit_status = simple_py_c_compile_obj(src, dst)
     if exit_status != 0:
         print(out)
         print(err)

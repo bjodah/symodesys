@@ -14,8 +14,18 @@ from sympy.utilities.autowrap import autowrap, ufuncify
 from mako.template import Template
 from mako.exceptions import text_error_template
 
-def render_mako_template_to(template_path, outpath, subsd):
-    template_str = open(template_path, 'rt').read()
+def render_mako_template_to(template, outpath, subsd):
+    """
+    template: either string of path or file like obj.
+    """
+    if hasattr(template, 'read'):
+        # set in-file handle to provided template
+        ifh = template
+    else:
+        # Assume template is a string of the path to the template
+        ifh = open(template, 'rt')
+
+    template_str = ifh.read()
     with open(outpath, 'wt') as ofh:
         try:
             rendered = Template(template_str).render(**subsd)

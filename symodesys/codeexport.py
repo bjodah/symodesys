@@ -33,25 +33,43 @@ from Cython.Distutils import build_ext
 from symodesys.helpers import import_, render_mako_template_to
 from symodesys.integrator import IVP_Integrator
 
-
 class Generic_Code(object):
     """
-    Wraps some sympy functionality of code generation from matrices
-    returned by FirstOrderODESystem.dydt and FirstOrderODESystem.dydt_jac
+    Supported syntax: C or F
+
+    C99 is assumed for C
+    Fortran 2008 (free form) is assumed for F
+
+    Attributes to optionally override:
+    -`syntax`: any of the supported syntaxes
+    -`tempdir_basename`: basename of tempdirs created in e.g. /tmp/
+    -`_cached_files`: Files that needs to be removed
+        between compilations
+    -``
     """
 
     syntax = 'C'
 
-    def __init__(self, fo_odesys, tempdir = None, save_temp = False):
+    tempdir_basename = 'generic_code'
+
+    def __init__(self, tempdir = None, save_temp = False):
+        """
+        Arguments:
+        - `tempdir`: Optional path to dir to write code files
+        - `save_temp`: Save generated code files when garbage
+            collected? (Default: False)
+
+        """
+
         if self.syntax == 'C':
-            self.wcode = sympy.ccode #staticmethod(sympy.ccode)
+            self.wcode = sympy.ccode
         elif self.syntax == 'F':
-            self.wcode = partial(sympy.fcode, source_format='free') #staticmethod(sympy.fcode)
-        self._fo_odesys = fo_odesys
+            self.wcode = partial(sympy.fcode, source_format='free')
+
         if tempdir:
             self._tempdir = tempdir
         else:
-            self._tempdir = tempfile.mkdtemp("_symodesys_compile")
+            self._tempdir = tempfile.mkdtemp(self.tempdir_basename)
             self._remove_tempdir_on_clean = True
         self._save_temp = save_temp
 
@@ -59,7 +77,7 @@ class Generic_Code(object):
             os.makedirs(self._tempdir)
             self._remove_tempdir_on_clean = True
 
-        # '_cached_files' - Files that needs to be removed between compilations
+        #
         for lstattr in ['_written_files', '_cached_files',
                         '_include_dirs', '_libraries',
                         '_library_dirs', '_include_dirs']:
@@ -68,6 +86,14 @@ class Generic_Code(object):
 
         self._write_code()
 
+    def variables(self):
+        """
+        Returns dictionary of variables for substituion
+        suitable for use in the templates (formated according
+        to the syntax of the language)
+        """
+        # To be overloaded
+        return {}
 
     def _write_code(self):
         for path in self._cached_files:
@@ -131,6 +157,19 @@ class Generic_Code(object):
         """
         self.clean()
 
+
+class ODESys_Code(Generic_Code):
+    """
+    Wraps some sympy functionality of code generation from matrices
+    returned by FirstOrderODESystem.dydt and FirstOrderODESystem.dydt_jac
+    """
+
+    tempdir_basename = "_symodesys_compile"
+
+    def __init__(self, fo_odesys, **kwargs):
+        self._fo_odesys = fo_odesys
+        super(ODESys_Code, **kwargs)
+
     @property
     def NY(self):
         return len(self._fo_odesys.non_analytic_depv)
@@ -145,12 +184,6 @@ class Generic_Code(object):
         return self._fo_odesys.param_and_sol_symbs
 
     def variables(self):
-        """
-        Returns dictionary of variables for substituion
-        suitable for use in the templates (formated according
-        to the syntax of the language)
-        """
-
 
         func_cse_defs, func_cse_exprs = sympy.cse(
             self._fo_odesys.non_analytic_f.values(),
@@ -306,6 +339,63 @@ class Generic_Code(object):
         tgt = {'C':r'[\1]', 'F':r'(\1+1)'}.get(self.syntax)
         scode = re.sub('_(\d+)', tgt, scode)
         return scode
+
+class F90_Code(Generic_Code):
+    """
+    Fortran 90 code module
+    """
+
+    syntax = 'F'
+
+
+    def __init__(self, *args, **kwargs):
+        self._cached_files = [x.replace('f90','mod') for x \
+                              in self._source_files]
+        self._basedir = os.path.dirname(__file__)
+        super(F90_Code, self).__init__(*args, **kwargs)
+
+
+    def _compile_obj(self):
+        for f in self._source_files:
+            runner = FortranCompilerRunner(
+                f, f.replace('.f90','.o'), run_linker=False,
+                cwd=self._tempdir, options=['pic', 'warn', 'fast'],
+                verbose=True, preferred_vendor=self.preferred_vendor)
+            out, err, exit_status = runner.run()
+            if exit_status != 0:
+                print(out)
+                print(err)
+            else:
+                print('...Success!')
+
+
+    def _compile_so(self):
+        # Generate shared object for importing:
+        from distutils.sysconfig import get_config_vars
+        pylibs = [x[2:] for x in get_config_vars(
+            'BLDLIBRARY')[0].split() if x.startswith('-l')]
+        cc = get_config_vars('BLDSHARED')[0]
+
+        # We want something like: gcc, ['-pthread', ...
+        compilername, flags = cc.split()[0], cc.split()[1:]
+        runner = FortranCompilerRunner(
+            self._obj_files,
+            self._so_file, flags,
+            cwd=self._tempdir, libs=pylibs,
+            verbose=True, preferred_vendor=self.preferred_vendor)
+        out, err, exit_status = runner.run()
+        if exit_status != 0:
+            print(out)
+            print(err)
+        else:
+            print('...Success!')
+        return os.path.join(self._tempdir, so_file)
+
+
+    def _compile(self, extension_name='pyinterface'):
+        self._compile_obj()
+        return self._compile_so()
+
 
 class Binary_IVP_Integrator(IVP_Integrator):
     """

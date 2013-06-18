@@ -6,7 +6,7 @@ import subprocess
 import shutil
 
 from symodesys.helpers import md5_of_file, missing_or_other_newer
-from symodesys.helpers.compilation import simple_cythonize, FortranCompilerRunner, CCompilerRunner
+from symodesys.helpers.compilation import simple_cythonize, FortranCompilerRunner, CCompilerRunner, simple_py_c_compile_obj
 
 optimize = True
 
@@ -75,7 +75,7 @@ src = 'pylsodes_bdf.c'
 dst = 'prebuilt/pylsodes_bdf.o'
 if missing_or_other_newer(os.path.join(cwd, dst), src):
     print("Compiling cythonized...")
-    out, err, exit_status = simple_py_c_compile_obj(src, dst)
+    out, err, exit_status = simple_py_c_compile_obj(src, dst, cwd=cwd)
     if exit_status != 0:
         print(out)
         print(err)

@@ -32,25 +32,29 @@ from Cython.Distutils import build_ext
 # Intrapackage imports
 from symodesys.helpers import import_, render_mako_template_to
 from symodesys.integrator import IVP_Integrator
+from symodesys.helpers.compilation import FortranCompilerRunner
+
 
 class Generic_Code(object):
     """
-    Supported syntax: C or F
 
-    C99 is assumed for C
-    Fortran 2008 (free form) is assumed for F
+    Regarding syntax:
+      C99 is assumed for 'C'
+      Fortran 2008 (free form) is assumed for 'F'
 
     Attributes to optionally override:
-    -`syntax`: any of the supported syntaxes
+    -`syntax`: any of the supported syntaxes ('C' or 'F')
     -`tempdir_basename`: basename of tempdirs created in e.g. /tmp/
     -`_cached_files`: Files that needs to be removed
         between compilations
-    -``
+    -`_basedir` the path to the directory which relative paths are given to
     """
 
     syntax = 'C'
-
+    preferred_vendor = 'gnu'
     tempdir_basename = 'generic_code'
+    _basedir = None
+
 
     def __init__(self, tempdir = None, save_temp = False):
         """
@@ -66,8 +70,11 @@ class Generic_Code(object):
         elif self.syntax == 'F':
             self.wcode = partial(sympy.fcode, source_format='free')
 
+        self._basedir = self._basedir or os.path.dirname(__file__)
+
         if tempdir:
             self._tempdir = tempdir
+            self._remove_tempdir_on_clean = False
         else:
             self._tempdir = tempfile.mkdtemp(self.tempdir_basename)
             self._remove_tempdir_on_clean = True
@@ -80,11 +87,13 @@ class Generic_Code(object):
         #
         for lstattr in ['_written_files', '_cached_files',
                         '_include_dirs', '_libraries',
-                        '_library_dirs', '_include_dirs']:
+                        '_library_dirs', '_include_dirs',
+                        'copy_files']:
             if not hasattr(self, lstattr):
                 setattr(self, lstattr, [])
 
         self._write_code()
+
 
     def variables(self):
         """
@@ -94,6 +103,7 @@ class Generic_Code(object):
         """
         # To be overloaded
         return {}
+
 
     def _write_code(self):
         for path in self._cached_files:
@@ -118,9 +128,11 @@ class Generic_Code(object):
             render_mako_template_to(srcpath, outpath, subs)
             self._written_files.append(outpath)
 
+
     def compile_and_import_binary(self):
         binary_path = self._compile()
         return import_(binary_path)
+
 
     def _compile(self, extension_name = 'pyinterface'):
         sources = [os.path.join(
@@ -143,12 +155,14 @@ class Generic_Code(object):
             )
         return os.path.join(self._tempdir, extension_name)
 
+
     def clean(self):
         """ Delete temp dir if not save_temp set at __init__ """
         if not self._save_temp:
             map(os.unlink, self._written_files)
             if self._remove_tempdir_on_clean:
                 shutil.rmtree(self._tempdir)
+
 
     def __del__(self):
         """
@@ -166,13 +180,16 @@ class ODESys_Code(Generic_Code):
 
     tempdir_basename = "_symodesys_compile"
 
+
     def __init__(self, fo_odesys, **kwargs):
         self._fo_odesys = fo_odesys
-        super(ODESys_Code, **kwargs)
+        super(ODESys_Code, self).__init__(**kwargs)
+
 
     @property
     def NY(self):
         return len(self._fo_odesys.non_analytic_depv)
+
 
     @property
     def prog_param_symbs(self):
@@ -182,6 +199,7 @@ class ODESys_Code(Generic_Code):
         solving part of ODESys introduces new 'parameters')
         """
         return self._fo_odesys.param_and_sol_symbs
+
 
     def variables(self):
 
@@ -237,7 +255,6 @@ class ODESys_Code(Generic_Code):
             code_var_expr = self.as_arrayified_code(var_expr)
             code_jac_cse.append((var_name, code_var_expr))
 
-
         # Populate ia, ja (sparse index specifiers using fortran indexing)
         # see documentation of LSODES in ODEPACK for definition
         # (Yale sparse matrix)
@@ -265,7 +282,6 @@ class ODESys_Code(Generic_Code):
             cse_defs, cse_exprs = sympy.cse(
                 col_exprs, symbols = sympy.numbered_symbols(
                     'csejaccol{}'.format(ci)))
-
 
             # Format code: expressions in cse terms
             code_exprs = zip(cur_ja, [
@@ -325,6 +341,7 @@ class ODESys_Code(Generic_Code):
         scode = re.sub('_(\d+)', tgt, scode)
         return scode
 
+
     def arrayify(self, scode):
         """
         Returns arrayified expression
@@ -340,6 +357,7 @@ class ODESys_Code(Generic_Code):
         scode = re.sub('_(\d+)', tgt, scode)
         return scode
 
+
 class F90_Code(Generic_Code):
     """
     Fortran 90 code module
@@ -347,26 +365,21 @@ class F90_Code(Generic_Code):
 
     syntax = 'F'
 
-
     def __init__(self, *args, **kwargs):
         self._cached_files = [x.replace('f90','mod') for x \
                               in self._source_files]
-        self._basedir = os.path.dirname(__file__)
         super(F90_Code, self).__init__(*args, **kwargs)
 
 
-    def _compile_obj(self):
-        for f in self._source_files:
+    def _compile_obj(self, sources=None):
+        sources = sources or self._source_files
+        for f in sources:
+            outpath = os.path.splitext(f)[0]+'.o'
             runner = FortranCompilerRunner(
-                f, f.replace('.f90','.o'), run_linker=False,
+                f, outpath, run_linker=False,
                 cwd=self._tempdir, options=['pic', 'warn', 'fast'],
-                verbose=True, preferred_vendor=self.preferred_vendor)
-            out, err, exit_status = runner.run()
-            if exit_status != 0:
-                print(out)
-                print(err)
-            else:
-                print('...Success!')
+                preferred_vendor=self.preferred_vendor)
+            runner.run()
 
 
     def _compile_so(self):
@@ -382,14 +395,9 @@ class F90_Code(Generic_Code):
             self._obj_files,
             self._so_file, flags,
             cwd=self._tempdir, libs=pylibs,
-            verbose=True, preferred_vendor=self.preferred_vendor)
-        out, err, exit_status = runner.run()
-        if exit_status != 0:
-            print(out)
-            print(err)
-        else:
-            print('...Success!')
-        return os.path.join(self._tempdir, so_file)
+            preferred_vendor=self.preferred_vendor)
+        runner.run()
+        return os.path.join(self._tempdir, self._so_file)
 
 
     def _compile(self, extension_name='pyinterface'):
@@ -411,15 +419,19 @@ class Binary_IVP_Integrator(IVP_Integrator):
         self.save_temp = kwargs.pop('save_temp', False)
         super(Binary_IVP_Integrator, self).__init__(**kwargs)
 
+
     def set_fo_odesys(self, fo_odesys):
         super(Binary_IVP_Integrator, self).set_fo_odesys(fo_odesys)
         self._binary = None # <-- Clears cache
         self._code = self.CodeClass(
-            self._fo_odesys, tempdir = self.tempdir,
+            fo_odesys = self._fo_odesys,
+            tempdir = self.tempdir,
             save_temp = self.save_temp)
+
 
     def clean(self):
         self._code.clean()
+
 
     @property
     def binary(self):

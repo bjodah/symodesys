@@ -1,0 +1,31 @@
+F90 = gfortran
+F90FLAGS = -Wall -std=f2008 -Wextra -Wimplicit-interface -fPIC
+
+SPKG_LOCAL=/usr
+CC = gcc
+PYTHONLIB=python2.7
+
+CFLAGS = -pthread -fno-strict-aliasing -DNDEBUG -g -fwrapv -O2 -Wall -Wstrict-prototypes -fPIC -I$(SPKG_LOCAL)/include/${PYTHONLIB} -I$(SPKG_LOCAL)/lib/${PYTHONLIB}/site-packages/numpy/core/include
+
+transform_wrapper.so: transform.o transform_wrapper.o
+	${F90} -shared -o $@ $^ -l${PYTHONLIB}
+
+clean:
+	rm *.o *.c *.so *.mod
+
+.PHONY: clean
+
+test: transform.f90 transform_test.f90
+	gfortran -o $@ $^
+
+transform_wrapper.c: transform_wrapper.pyx
+	cython $<
+
+%.o: %.f
+	$(F77) $(F77FLAGS) -c $<
+
+%.o: %.f90
+	$(F90) $(F90FLAGS) -c $<
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $<

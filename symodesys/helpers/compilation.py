@@ -8,6 +8,10 @@ from distutils.spawn import find_executable
 
 # TODO: change print statements to logging statements.
 
+class CompilationError(Exception):
+    pass
+
+
 def find_binary_of_command(candidates):
     """
     Currently only support *nix systems (invocation of which)
@@ -27,17 +31,18 @@ def _uniquify(l):
             result.append(x)
     return result
 
-def simple_cythonize(src):
+def simple_cythonize(src, logger=None):
     from Cython.Compiler.Main import (
         default_options, compile, CompilationOptions
     )
     cy_sources = [src]
     cy_options = CompilationOptions(default_options)
-    dst = os.path.splitext(src) + '.c'
-    print("Cythonizing {} to {}".format(src, dst))
+    dst = os.path.splitext(src)[0] + '.c'
+    if logger: logger.info("Cythonizing {} to {}".format(src, dst))
     compile(cy_sources, cy_options)
 
-def simple_py_c_compile_obj(src, dst=None):
+
+def simple_py_c_compile_obj(src, dst=None, cwd=None):
     """
     Use e.g. on *.c file written from `simple_cythonize`
     """
@@ -49,13 +54,15 @@ def simple_py_c_compile_obj(src, dst=None):
     dst = dst or os.path.splitext(src)[0] + '.o'
     runner =CCompilerRunner([src], dst, flags, run_linker=False,
                             compiler=[compilern]*2, cwd=cwd,
-                            inc_dirs=includes, verbose=True)
-    out, err, exit_status = runner.run()
+                            inc_dirs=includes)
+    return runner.run() # out, err, exit_status
+
 
 def pyx2obj(pyxpath):
     """ Conveninece function """
     simple_cythonize(pyxpath)
     simple_py_c_compile_obj(pyxpath[:-3]+'c')
+
 
 class CompilerRunner(object):
 
@@ -65,7 +72,7 @@ class CompilerRunner(object):
     def __init__(self, sources, out, flags=None, run_linker=True,
                  compiler=None, cwd=None, inc_dirs=None, libs=None,
                  lib_dirs=None,
-                 options=None, verbose=False, preferred_vendor=None,
+                 options=None, logger=None, preferred_vendor=None,
                  metadir=None):
         """
         Arguments:
@@ -91,7 +98,7 @@ class CompilerRunner(object):
         self.libs = libs or []
         self.lib_dirs = lib_dirs or []
         self.options = options or []
-        self.verbose = verbose
+        self.logger = logger
         if run_linker:
             # both gcc and ifort have '-c' flag for disabling linker
             self.flags = filter(lambda x: x != '-c', self.flags)
@@ -163,7 +170,6 @@ class CompilerRunner(object):
             d.update({key: value})
             pickle.dump(d, open(fullpath,'w'))
         else:
-            print({key: value}, fullpath)
             pickle.dump({key: value}, open(fullpath,'w'))
 
     def run(self):
@@ -172,17 +178,26 @@ class CompilerRunner(object):
         # Append output flag and name to tail of flags
         self.flags.extend(['-o', self.out])
 
-        cmd = [self.compiler_binary]+self.flags+self.sources+['-l'+x for x in self.libs]
-        if self.verbose: print('Executing... : {}'.format(' '.join(cmd)))
-        p = subprocess.Popen(cmd,
+        self.cmd = [self.compiler_binary]+self.flags+self.sources+['-l'+x for x in self.libs]
+        if self.logger: logger.info('Executing... : {}'.format(' '.join(cmd)))
+        p = subprocess.Popen(self.cmd,
                              cwd=self.cwd,
                              #shell=True,
                              stdin= subprocess.PIPE,
                              stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE
+                             stderr=subprocess.STDOUT
         )
-        stdoutdata, stderrdata = p.communicate()
-        return stdoutdata, stderrdata, p.returncode
+        self.cmd_outerr = p.communicate()
+        self.cmd_returncode = p.returncode
+
+        # Error handling
+        if self.cmd_returncode != 0:
+            raise CompilationError(
+                ("Error executing '{}' in {}. Commanded exited with status {}"+\
+                 " after givning the following output: {}").format(
+                     ' '.join(self.cmd), self.cwd, self.cmd_returncode, str(self.cmd_outerr)))
+
+        return self.cmd_outerr, self.cmd_returncode
 
 
 class CCompilerRunner(CompilerRunner):

@@ -14,9 +14,10 @@ const gsl_odeiv2_step_type *
 get_step_type(int index);
 
 int
-integrate_fixed_step (double t, double t1, double y[], int n_steps,
+integrate_fixed_step (double t, double t1, double * y, int n_steps,
 		      double h_init, double h_max, double eps_abs,
-		      double eps_rel, void * params, size_t dim, int nderiv, double tout[], double Yout[], int step_type_idx);
+		      double eps_rel, void * params, size_t dim,
+		      int nderiv, double * tout, double * Yout, int step_type_idx);
 
 int
 integrate_fixed_step_print(double t, double t1, double y[], int n_steps,

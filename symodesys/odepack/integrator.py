@@ -8,10 +8,10 @@ import numpy as np
 import cython_gsl
 
 # Intrapackage imports
-from symodesys.codeexport import F90_Code, Binary_IVP_Integrator
+from symodesys.codeexport import ODESys_Code, F90_Code, Binary_IVP_Integrator
 from symodesys.helpers.compilation import FortranCompilerRunner #, CCompilerRunner
 
-class LSODES_Code(F90_Code):
+class LSODES_Code(ODESys_Code, F90_Code):
 
 
     copy_files = [
@@ -39,8 +39,9 @@ class LSODES_Code(F90_Code):
 
     preferred_vendor = 'gnu'
 
-    # _cached_files = ['ode.mod', 'types.mod', 'lsodes_bdf.mod',
-    #                  'lsodes_bdf_wrapper.mod']
+    def __init__(self, *args, **kwargs):
+        self._basedir = self._basedir or os.path.dirname(__file__)
+        super(LSODES_Code, self).__init__(*args, **kwargs)
 
 
 class LSODES_IVP_Integrator(Binary_IVP_Integrator):

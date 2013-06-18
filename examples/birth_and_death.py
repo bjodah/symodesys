@@ -48,15 +48,10 @@ class BirthDeathSystem(SimpleFirstOrderODESystem):
         l = [self['l{}'.format(i)] for i in range(self.dim)]
         first =  (y[0], -l[0]*y[0])
         last  = (y[self.dim-1], -l[self.dim-2]*y[self.dim-1])
-        ]
-        first_last.update({
-            y[i]: y[i-1]*l[i-1]-y[i]*l[i] for \
-            i in range(1,self.dim-1)
-        })
-        return OrderedDict(first + [
+        return OrderedDict([first] + [
             (y[i], y[i-1]*l[i-1]-y[i]*l[i]) for \
             i in range(1,self.dim-1)
-        ] + last)
+        ] + [last])
 
 def plot_population(ivp, depv_z_map):
     fig = plt.figure()

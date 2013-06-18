@@ -8,10 +8,10 @@ import numpy as np
 import cython_gsl
 
 # Intrapackage imports
-from symodesys.codeexport import Generic_Code, Binary_IVP_Integrator
+from symodesys.codeexport import ODESys_Code, F90_Code, Binary_IVP_Integrator
 
 
-class GSL_Code(Generic_Code):
+class GSL_Code(ODESys_Code):
 
     # Implement hash of fo_odesys and hash of code?
     # Serialization to double check against collision?

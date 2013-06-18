@@ -54,7 +54,7 @@ class Generic_Code(object):
     preferred_vendor = 'gnu'
     tempdir_basename = 'generic_code'
     _basedir = None
-
+    _cached_files = None
 
     def __init__(self, tempdir = None, save_temp = False):
         """
@@ -92,6 +92,10 @@ class Generic_Code(object):
             if not hasattr(self, lstattr):
                 setattr(self, lstattr, [])
 
+        # If .pyx files in _templates, add .c file to _cached_files
+        self._cached_files += [x.replace('_template','').replace(
+            '.pyx','.c') for x in self._templates if x.endswith('.pyx')]
+
         self._write_code()
 
 
@@ -120,7 +124,7 @@ class Generic_Code(object):
             self._written_files.append(dstpath)
 
         subs = self.variables()
-        for path in self.templates:
+        for path in self._templates:
             # Render templates
             srcpath = os.path.join(self._basedir, path)
             outpath = os.path.join(self._tempdir,
@@ -366,8 +370,11 @@ class F90_Code(Generic_Code):
     syntax = 'F'
 
     def __init__(self, *args, **kwargs):
-        self._cached_files = [x.replace('f90','mod') for x \
+        self._cached_files = self._cached_files or []
+        self._cached_files += [x.replace('.f90','.mod') for x \
                               in self._source_files]
+        self._cached_files += [x.replace('_template','').replace(
+            '.f90','.mod') for x in self._templates if x.endswith('.f90')]
         super(F90_Code, self).__init__(*args, **kwargs)
 
 

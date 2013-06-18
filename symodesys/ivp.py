@@ -269,22 +269,37 @@ class IVP(object):
         nt, ndepv, ndatapp = Yres.shape # time, dependent variables, data per point (nderiv+1)
         indepv = self._fo_odesys.indepv
         if self._depv_inv_trnsfm:
+
+            # TODO: Handle self._indepv_inv_trnsfm
+
             # Ok, wee need to transform Yres from numerical integration
             # back to original variables
             od = OrderedDict()
             deriv_data = {depv.diff(indepv, j): Yres[:,i,j] for j in range(ndatapp) \
                            for i, depv in enumerate(self._fo_odesys.all_depv)}
             deriv_data[indepv] = tout
-            def transform(data, expr):
-                # Convert data for all derivatives in transformed system
-                # to corresponding derivatives in original system
-                result = np.empty((nt, ndatapp))
+            # def transform(data, expr):
+            #     # Convert data for all derivatives in transformed system
+            #     # to corresponding derivatives in original system
+            #     result = np.empty((nt, ndatapp))
+            #     for j in range(ndatapp):
+            #         der_expr = expr.diff(indepv, j)
+            #         result[:,j] = array_subs(der_expr, deriv_data)
+            #     return result
+            # for i, (ori_depv, expr_in_cur) in enumerate(self._depv_inv_trnsfm.items()):
+            #     od[ori_depv] = transform(Yres[:,i,:], expr_in_cur)
+            # return od
+            exprs = []
+            for ori_depv, expr_in_cur in self._depv_inv_trnsfm.items():
                 for j in range(ndatapp):
                     der_expr = expr.diff(indepv, j)
+                    exprs.append(der_expr)
                     result[:,j] = array_subs(der_expr, deriv_data)
-                return result
-            for i, (ori_depv, expr_in_cur) in enumerate(self._depv_inv_trnsfm.items()):
-                od[ori_depv] = transform(Yres[:,i,:], expr_in_cur)
+
+            tmfr = Transformer(exprs, inp)
+            tmfr_data = tmfr(tout, *yres_data)
+            for i, ori_depv in enumerate(self._depv_inv_trnsfm.keys()):
+                od[ori_depv] = tmfr_data[:,i]
             return od
         else:
             return OrderedDict(zip(self._fo_odesys.all_depv,

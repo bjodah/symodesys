@@ -238,8 +238,8 @@ class FortranCompilerRunner(CompilerRunner):
             'warn': ('-Wall', '-Wextra', '-Wimplicit-interface'),
         },
         'ifort': {
-            'warn': ('-warn', 'all',),
             'f90': ('-stand f95',),
+            'warn': ('-warn', 'all',),
         }
     }
 

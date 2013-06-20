@@ -33,3 +33,4 @@ symodesys/transform/prebuilt/*
 symodesys/transform/tests/tmp*/*
 symodesys/gsl/prebuilt/
 symodesys/gsl/drivers_wrapper.c
+examples/tfm_tmp/

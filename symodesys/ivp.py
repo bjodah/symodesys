@@ -14,6 +14,7 @@ import sympy
 from symodesys.helpers import cache, array_subs
 from symodesys.integrator import Mpmath_IVP_Integrator, SympyEvalr
 from symodesys.odesys import FirstOrderODESystem
+from symodesys.transform import Transformer
 
 # LONG-TERM FUTURE TODO: Support uncertainties as parameter inputs
 
@@ -278,28 +279,23 @@ class IVP(object):
             deriv_data = {depv.diff(indepv, j): Yres[:,i,j] for j in range(ndatapp) \
                            for i, depv in enumerate(self._fo_odesys.all_depv)}
             deriv_data[indepv] = tout
-            # def transform(data, expr):
-            #     # Convert data for all derivatives in transformed system
-            #     # to corresponding derivatives in original system
-            #     result = np.empty((nt, ndatapp))
-            #     for j in range(ndatapp):
-            #         der_expr = expr.diff(indepv, j)
-            #         result[:,j] = array_subs(der_expr, deriv_data)
-            #     return result
-            # for i, (ori_depv, expr_in_cur) in enumerate(self._depv_inv_trnsfm.items()):
-            #     od[ori_depv] = transform(Yres[:,i,:], expr_in_cur)
-            # return od
+
             exprs = []
+            ori_derivs = []
             for ori_depv, expr_in_cur in self._depv_inv_trnsfm.items():
                 for j in range(ndatapp):
-                    der_expr = expr.diff(indepv, j)
+                    der_expr = expr_in_cur.diff(indepv, j)
                     exprs.append(der_expr)
-                    result[:,j] = array_subs(der_expr, deriv_data)
+                    ori_derivs.append(ori_depv.diff(indepv, j))
 
+            inp, yres_data = deriv_data.keys(), deriv_data.values()
             tmfr = Transformer(exprs, inp)
-            tmfr_data = tmfr(tout, *yres_data)
-            for i, ori_depv in enumerate(self._depv_inv_trnsfm.keys()):
-                od[ori_depv] = tmfr_data[:,i]
+            tmfr_data = tmfr(*yres_data)
+            for ori_depv in self._depv_inv_trnsfm.keys():
+                idxs = []
+                for i in range(ndatapp):
+                    idxs.append(ori_derivs.index(ori_depv.diff(indepv, i)))
+                od[ori_depv] = tmfr_data[:,idxs]
             return od
         else:
             return OrderedDict(zip(self._fo_odesys.all_depv,

@@ -17,12 +17,10 @@ from coupled_decay import CoupledDecay
 # Bateman's equations
 
 
-def main(params_by_token):
+def main(params):
     """
     """
     cd = CoupledDecay()
-    param_vals_by_symb = cd.get_param_vals_by_symb_from_by_token(
-        params_by_token)
 
     u, v, w = cd['u'], cd['v'], cd['w']
 
@@ -39,7 +37,7 @@ def main(params_by_token):
           }
 
     print y0
-    ivp = IVP(cd, y0, param_vals_by_symb, t0)
+    ivp = IVP(cd, y0, params, t0)
     new_params = ivp.recursive_analytic_reduction()
     print new_params
 
@@ -50,9 +48,9 @@ def main(params_by_token):
 
     t = ivp.tout
     print y0
-    analytic_u = cd.analytic_u(t, y0, param_vals_by_symb)
-    analytic_v = cd.analytic_v(t, y0, param_vals_by_symb)
-    analytic_w = cd.analytic_w(t, y0, param_vals_by_symb)
+    analytic_u = cd.analytic_u(t, y0, params)
+    analytic_v = cd.analytic_v(t, y0, params)
+    analytic_w = cd.analytic_w(t, y0, params)
 
     uout = ivp.get_yout_by_symb(u)
     vout = ivp.get_yout_by_symb(v)
@@ -93,5 +91,4 @@ if __name__ == '__main__':
     else:
         lambda_u, lambda_v, lambda_w = 3.0, 2.0, 1.0
 
-    main(params_by_token = {'lambda_u': lambda_u, 'lambda_v': lambda_v, 'lambda_w': lambda_w})
-
+    main(params={'lambda_u': lambda_u, 'lambda_v': lambda_v, 'lambda_w': lambda_w})

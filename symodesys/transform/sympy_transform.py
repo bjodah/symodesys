@@ -147,9 +147,6 @@ class Transformer(F90_Code, HasMetaData):
 
         return exprs, truly_used_keys, truly_used_keys_dummies
 
-        # return ufunc, tuple(sorted(
-        #     truly_used_keys,
-        #     key=lambda x: truly_used_keys_dummies[truly_used_keys.index(x)]))
 
     def __call__(self, *args):
         """
@@ -157,6 +154,7 @@ class Transformer(F90_Code, HasMetaData):
         """
         dummies = dict(zip(self._robust_inp_symbs, self._robust_inp_dummies))
         idxs = [self._inp.index(symb) for symb in self._robust_inp_symbs]
+        ##### make sure args[i] 1 dimensional: .reshape(len(args[i]))
         inp = np.vstack([args[i] for i in idxs]).transpose()
         return self._binary_mod.transform(inp, len(self._exprs))
 
@@ -165,8 +163,7 @@ class Transformer(F90_Code, HasMetaData):
         args = [str(v) for v in self._robust_inp_dummies]
         cses, exprs_in_cse = sympy.cse(
             self._robust_exprs, symbols=sympy.numbered_symbols('cse'))
-        return {'ARGS_COMMA': ', '.join(args),
-                'ARGS': args,
+        return {'ARGS': args,
                 'CSES': cses,
                 'EXPRS_IN_CSE': [self.wcode(x) for x in exprs_in_cse],
                 'N_EXPRS': len(self._exprs)}
@@ -174,9 +171,3 @@ class Transformer(F90_Code, HasMetaData):
     def _write_code(self):
         # first we need to export the template in this module
         super(Transformer, self)._write_code()
-
-
-    # def _compile_obj(self):
-    #     pyxpath = 'transform_wrapper.pyx'
-    #     pyx2obj(pyxpath, cwd=self._tempdir, logger=self.logger) # .pyx -> (.c) -> .o
-    #     super(Transformer, self)._compile_obj(self._source_files[:-1])

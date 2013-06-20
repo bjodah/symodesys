@@ -9,7 +9,7 @@ module transform
 
 contains
 
-    subroutine perform(n, ${ARGS_COMMA}, output)
+    subroutine perform(n, ${',&\n            '.join(ARGS)}, output)
         integer, intent(in) :: n
     %for arg_name in ARGS:
         real(dp), intent(in), dimension(n) :: ${arg_name}
@@ -40,7 +40,7 @@ contains
         real(c_double), intent(out), dimension(n, ${N_EXPRS}) :: output
         ! By using a call defined dimension of input the .pyx file does not
         ! need to be templated
-        call perform(n, ${', '.join(['input(:,{}+1)'.format(i) for i in range(N_EXPRS)])}, output)
+        call perform(n, ${',&\n            '.join(['input(:,{}+1)'.format(i) for i in range(N_EXPRS)])}, output)
     end subroutine
 
 end module

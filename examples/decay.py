@@ -24,4 +24,4 @@ class Decay(SimpleFirstOrderODESystem):
 
 
 if __name__ == '__main__':
-    plot_numeric_vs_analytic(Decay, {'u': 1.0}, {'lambda_u': 0.2}, 10.0, N=30)
+    plot_numeric_error(Decay, {'u': 1.0}, {'lambda_u': 0.2}, 0.0, 10.0, N=30)

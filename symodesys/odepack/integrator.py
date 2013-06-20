@@ -81,7 +81,7 @@ class LSODES_IVP_Integrator(Binary_IVP_Integrator):
         if N > 0:
             # Fixed stepsize
             #self.init_Yout_tout_for_fixed_step_size(t0, tend, N)
-            tout, Yout = self.binary.integrate_equidistant_output(
+            tout, Yout = self.binary_mod.integrate_equidistant_output(
                 t0, tend, y0_arr, N, h_init, h_max,
                 self.abstol, self.reltol, params_arr, self.nderiv)
             self.tout = tout

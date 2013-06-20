@@ -10,12 +10,15 @@ from functools import partial
 from collections import defaultdict
 
 import sympy
+import numpy as np
 
 from symodesys.codeexport import F90_Code
+from symodesys.helpers import import_, HasMetaData
 from symodesys.helpers.compilation import pyx2obj
 
 
-class Transformer(F90_Code):
+
+class Transformer(F90_Code, HasMetaData):
     """
     The the Transformer instance can export expressions
     (given in `exprs`) to C/Fortran and compile callbacks
@@ -24,11 +27,11 @@ class Transformer(F90_Code):
     shape: (len(exprs), len(inp))
     """
 
-    _templates = ['transform_template.f90',
-                 'transform_wrapper_template.pyx']
+    _templates = ['transform_template.f90']
 
-    _source_files = ['transform.f90',
-                     'transform_wrapper.c']
+    _copy_files = ['prebuilt/transform_wrapper.o']
+
+    _source_files = ['transform.f90']
 
     _obj_files = ['transform.o',
                   'transform_wrapper.o',]
@@ -36,20 +39,47 @@ class Transformer(F90_Code):
     _so_file = 'transform_wrapper.so'
 
     def __init__(self, exprs, inp, **kwargs):
-        self._cached_files = self._cached_files or []
-        self._cached_files += [self._so_file]
-        self._basedir = os.path.dirname(__file__)
         self._exprs = exprs
         self._inp = inp
+
+        self._cached_files = self._cached_files or []
+        self._basedir = os.path.dirname(__file__)
 
         self._robust_exprs, self._robust_inp_symbs, self._robust_inp_dummies = \
             self.robustify(self._exprs, self._inp)
 
-        self._obj_files = [x.replace('_template', '')[:-4]+'.o' for x
-                           in self._templates]
         super(Transformer, self).__init__(**kwargs)
-        self._binary = self.compile_and_import_binary()
+        # Make sure our self._tempdir has not been used
+        # previously by another Transformer instance
+        # (if it has import of the .so file will fail)
+        # due to caching of python (if imported previously
+        # in this running Python interpreter session)
+        try:
+            hash_ = self.get_from_metadata_file(self._tempdir, 'hash')
+            if hash_ == hash(self):
+                try:
+                    self._binary_mod = import_(self.binary_path)
+                except ImportError:
+                    print 'Try to remove "{}" in "{}"'.format(
+                        self.metadata_filename, self._tempdir)
+                    raise
+            else:
+                raise ValueError("Hash mismatch (current, old): {}, {}".format(
+                    hash(self), hash_))
+        except IOError:
+            self._binary_mod = self.compile_and_import_binary()
+            self.save_to_metadata_file(self._tempdir, 'hash', hash(self))
 
+    def __hash__(self):
+        """
+        Due to shortcomings of pythons import mechanisms it is not
+        (easily?) possible to reimport a .so file from the _same_
+        path if it has been updated. The work-around chosen here
+        is to generate a unique _so_file name for the instance.
+
+        Note that we are not guaranteeing absence of hash collisions...
+        """
+        return hash(tuple(self._exprs)+tuple(self._inp))
 
     def robustify(self, exprs, inp):
         dummies = []
@@ -127,7 +157,8 @@ class Transformer(F90_Code):
         """
         dummies = dict(zip(self._robust_inp_symbs, self._robust_inp_dummies))
         idxs = [self._inp.index(symb) for symb in self._robust_inp_symbs]
-        return self._binary.transform(*[args[i] for i in idxs])
+        inp = np.vstack([args[i] for i in idxs]).transpose()
+        return self._binary_mod.transform(inp, len(self._exprs))
 
 
     def variables(self):
@@ -145,7 +176,7 @@ class Transformer(F90_Code):
         super(Transformer, self)._write_code()
 
 
-    def _compile_obj(self):
-        pyxpath = [x for x in self._written_files if x.endswith('.pyx')][0]
-        pyx2obj(pyxpath) # .pyx -> (.c) -> .o
-        super(Transformer, self)._compile_obj(self._source_files[:-1])
+    # def _compile_obj(self):
+    #     pyxpath = 'transform_wrapper.pyx'
+    #     pyx2obj(pyxpath, cwd=self._tempdir, logger=self.logger) # .pyx -> (.c) -> .o
+    #     super(Transformer, self)._compile_obj(self._source_files[:-1])

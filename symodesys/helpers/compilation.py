@@ -2,11 +2,12 @@ from __future__ import print_function, division
 
 import os
 import subprocess
-import pickle
 
 from distutils.spawn import find_executable
 
+from symodesys.helpers import HasMetaData, missing_or_other_newer
 # TODO: change print statements to logging statements.
+
 
 class CompilationError(Exception):
     pass
@@ -31,40 +32,65 @@ def _uniquify(l):
             result.append(x)
     return result
 
-def simple_cythonize(src, logger=None):
+def simple_cythonize(src, cwd=None, logger=None, full_module_name=None, only_update=False):
     from Cython.Compiler.Main import (
         default_options, compile, CompilationOptions
     )
-    cy_sources = [src]
-    cy_options = CompilationOptions(default_options)
+    if cwd:
+        src = os.path.join(cwd, src)
     dst = os.path.splitext(src)[0] + '.c'
+
+    if only_update:
+        if not missing_or_other_newer(dst, src):
+            logger.info('{} newer than {}, did not compile'.format(
+                dst, src))
+            return
+    cy_options = CompilationOptions(default_options)
     if logger: logger.info("Cythonizing {} to {}".format(src, dst))
-    compile(cy_sources, cy_options)
+    compile([src], cy_options, full_module_name=full_module_name)
 
 
-def simple_py_c_compile_obj(src, dst=None, cwd=None):
+def simple_py_c_compile_obj(src, dst=None, cwd=None, logger=None, only_update=False):
     """
     Use e.g. on *.c file written from `simple_cythonize`
     """
+    dst = dst or os.path.splitext(src)[0] + '.o'
+    if only_update:
+        if not missing_or_other_newer(dst, src):
+            logger.info('{} newer than {}, did not compile'.format(
+                dst, src))
+            return
+
     from distutils.sysconfig import get_python_inc, get_config_vars
     import numpy
     includes = [get_python_inc(), numpy.get_include()]
     cc = " ".join(get_config_vars('CC', 'BASECFLAGS', 'OPT', 'CFLAGSFORSHARED'))
     compilern, flags = cc.split()[0], cc.split()[1:]
-    dst = dst or os.path.splitext(src)[0] + '.o'
     runner =CCompilerRunner([src], dst, flags, run_linker=False,
                             compiler=[compilern]*2, cwd=cwd,
-                            inc_dirs=includes)
-    return runner.run() # out, err, exit_status
+                            inc_dirs=includes, logger=logger)
+    return runner.run() # outerr, returncode
 
 
-def pyx2obj(pyxpath):
-    """ Conveninece function """
-    simple_cythonize(pyxpath)
-    simple_py_c_compile_obj(pyxpath[:-3]+'c')
+def pyx2obj(pyxpath, dst=None, cwd=None, logger=None, full_module_name=None, only_update=False):
+    """
+    Conveninece function
+
+    If cwd is specified, pyxpath and dst are taken to be relative
+    If only_update is set to `True` the modification time is checked
+    and compilation is only run if the source is newer than the destination
+    """
+    if cwd:
+        pyxpath = os.path.join(cwd, pyxpath)
+        dst = os.path.join(cwd, dst)
+    assert pyxpath.endswith('.pyx')
+    simple_cythonize(pyxpath, cwd=cwd, logger=logger,
+                     full_module_name=full_module_name, only_update=only_update)
+    simple_py_c_compile_obj(pyxpath[:-4]+'.c', dst=dst, cwd=cwd, logger=logger,
+                            only_update=only_update)
 
 
-class CompilerRunner(object):
+class CompilerRunner(HasMetaData):
 
     flag_dict = None # Lazy unified defaults for compilers
     metadata_filename = '.metadata_CompilerRunner'
@@ -128,8 +154,10 @@ class CompilerRunner(object):
         there in a file with cls.metadata_filename as name.
         """
         if load_save_choice:
-            name_path = cls.get_from_metadata_file(load_save_choice, 'compiler')
-            if name_path != None: return name_path
+            try:
+                return cls.get_from_metadata_file(load_save_choice, 'compiler')
+            except IOError:
+                pass
         candidates = cls.flag_dict.keys()
         if preferred_compiler_name:
             if preferred_compiler_name in candidates:
@@ -141,37 +169,6 @@ class CompilerRunner(object):
         return name_path
 
 
-    @classmethod
-    def _get_metadata_key(cls, kw):
-        """ kw could be e.g. 'compiler' """
-        return cls.__name__+'_'+kw
-
-    @classmethod
-    def get_from_metadata_file(cls, dirpath, key):
-        """
-        Get value of key in metadata file dict.
-        """
-        fullpath = os.path.join(dirpath, cls.metadata_filename)
-        if os.path.exists(fullpath):
-            d = pickle.load(open(fullpath,'r'))
-            return d.get(cls._get_metadata_key(key), None)
-        else:
-            # Raise an exception instead?
-            return None
-
-    @classmethod
-    def save_to_metadata_file(cls, dirpath, key, value):
-        """
-        Store `key: value` in metadata file dict.
-        """
-        fullpath = os.path.join(dirpath, cls.metadata_filename)
-        if os.path.exists(fullpath):
-            d = pickle.load(open(fullpath,'r'))
-            d.update({key: value})
-            pickle.dump(d, open(fullpath,'w'))
-        else:
-            pickle.dump({key: value}, open(fullpath,'w'))
-
     def run(self):
         self.flags = _uniquify(self.flags)
 
@@ -179,7 +176,6 @@ class CompilerRunner(object):
         self.flags.extend(['-o', self.out])
 
         self.cmd = [self.compiler_binary]+self.flags+self.sources+['-l'+x for x in self.libs]
-        if self.logger: logger.info('Executing... : {}'.format(' '.join(cmd)))
         p = subprocess.Popen(self.cmd,
                              cwd=self.cwd,
                              #shell=True,
@@ -187,7 +183,7 @@ class CompilerRunner(object):
                              stdout=subprocess.PIPE,
                              stderr=subprocess.STDOUT
         )
-        self.cmd_outerr = p.communicate()
+        self.cmd_outerr = p.communicate()[0]
         self.cmd_returncode = p.returncode
 
         # Error handling
@@ -196,6 +192,11 @@ class CompilerRunner(object):
                 ("Error executing '{}' in {}. Commanded exited with status {}"+\
                  " after givning the following output: {}").format(
                      ' '.join(self.cmd), self.cwd, self.cmd_returncode, str(self.cmd_outerr)))
+
+        # Logging
+        if self.logger: self.logger.info('Executed (with returncode {}): "{}"'.format(
+                self.cmd_returncode, ' '.join(self.cmd)))
+        if self.logger: self.logger.debug('...with output: '+self.cmd_outerr)
 
         return self.cmd_outerr, self.cmd_returncode
 

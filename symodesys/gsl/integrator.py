@@ -16,14 +16,14 @@ class GSL_Code(ODESys_Code):
     # Implement hash of fo_odesys and hash of code?
     # Serialization to double check against collision?
 
-    copy_files = ['drivers.c', 'pyinterface.pyx',
+    _copy_files = ['drivers.c', 'pyinterface.pyx',
                   'drivers.h', 'ode.h', 'Makefile']
 
-    templates = ['ode_template.c',
+    _templates = ['ode_template.c',
                  'main_ex_template.c',
              ]
 
-    _source_files = copy_files[:2] + templates[:1]
+    _source_files = _copy_files[:2] + _templates[:1]
 
     def __init__(self, *args, **kwargs):
         self._basedir = os.path.dirname(__file__)

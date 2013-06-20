@@ -15,6 +15,7 @@ import tempfile
 import shutil
 import re
 import os
+
 from collections import OrderedDict
 from functools import reduce, partial
 from operator import add
@@ -56,7 +57,9 @@ class Generic_Code(object):
     _basedir = None
     _cached_files = None
 
-    def __init__(self, tempdir = None, save_temp = False):
+    extension_name = 'generic_code'
+
+    def __init__(self, tempdir=None, save_temp=False, logger=None):
         """
         Arguments:
         - `tempdir`: Optional path to dir to write code files
@@ -80,6 +83,8 @@ class Generic_Code(object):
             self._remove_tempdir_on_clean = True
         self._save_temp = save_temp
 
+        self.logger = logger
+
         if not os.path.isdir(self._tempdir):
             os.makedirs(self._tempdir)
             self._remove_tempdir_on_clean = True
@@ -88,7 +93,7 @@ class Generic_Code(object):
         for lstattr in ['_written_files', '_cached_files',
                         '_include_dirs', '_libraries',
                         '_library_dirs', '_include_dirs',
-                        'copy_files']:
+                        '_copy_files']:
             if not hasattr(self, lstattr):
                 setattr(self, lstattr, [])
 
@@ -115,7 +120,7 @@ class Generic_Code(object):
             rel_path = os.path.join(self._tempdir, path)
             if os.path.exists(rel_path):
                 os.unlink(rel_path)
-        for path in self.copy_files:
+        for path in self._copy_files:
             # Copy files
             srcpath = os.path.join(self._basedir, path)
             dstpath = os.path.join(self._tempdir,
@@ -134,11 +139,16 @@ class Generic_Code(object):
 
 
     def compile_and_import_binary(self):
-        binary_path = self._compile()
-        return import_(binary_path)
+        self._compile()
+        return import_(self.binary_path)
 
 
-    def _compile(self, extension_name = 'pyinterface'):
+    @property
+    def binary_path(self):
+        return os.path.join(self._tempdir, self.extension_name)
+
+
+    def _compile(self):
         sources = [os.path.join(
             self._tempdir, os.path.basename(x).replace(
                 '_template', '')) for x \
@@ -150,14 +160,13 @@ class Generic_Code(object):
             cmdclass = {'build_ext': build_ext},
             ext_modules = [
                 Extension(
-                    extension_name,
+                    self.extension_name,
                     sources,
                     libraries=self._libraries,
                     library_dirs=self._library_dirs,
                     include_dirs=self._include_dirs),
                 ]
             )
-        return os.path.join(self._tempdir, extension_name)
 
 
     def clean(self):
@@ -371,12 +380,19 @@ class F90_Code(Generic_Code):
 
     def __init__(self, *args, **kwargs):
         self._cached_files = self._cached_files or []
-        self._cached_files += [x.replace('.f90','.mod') for x \
-                              in self._source_files]
-        self._cached_files += [x.replace('_template','').replace(
-            '.f90','.mod') for x in self._templates if x.endswith('.f90')]
+        # self._cached_files += [x+'.mod' for x in self._get_module_files(self._source_files)]
+        self._cached_files += [x+'.mod' for x in self._get_module_files(self._templates)]
         super(F90_Code, self).__init__(*args, **kwargs)
 
+    def _get_module_files(self, files):
+        names = []
+        for f in files:
+            with open(os.path.join(self._basedir, f),'rt') as fh:
+                for line in fh:
+                    stripped_lower = line.strip().lower()
+                    if stripped_lower.startswith('module'):
+                        names.append(stripped_lower.split('module')[1].strip())
+        return names
 
     def _compile_obj(self, sources=None):
         sources = sources or self._source_files
@@ -385,7 +401,8 @@ class F90_Code(Generic_Code):
             runner = FortranCompilerRunner(
                 f, outpath, run_linker=False,
                 cwd=self._tempdir, options=['pic', 'warn', 'fast'],
-                preferred_vendor=self.preferred_vendor)
+                preferred_vendor=self.preferred_vendor,
+                logger=self.logger)
             runner.run()
 
 
@@ -402,14 +419,18 @@ class F90_Code(Generic_Code):
             self._obj_files,
             self._so_file, flags,
             cwd=self._tempdir, libs=pylibs,
-            preferred_vendor=self.preferred_vendor)
+            preferred_vendor=self.preferred_vendor,
+            logger=self.logger)
         runner.run()
+
+    @property
+    def binary_path(self):
         return os.path.join(self._tempdir, self._so_file)
 
 
-    def _compile(self, extension_name='pyinterface'):
+    def _compile(self):
         self._compile_obj()
-        return self._compile_so()
+        self._compile_so()
 
 
 class Binary_IVP_Integrator(IVP_Integrator):
@@ -429,7 +450,7 @@ class Binary_IVP_Integrator(IVP_Integrator):
 
     def set_fo_odesys(self, fo_odesys):
         super(Binary_IVP_Integrator, self).set_fo_odesys(fo_odesys)
-        self._binary = None # <-- Clears cache
+        self._binary_mod = None # <-- Clears cache
         self._code = self.CodeClass(
             fo_odesys = self._fo_odesys,
             tempdir = self.tempdir,
@@ -441,11 +462,11 @@ class Binary_IVP_Integrator(IVP_Integrator):
 
 
     @property
-    def binary(self):
+    def binary_mod(self):
         """
         Returns compiled and imported module.
-        Note: lazy caching is employed, set self._binary equal to None to invalidate
+        Note: lazy caching is employed, set self._binary_mod equal to None to invalidate
         """
-        if self._binary == None:
-            self._binary = self._code.compile_and_import_binary()
-        return self._binary
+        if self._binary_mod == None:
+            self._binary_mod = self._code.compile_and_import_binary()
+        return self._binary_mod

@@ -27,20 +27,20 @@ contains
     end subroutine
 end module
 
-module transform_wrapper
+module transform_interface
     use iso_c_binding, only: c_double, c_int
     use transform, only: perform
     implicit none
 
 contains
 
-    subroutine c_perform(n, ${ARGS_COMMA}, output) bind(c)
-        integer(c_int), intent(in) :: n
-    %for arg_name in ARGS:
-        real(c_double), intent(in), dimension(n) :: ${arg_name}
-    %endfor
+    subroutine c_perform(n, m, input, output) bind(c)
+        integer(c_int), intent(in) :: n, m
+        real(c_double), intent(in), dimension(n, m) :: input
         real(c_double), intent(out), dimension(n, ${N_EXPRS}) :: output
-        call perform(n, ${ARGS_COMMA}, output)
+        ! By using a call defined dimension of input the .pyx file does not
+        ! need to be templated
+        call perform(n, ${', '.join(['input(:,{}+1)'.format(i) for i in range(N_EXPRS)])}, output)
     end subroutine
 
 end module

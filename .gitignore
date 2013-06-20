@@ -26,3 +26,7 @@ symodesys/odepack/pylsodes_bdf.c
 symodesys/odepack/prebuilt/*.c
 symodesys/odepack/prebuilt/*.o
 symodesys/odepack/prebuilt/.metadata_CompilerRunner
+# Transform package
+symodesys/transform/transform_wrapper.c # Cython generated C file
+symodesys/transform/prebuilt/* # Cython generated C file
+symodesys/transform/tests/tmp*/*

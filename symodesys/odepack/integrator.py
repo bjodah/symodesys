@@ -14,7 +14,7 @@ from symodesys.helpers.compilation import FortranCompilerRunner #, CCompilerRunn
 class LSODES_Code(ODESys_Code, F90_Code):
 
 
-    copy_files = [
+    _copy_files = [
         'prebuilt/opkda1.o',
         'prebuilt/opkda2.o',
         'prebuilt/opkdmain.o',
@@ -24,7 +24,7 @@ class LSODES_Code(ODESys_Code, F90_Code):
         'prebuilt/'+FortranCompilerRunner.metadata_filename, # <--- Make sure we compile with same compiler
     ]
 
-    templates = ['lsodes_bdf_wrapper_template.f90',
+    _templates = ['lsodes_bdf_wrapper_template.f90',
                  'ode_template.f90',
         ]
 

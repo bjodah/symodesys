@@ -6,15 +6,21 @@ import numpy as np
 
 from symodesys.transform import Transformer
 
+# Setup logging
+import logging
 
-def test_Transformer(tempdir=None):
+
+def test_Transformer(tempdir=None, logger=None):
     x, y = sympy.symbols('x y')
-    t = Transformer([(x+1)**2,(x+1)**3-y],[x, y], tempdir=tempdir, save_temp=True)
+    t = Transformer([(x+1)**2,(x+1)**3-y],[x, y], tempdir=tempdir,
+                    save_temp=True, logger=logger)
     x_, y_ = np.linspace(0,10,10), np.linspace(10,20,10)
     out = t(x_, y_)
+    print out
+    print np.vstack(((x_+1)**2, (x_+1)**3-y_)).transpose()
     assert np.allclose(out, np.vstack(((x_+1)**2, (x_+1)**3-y_)).transpose())
 
-def test_Transformer__complex_argument_names(tempdir=None):
+def test_Transformer__complex_argument_names(tempdir=None, logger=None):
     # y'(t) = t**4; y(0)=1.0  ===> y = t**5/5 + 1.0
     # z(t) = log(y(t)) ===> y=exp(z(t)), dzdt = t**4*exp(-z(t))
 
@@ -36,7 +42,8 @@ def test_Transformer__complex_argument_names(tempdir=None):
 
     exprs = [y_in_z, dydt_in_z]
     inp = [t, z(t), z(t).diff(t)]
-    tfmr = Transformer(exprs, inp, tempdir=tempdir, save_temp=True)
+    tfmr = Transformer(exprs, inp, tempdir=tempdir,
+                       save_temp=True, logger=logger)
     result = tfmr(*[z_data[k] for k in inp])
 
     num_y = result[:,0]
@@ -47,5 +54,7 @@ def test_Transformer__complex_argument_names(tempdir=None):
 
 
 if __name__ == '__main__':
-    test_Transformer__complex_argument_names('./tmp/')
-    test_Transformer('./tmp/')
+    logging.basicConfig(level=logging.DEBUG)
+    logger = logging.getLogger(__name__)
+    test_Transformer__complex_argument_names('./tmp1/', logger=logger)
+    test_Transformer('./tmp2/', logger=logger)

@@ -3,16 +3,19 @@
 
 # stdlib imports
 import os
-import imp
+import sys
+import pickle
 from functools import wraps
 from collections import OrderedDict # for OrderedDefaultdict
 from hashlib import md5
+
 
 # other imports
 import sympy
 from sympy.utilities.autowrap import autowrap, ufuncify
 from mako.template import Template
 from mako.exceptions import text_error_template
+
 
 def render_mako_template_to(template, outpath, subsd):
     """
@@ -119,18 +122,96 @@ class OrderedDefaultdict(OrderedDict):
         return type(self), args, None, None, self.items()
 
 
-
-
 def import_(filename):
-    """ Imports (cython generated) shared object file (.so) """
+    """
+    Imports (cython generated) shared object file (.so)
+
+    Warning, Python's lazy caching is horrible for reimporting
+    same path of an .so file. It will not detect the new time stamp
+    nor new checksum but will use old module. Use unique names for
+    this reason
+    """
+    import imp
     path, name = os.path.split(filename)
     name, ext = os.path.splitext(name)
     fobj, filename, data = imp.find_module(name, [path])
     mod = imp.load_module(name, fobj, filename, data)
     return mod
 
+
+def import___not_working(filename):
+    """
+    Imports shared object file (.so)
+    """
+    path, name = os.path.split(filename)
+    name, ext = os.path.splitext(name)
+    if not path in sys.path:
+        sys.path.append(path)
+    for k,v in sys.modules.items():
+        if hasattr(v, '__file__'):
+            if v.__file__.endswith('wrapper.so'):
+                print k,v
+    if name in sys.modules:
+        #from IPython.extensions.autoreload import superreload
+        #print 'superreloading: '+name
+        #mod = superreload(sys.modules[name])
+        # print 'pop in modules'
+        # sys.modules.pop(name)
+        if name in sys.meta_path:
+            print 'pop in meta path'
+            sys.meta_path.pop(name)
+        #mod = __import__(name)
+        #reload(mod)
+        import importlib
+        mod = importlib.import_module(name)
+    else:
+        mod = __import__(name)
+    print 'id of .transform function: ', id(mod.transform)
+    print 'md5 of .so file: ',md5_of_file(mod.__file__).hexdigest()
+    return mod
+
+
 def missing_or_other_newer(path, other_path):
     if not os.path.exists(path) or \
        os.path.getmtime(other_path) > os.path.getmtime(path):
         return True
     return False
+
+
+
+class HasMetaData(object):
+    """
+    Provides convenice methods for a class to pickle some metadata
+    """
+    metadata_filename = '.metadata'
+
+    @classmethod
+    def _get_metadata_key(cls, kw):
+        """ kw could be e.g. 'compiler' """
+        return cls.__name__+'_'+kw
+
+
+    @classmethod
+    def get_from_metadata_file(cls, dirpath, key):
+        """
+        Get value of key in metadata file dict.
+        """
+        fullpath = os.path.join(dirpath, cls.metadata_filename)
+        if os.path.exists(fullpath):
+            d = pickle.load(open(fullpath,'r'))
+            return d[key] #.get(cls._get_metadata_key(key), None)
+        else:
+            raise IOError("No such file: {}".format(fullpath))
+
+    @classmethod
+    def save_to_metadata_file(cls, dirpath, key, value):
+        """
+        Store `key: value` in metadata file dict.
+        """
+        fullpath = os.path.join(dirpath, cls.metadata_filename)
+        if os.path.exists(fullpath):
+            d = pickle.load(open(fullpath,'r'))
+            d.update({key: value})
+            pickle.dump(d, open(fullpath,'w'))
+        else:
+            pickle.dump({key: value}, open(fullpath,'w'))

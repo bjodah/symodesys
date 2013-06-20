@@ -31,3 +31,5 @@ symodesys/odepack/prebuilt/.metadata_CompilerRunner
 symodesys/transform/transform_wrapper.c
 symodesys/transform/prebuilt/*
 symodesys/transform/tests/tmp*/*
+symodesys/gsl/prebuilt/
+symodesys/gsl/drivers_wrapper.c

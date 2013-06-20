@@ -113,6 +113,7 @@ class CompilerRunner(HasMetaData):
             self.compiler_name, self.compiler_binary = compiler
         else:
             # Find a compiler
+
             preferred_compiler_name = self.compiler_dict.get(preferred_vendor,None)
             self.compiler_name, self.compiler_binary = self.find_compiler(
                 preferred_compiler_name, metadir or cwd)
@@ -131,11 +132,14 @@ class CompilerRunner(HasMetaData):
         else:
             self.flags.append('-c')
 
+
         for inc_dir in self.inc_dirs:
             self.flags.append('-I'+inc_dir)
 
+
         for lib_dir in self.lib_dirs:
-            self.lib_dirs.append('-L'+lib_dir)
+            self.flags.append('-L'+lib_dir)
+
 
         for opt in self.options:
             extra_flags = self.flag_dict[self.compiler_name][opt]
@@ -176,6 +180,9 @@ class CompilerRunner(HasMetaData):
         self.flags.extend(['-o', self.out])
 
         self.cmd = [self.compiler_binary]+self.flags+self.sources+['-l'+x for x in self.libs]
+        # Logging
+        if self.logger: self.logger.info('Executing: "{}"'.format(' '.join(self.cmd)))
+
         p = subprocess.Popen(self.cmd,
                              cwd=self.cwd,
                              #shell=True,
@@ -193,10 +200,7 @@ class CompilerRunner(HasMetaData):
                  " after givning the following output: {}").format(
                      ' '.join(self.cmd), self.cwd, self.cmd_returncode, str(self.cmd_outerr)))
 
-        # Logging
-        if self.logger: self.logger.info('Executed (with returncode {}): "{}"'.format(
-                self.cmd_returncode, ' '.join(self.cmd)))
-        if self.logger: self.logger.debug('...with output: '+self.cmd_outerr)
+        if self.logger: self.logger.info('...with output: '+self.cmd_outerr)
 
         return self.cmd_outerr, self.cmd_returncode
 
@@ -211,7 +215,7 @@ class CCompilerRunner(CompilerRunner):
     flag_dict = {
         'gcc': {
             'pic': ('-fPIC',),
-            'warn': ('-Wall', '-Wextra', '-Wimplicit-interface'),
+            'warn': ('-Wall', '-Wextra'),
             'fast': ('-O3', '-march=native', '-ffast-math', '-funroll-loops'),
         },
         'icc': {
@@ -231,6 +235,7 @@ class FortranCompilerRunner(CompilerRunner):
     flag_dict = {
         'gfortran': {
             'f90': ('-std=f2008',),
+            'warn': ('-Wall', '-Wextra', '-Wimplicit-interface'),
         },
         'ifort': {
             'warn': ('-warn', 'all',),
@@ -241,6 +246,10 @@ class FortranCompilerRunner(CompilerRunner):
 
     def __init__(self, *args, **kwargs):
         # gfortran takes a superset of gcc arguments
-        for key, value in self.flag_dict.items():
-            value.update(CCompilerRunner.flag_dict[{'gfortran': 'gcc', 'ifort': 'icc'}.get(key)])
+        new_flag_dict = {'gfortran': CCompilerRunner.flag_dict['gcc'],
+                         'ifort': CCompilerRunner.flag_dict['icc'],
+                         }
+        for key in ['gfortran', 'ifort']:
+            new_flag_dict[key].update(self.flag_dict[key])
+        self.flag_dict = new_flag_dict
         super(FortranCompilerRunner, self).__init__(*args, **kwargs)

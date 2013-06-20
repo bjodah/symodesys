@@ -4,12 +4,15 @@ import logging
 
 import _setup_odepack
 import _setup_transform
+import _setup_gsl
 
-# ODEPACK
-opksrc = './symodesys/odepack/'
-
-# Transform
-tfmsrc = './symodesys/transform/'
+def _run_sub_setup(path, module, logger):
+    ori_dir = os.path.abspath(os.curdir)
+    cwd = os.path.join(os.path.abspath(
+        os.path.dirname(__file__)), path)
+    os.chdir(cwd)
+    module.main(cwd, logger)
+    os.chdir(ori_dir)
 
 
 def main():
@@ -18,24 +21,17 @@ def main():
     and store in `prebuilt/` directories for
     speeding up meta-programming compilations.
     """
-    ori_dir = os.path.abspath(os.curdir)
-
     logging.basicConfig(level=logging.DEBUG)
     logger = logging.getLogger(__name__)
 
     # ODEPACK
-    cwd_odepack = os.path.join(os.path.abspath(
-        os.path.dirname(__file__)), opksrc)
-    os.chdir(cwd_odepack)
-    _setup_odepack.main(cwd_odepack, logger)
-    os.chdir(ori_dir)
+    _run_sub_setup('./symodesys/odepack/', _setup_odepack, logger)
 
     # Transform
-    cwd_transform = os.path.join(os.path.abspath(
-        os.path.dirname(__file__)), tfmsrc)
-    os.chdir(cwd_transform)
-    _setup_transform.main(cwd_transform, logger)
-    os.chdir(ori_dir)
+    _run_sub_setup('./symodesys/transform/', _setup_transform, logger)
+
+    # GSL
+    _run_sub_setup('./symodesys/gsl/', _setup_gsl, logger)
 
 if __name__ == '__main__':
     main()

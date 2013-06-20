@@ -19,21 +19,18 @@ import os
 from collections import OrderedDict
 from functools import reduce, partial
 from operator import add
-from distutils.core import setup
-from distutils.extension import Extension
 
 
 # External imports
 import sympy
 import mako
 import mako.template
-from Cython.Distutils import build_ext
 
 
 # Intrapackage imports
 from symodesys.helpers import import_, render_mako_template_to
 from symodesys.integrator import IVP_Integrator
-from symodesys.helpers.compilation import FortranCompilerRunner
+from symodesys.helpers.compilation import FortranCompilerRunner, CCompilerRunner
 
 
 class Generic_Code(object):
@@ -51,13 +48,14 @@ class Generic_Code(object):
     -`_basedir` the path to the directory which relative paths are given to
     """
 
-    syntax = 'C'
+    CompilerRunner = None # Set to a subclass of compilation.CompilerRunner
+    syntax = None
     preferred_vendor = 'gnu'
     tempdir_basename = 'generic_code'
     _basedir = None
     _cached_files = None
 
-    extension_name = 'generic_code'
+    extension_name = 'generic_extension'
 
     def __init__(self, tempdir=None, save_temp=False, logger=None):
         """
@@ -96,6 +94,9 @@ class Generic_Code(object):
                         '_copy_files']:
             if not hasattr(self, lstattr):
                 setattr(self, lstattr, [])
+            else:
+                setattr(self, lstattr,
+                        getattr(self, lstattr) or [])
 
         # If .pyx files in _templates, add .c file to _cached_files
         self._cached_files += [x.replace('_template','').replace(
@@ -148,6 +149,71 @@ class Generic_Code(object):
         return os.path.join(self._tempdir, self.extension_name)
 
 
+    def clean(self):
+        """ Delete temp dir if not save_temp set at __init__ """
+        if not self._save_temp:
+            map(os.unlink, self._written_files)
+            if self._remove_tempdir_on_clean:
+                shutil.rmtree(self._tempdir)
+
+
+    def __del__(self):
+        """
+        When Generic_Code object is collected by GC
+        self._tempdir is (possibly) deleted
+        """
+        self.clean()
+
+
+    def _compile(self):
+        self._compile_obj()
+        self._compile_so()
+
+
+    def _compile_obj(self, sources=None):
+        sources = sources or self._source_files
+        for f in sources:
+            outpath = os.path.splitext(f)[0]+'.o'
+            runner = self.CompilerRunner(
+                f, outpath, run_linker=False,
+                cwd=self._tempdir,
+                inc_dirs=self._include_dirs,
+                options=['pic', 'warn', 'fast'],
+                preferred_vendor=self.preferred_vendor,
+                logger=self.logger)
+            runner.run()
+
+
+    def _compile_so(self):
+        # Generate shared object for importing:
+        from distutils.sysconfig import get_config_vars
+        pylibs = [x[2:] for x in get_config_vars(
+            'BLDLIBRARY')[0].split() if x.startswith('-l')]
+        cc = get_config_vars('BLDSHARED')[0]
+        # We want something like: gcc, ['-pthread', ...
+        compilername, flags = cc.split()[0], cc.split()[1:]
+        runner = self.CompilerRunner(
+            self._obj_files,
+            self._so_file, flags,
+            cwd=self._tempdir,
+            inc_dirs=self._include_dirs,
+            libs=self._libraries+pylibs,
+            lib_dirs=self._library_dirs,
+            preferred_vendor=self.preferred_vendor,
+            logger=self.logger)
+        runner.run()
+
+
+class Cython_Code(Generic_Code):
+    """
+    Uses Cython's build_ext and distutils
+    to simplify compilation
+    """
+
+    from Cython.Distutils import build_ext
+    from distutils.core import setup
+    from distutils.extension import Extension
+
     def _compile(self):
         sources = [os.path.join(
             self._tempdir, os.path.basename(x).replace(
@@ -169,23 +235,12 @@ class Generic_Code(object):
             )
 
 
-    def clean(self):
-        """ Delete temp dir if not save_temp set at __init__ """
-        if not self._save_temp:
-            map(os.unlink, self._written_files)
-            if self._remove_tempdir_on_clean:
-                shutil.rmtree(self._tempdir)
+class C_Code(Generic_Code):
+    CompilerRunner = CCompilerRunner
+    syntax = 'C'
 
 
-    def __del__(self):
-        """
-        When Generic_Code object is collected by GC
-        self._tempdir is (possibly) deleted
-        """
-        self.clean()
-
-
-class ODESys_Code(Generic_Code):
+class ODESys_Code(object): #Generic_Code
     """
     Wraps some sympy functionality of code generation from matrices
     returned by FirstOrderODESystem.dydt and FirstOrderODESystem.dydt_jac
@@ -377,6 +432,7 @@ class F90_Code(Generic_Code):
     """
 
     syntax = 'F'
+    CompilerRunner = FortranCompilerRunner
 
     def __init__(self, *args, **kwargs):
         self._cached_files = self._cached_files or []
@@ -394,43 +450,9 @@ class F90_Code(Generic_Code):
                         names.append(stripped_lower.split('module')[1].strip())
         return names
 
-    def _compile_obj(self, sources=None):
-        sources = sources or self._source_files
-        for f in sources:
-            outpath = os.path.splitext(f)[0]+'.o'
-            runner = FortranCompilerRunner(
-                f, outpath, run_linker=False,
-                cwd=self._tempdir, options=['pic', 'warn', 'fast'],
-                preferred_vendor=self.preferred_vendor,
-                logger=self.logger)
-            runner.run()
-
-
-    def _compile_so(self):
-        # Generate shared object for importing:
-        from distutils.sysconfig import get_config_vars
-        pylibs = [x[2:] for x in get_config_vars(
-            'BLDLIBRARY')[0].split() if x.startswith('-l')]
-        cc = get_config_vars('BLDSHARED')[0]
-
-        # We want something like: gcc, ['-pthread', ...
-        compilername, flags = cc.split()[0], cc.split()[1:]
-        runner = FortranCompilerRunner(
-            self._obj_files,
-            self._so_file, flags,
-            cwd=self._tempdir, libs=pylibs,
-            preferred_vendor=self.preferred_vendor,
-            logger=self.logger)
-        runner.run()
-
     @property
     def binary_path(self):
         return os.path.join(self._tempdir, self._so_file)
-
-
-    def _compile(self):
-        self._compile_obj()
-        self._compile_so()
 
 
 class Binary_IVP_Integrator(IVP_Integrator):
@@ -445,8 +467,9 @@ class Binary_IVP_Integrator(IVP_Integrator):
     def __init__(self, **kwargs):
         self.tempdir = kwargs.pop('tempdir', None)
         self.save_temp = kwargs.pop('save_temp', False)
+        self.logger = kwargs.pop('logger', None)
         super(Binary_IVP_Integrator, self).__init__(**kwargs)
-
+        
 
     def set_fo_odesys(self, fo_odesys):
         super(Binary_IVP_Integrator, self).set_fo_odesys(fo_odesys)
@@ -454,7 +477,9 @@ class Binary_IVP_Integrator(IVP_Integrator):
         self._code = self.CodeClass(
             fo_odesys = self._fo_odesys,
             tempdir = self.tempdir,
-            save_temp = self.save_temp)
+            save_temp = self.save_temp,
+            logger=self.logger,
+        )
 
 
     def clean(self):

@@ -8,30 +8,37 @@ import numpy as np
 import cython_gsl
 
 # Intrapackage imports
-from symodesys.codeexport import ODESys_Code, F90_Code, Binary_IVP_Integrator
+from symodesys.codeexport import ODESys_Code, C_Code, Binary_IVP_Integrator
 
 
-class GSL_Code(ODESys_Code):
+class GSL_Code(ODESys_Code, C_Code):
 
     # Implement hash of fo_odesys and hash of code?
     # Serialization to double check against collision?
 
-    _copy_files = ['drivers.c', 'pyinterface.pyx',
+    _copy_files = ['drivers.c', 'prebuilt/drivers_wrapper.o',
+                   'prebuilt/drivers.o',
                   'drivers.h', 'ode.h', 'Makefile']
+
+    _obj_files = ['ode.o', 'drivers.o', 'drivers_wrapper.o']
 
     _templates = ['ode_template.c',
                  'main_ex_template.c',
-             ]
+              ]
 
-    _source_files = _copy_files[:2] + _templates[:1]
+    _source_files = ['ode.c']
+
+    _so_file = 'drivers_wrapper.so'
+
+    extension_name = 'drivers_wrapper'
 
     def __init__(self, *args, **kwargs):
         self._basedir = os.path.dirname(__file__)
         super(GSL_Code, self).__init__(*args, **kwargs)
         self._include_dirs.append(cython_gsl.get_include())
+        self._include_dirs.append(cython_gsl.get_cython_include_dir())
         self._libraries.extend(cython_gsl.get_libraries())
         self._library_dirs.append(cython_gsl.get_library_dir())
-        self._include_dirs.append(cython_gsl.get_cython_include_dir())
 
 
 class GSL_IVP_Integrator(Binary_IVP_Integrator):
@@ -43,7 +50,7 @@ class GSL_IVP_Integrator(Binary_IVP_Integrator):
 
     CodeClass = GSL_Code
 
-    # step_type choices are in `step_types` in pyinterface.pyx
+    # step_type choices are in `step_types` in drivers_wrapper.pyx
     integrate_args = {'step_type': (
         'rk2','rk4','rkf45','rkck','rk8pd','rk2imp',
         'rk4imp','bsimp','rk1imp','msadams','msbdf'),
@@ -83,7 +90,7 @@ class GSL_IVP_Integrator(Binary_IVP_Integrator):
         if N > 0:
             # Fixed stepsize
             #self.init_Yout_tout_for_fixed_step_size(t0, tend, N)
-            tout, Yout = self.binary.integrate_equidistant_output(
+            tout, Yout = self.binary_mod.integrate_equidistant_output(
                 t0, tend, y0_arr, N, h_init, h_max, self.abstol,
                 self.reltol, params_arr, self.nderiv, **kwargs)
             self.tout = tout

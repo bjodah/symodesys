@@ -33,6 +33,7 @@ Symodesys offers (for IVP's):
 * [TODO] Optimization of paramters (fiting) to match e.g. numerical data.
 * [TODO] Add routines for scaling (and automatic rescaling) in e.g. the IVP class. Note: this is a simple special case of variable transformation and may hence be handled by that code, only convenience routines are needed to be added.
 * [TODO] Export of trajectories
+* [TODO] Add python code writer.
 
 Other software built using symodesys:
 * [TODO] symchemkin - Flexible framework for analysis of systems of

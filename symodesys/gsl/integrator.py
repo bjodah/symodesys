@@ -9,7 +9,7 @@ import cython_gsl
 
 # Intrapackage imports
 from symodesys.codeexport import ODESys_Code, C_Code, Binary_IVP_Integrator
-
+from symodesys.helpers.compilation import CCompilerRunner
 
 class GSL_Code(ODESys_Code, C_Code):
 
@@ -18,7 +18,9 @@ class GSL_Code(ODESys_Code, C_Code):
 
     _copy_files = ['drivers.c', 'prebuilt/drivers_wrapper.o',
                    'prebuilt/drivers.o',
-                  'drivers.h', 'ode.h', 'Makefile']
+                   'drivers.h', 'ode.h', 'Makefile',
+                   'prebuilt/'+CCompilerRunner.metadata_filename, # <--- Make sure we compile with same compiler
+               ]
 
     _obj_files = ['ode.o', 'drivers.o', 'drivers_wrapper.o']
 

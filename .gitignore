@@ -29,8 +29,8 @@ symodesys/odepack/prebuilt/.metadata_CompilerRunner
 # Transform package
 # Cython generated C file
 symodesys/transform/transform_wrapper.c
-symodesys/transform/prebuilt/*
+symodesys/transform/prebuilt/*.*
 symodesys/transform/tests/tmp*/*
-symodesys/gsl/prebuilt/
+symodesys/gsl/prebuilt/*.*
 symodesys/gsl/drivers_wrapper.c
 examples/tfm_tmp/

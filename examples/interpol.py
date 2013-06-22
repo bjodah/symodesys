@@ -39,5 +39,6 @@ if __name__ == '__main__':
             datapoints=True,
             ax=ax)
         ax.legend(loc='upper left')
+        plt.title('Using {} derivatives per point'.format(i))
 
     plt.show()

@@ -14,7 +14,7 @@ import numpy as np
 
 from symodesys.codeexport import F90_Code
 from symodesys.helpers import import_, HasMetaData
-from symodesys.helpers.compilation import pyx2obj
+from symodesys.helpers.compilation import pyx2obj, FortranCompilerRunner
 
 
 
@@ -29,7 +29,9 @@ class Transformer(F90_Code, HasMetaData):
 
     _templates = ['transform_template.f90']
 
-    _copy_files = ['prebuilt/transform_wrapper.o']
+    _copy_files = ['prebuilt/transform_wrapper.o',
+                   'prebuilt/'+FortranCompilerRunner.metadata_filename, # <--- Make sure we compile with same compiler
+               ]
 
     _source_files = ['transform.f90']
 

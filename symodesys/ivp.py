@@ -91,7 +91,7 @@ class IVP(object):
         self._solved_init_val_symbs = {}
 
 
-    def is_stiff(self, t0, tend, criteria=1e2):
+    def check_if_stiff(self, t0, tend, criteria=1e2):
         """
         Queries system using inintal values.
         """

@@ -738,15 +738,18 @@ class FirstOrderODESystem(_ODESystemBase):
         return [dfdt.subs(all_num_subs) for dfdt in dfdt_lst]
 
 
-    def is_stiff(self, indep_val, dep_vals, param_vals, criteria=100):
-        pass
-        # eigenvalues = scipy.eigenvalues(dfdy)
-        # mineigen = np.min(eigenvalues)
-        # tspan = tend-t0
-        # if mineigen < 0:
-        #     if -mineigen*tspan > criteria:
-        #         return True
-        # return False
+    def is_stiff(self, indep_val, dep_vals, param_vals, indep_val_end, criteria=100):
+        """
+        TODO: Add reference to definition of stiffness
+        """
+        num_jac = self.dydt_jac(indep_val, dep_vals, param_vals)
+        eigen_values = scipy.linalg.eigvals(num_jac)
+        mineigen = np.min(eigenvalues)
+        tspan = tend-t0
+        if mineigen < 0:
+            if -mineigen*tspan > criteria:
+                return True
+        return False
 
 
     def transform_depv(self, trnsfm, inv_trnsfm):

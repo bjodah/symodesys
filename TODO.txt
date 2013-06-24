@@ -1,4 +1,7 @@
-There is a bug in GSL_IVP_Integrator (or rather the generated C-code or driver.c) which
+Move _setup_*.py to respective directory.
+Move compilation.py to its own package (for use in symneqsys)
+
+There is a bug(confirm it is still there) in GSL_IVP_Integrator (or rather the generated C-code or driver.c) which
 causes integration sometimes to fail with singular matrix. Runs are inconsisteent - suggesting that some array is not initiliazed to zero (or data is being read outside bounds)
 
 Refactor gsl.integrator to use codegen (and factor out general bits)

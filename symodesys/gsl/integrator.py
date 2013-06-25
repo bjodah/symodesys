@@ -6,10 +6,11 @@ import os
 # External imports
 import numpy as np
 import cython_gsl
+from pycompilation import CCompilerRunner
+from pycompilation.codeexport import C_Code
 
 # Intrapackage imports
-from symodesys.codeexport import ODESys_Code, C_Code, Binary_IVP_Integrator
-from symodesys.helpers.compilation import CCompilerRunner
+from symodesys.codeexport import ODESys_Code, Binary_IVP_Integrator
 
 class GSL_Code(ODESys_Code, C_Code):
 

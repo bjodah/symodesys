@@ -1,6 +1,5 @@
 import os
-from symodesys.helpers import missing_or_other_newer
-from symodesys.helpers.compilation import pyx2obj, CCompilerRunner
+from pycompilation import pyx2obj, CCompilerRunner, missing_or_other_newer
 
 def main(cwd, logger):
     # Cythonize pyx file

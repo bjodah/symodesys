@@ -1,0 +1,2 @@
+git+https://github.com/bjodah/cinterpol#egg=cinterpol
+git+https://github.com/bjodah/pycompilation#egg=pycompilation

@@ -6,10 +6,10 @@ import os
 # External imports
 import numpy as np
 import cython_gsl
-
+from pycompilation import FortranCompilerRunner
+from pycompilation.codeexport import F90_Code
 # Intrapackage imports
-from symodesys.codeexport import ODESys_Code, F90_Code, Binary_IVP_Integrator
-from symodesys.helpers.compilation import FortranCompilerRunner #, CCompilerRunner
+from symodesys.codeexport import ODESys_Code, Binary_IVP_Integrator
 
 class LSODES_Code(ODESys_Code, F90_Code):
 

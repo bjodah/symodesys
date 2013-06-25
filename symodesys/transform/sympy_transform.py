@@ -11,10 +11,11 @@ from collections import defaultdict
 
 import sympy
 import numpy as np
+from pycompilation import pyx2obj, FortranCompilerRunner
+from pycompilation.codeexport import F90_Code
 
-from symodesys.codeexport import F90_Code
+from symodesys.codeexport import
 from symodesys.helpers import import_, HasMetaData
-from symodesys.helpers.compilation import pyx2obj, FortranCompilerRunner
 
 
 

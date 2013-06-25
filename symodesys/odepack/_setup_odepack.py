@@ -1,3 +1,6 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from __future__ import print_function, division
 
 import os
@@ -5,10 +8,10 @@ import sys
 import subprocess
 import shutil
 
-from symodesys.helpers import md5_of_file, missing_or_other_newer
-from symodesys.helpers.compilation import FortranCompilerRunner, CCompilerRunner, pyx2obj
-
-opksrc = './symodesys/odepack/'
+from pycompilation import (
+    FortranCompilerRunner, CCompilerRunner, pyx2obj,
+    md5_of_file, missing_or_other_newer
+)
 
 def main(cwd, logger):
     opkfiles = ['opkdmain.f', 'opkda1.f', 'opkda2.f']

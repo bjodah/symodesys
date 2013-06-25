@@ -1,4 +1,4 @@
-from symodesys.helpers.compilation import pyx2obj
+from pycompilation import pyx2obj
 
 def main(cwd, logger):
     # Cythonize pyx file

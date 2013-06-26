@@ -28,12 +28,12 @@ import mako.template
 
 
 # Intrapackage imports
-from symodesys.helpers import import_, render_mako_template_to
 from symodesys.integrator import IVP_Integrator
 from pycompilation import FortranCompilerRunner, CCompilerRunner
+from pycompilation.codeexport import Generic_Code
 
 
-class ODESys_Code(object): #Generic_Code
+class ODESys_Code(Generic_Code):
     """
     Wraps some sympy functionality of code generation from matrices
     returned by FirstOrderODESystem.dydt and FirstOrderODESystem.dydt_jac
@@ -63,7 +63,6 @@ class ODESys_Code(object): #Generic_Code
 
 
     def variables(self):
-
         func_cse_defs, func_cse_exprs = sympy.cse(
             self._fo_odesys.non_analytic_f.values(),
             symbols = sympy.numbered_symbols('csefunc'))

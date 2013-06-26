@@ -14,7 +14,7 @@ import sympy
 from symodesys.helpers import cache, array_subs
 from symodesys.integrator import Mpmath_IVP_Integrator, SympyEvalr
 from symodesys.odesys import FirstOrderODESystem
-from symodesys.transform import Transformer
+from symvarsub import NumTransformer
 
 # LONG-TERM FUTURE TODO: Support uncertainties as parameter inputs
 
@@ -289,7 +289,7 @@ class IVP(object):
                     ori_derivs.append(ori_depv.diff(indepv, j))
 
             inp, yres_data = deriv_data.keys(), deriv_data.values()
-            tmfr = Transformer(exprs, inp)
+            tmfr = NumTransformer(exprs, inp)
             tmfr_data = tmfr(*yres_data)
             for ori_depv in self._depv_inv_trnsfm.keys():
                 idxs = []

@@ -15,20 +15,13 @@ func (double t, const double y[], double f[], void * params)
     Best is to name all parameters k[0] ... k[P]
    */
   /*int i;*/
-  double *k = (double *) params;
+  const double *k = (double *) params;
 
   /*
     Define variables for common subexpressions
    */
 % for cse_token, cse_expr in cse_func:
-  double ${cse_token};
-% endfor
-
-  /*
-    Calculate common subexpressions
-   */
-% for cse_token, cse_expr in cse_func:
-  ${cse_token} = ${cse_expr};
+  const double ${cse_token} = ${cse_expr};
 % endfor
 
   /*
@@ -45,7 +38,7 @@ func (double t, const double y[], double f[], void * params)
 int
 jac (double t, const double y[], double *dfdy, double dfdt[], void *params)
 {
-  double *k = (double *) params;
+  const double *k = (double *) params;
   gsl_matrix_view dfdy_mat = gsl_matrix_view_array(dfdy, ${NY}, ${NY});
   gsl_matrix *m = &dfdy_mat.matrix;
 
@@ -53,14 +46,7 @@ jac (double t, const double y[], double *dfdy, double dfdt[], void *params)
     Define variables for common subexpressions
    */
 % for cse_token, cse_expr in cse_jac:
-  double ${cse_token};
-% endfor
-
-  /*
-    Calculate common subexpressions
-   */
-% for cse_token, cse_expr in cse_jac:
-  ${cse_token} = ${cse_expr};
+  const double ${cse_token} = ${cse_expr};
 % endfor
 
   /*

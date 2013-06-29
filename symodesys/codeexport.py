@@ -174,47 +174,25 @@ class ODESys_Code(Generic_Code):
 
 
     def as_arrayified_code(self, expr):
-        # Dummify dependent variable symbols
-        depvdummies = sympy.symbols('depvdummies:'+str(len(
-            self._fo_odesys.non_analytic_depv)))
-        for i, depv in enumerate(self._fo_odesys.non_analytic_depv):
-            expr = expr.subs({depv: depvdummies[i]})
+        """
+        We want to access variables as elements of arrays..
+        """
 
-        # Dummify parameter symbols
-        paramdummies = sympy.symbols('paramdummies:'+str(len(
-            self._fo_odesys.param_and_sol_symbs)))
-        for i, param in enumerate(self._fo_odesys.param_and_sol_symbs):
-            expr = expr.subs({param: paramdummies[i]})
+        # Dummify the expr (to avoid regular expressions to run berserk)
+
+        expr = self._dummify_expr(epxr, 'depvdummies', self._fo_odesys.non_analytic_depv)
+        expr = self._dummify_expr(epxr, 'paramdummies', self._fo_odesys.param_and_sol_symbs)
 
         # Generate code string
         scode = self.wcode(expr)
 
-        # Convert depv dummies into array expression:
-        tgt = {'C':r'y[\1]', 'F':r'y(\1+1)'}.get(self.syntax)
-        scode = re.sub('depvdummies(\d+)', tgt, scode)
+        # getitem syntaxify
+        scode = self._getitem_syntaxify(scode, 'depvdummies', self.depv_tok, self.depv_offset)
+        scode = self._getitem_syntaxify(scode, 'paramdummies', self.param_tok, self.param_offset)
 
-        # Convert param dummies into array expression:
-        tgt = {'C':r'k[\1]', 'F':r'y(\1+1+'+str(self.NY)+')'}.get(self.syntax)
-        scode = re.sub('paramdummies(\d+)', tgt, scode)
+        # tgt = {'C':r'[\1]', 'F':r'(\1+1)'}.get(self.syntax)
+        # scode = re.sub('_(\d+)', tgt, scode)
 
-        tgt = {'C':r'[\1]', 'F':r'(\1+1)'}.get(self.syntax)
-        scode = re.sub('_(\d+)', tgt, scode)
-        return scode
-
-
-    def arrayify(self, scode):
-        """
-        Returns arrayified expression
-        self.syntax='C' implies C syntax, 'F' fortran respectively.
-        """
-        for i, depv in enumerate(self._fo_odesys.non_analytic_depv):
-            tgt = {'C':'y[{}]', 'F':'y({}+1)'}.get(self.syntax)
-            scode = scode.replace(str(depv), tgt.format(i))
-        for i, param in enumerate(self.prog_param_symbs):
-            tgt = {'C':'k[{}]', 'F':'y({}+1+'+str(self.NY)+')'}.get(self.syntax)
-            scode = scode.replace(str(param), tgt.format(i))
-        tgt = {'C':r'[\1]', 'F':r'(\1+1)'}.get(self.syntax)
-        scode = re.sub('_(\d+)', tgt, scode)
         return scode
 
 

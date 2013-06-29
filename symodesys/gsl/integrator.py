@@ -35,6 +35,14 @@ class GSL_Code(ODESys_Code, C_Code):
 
     extension_name = 'drivers_wrapper'
 
+
+    # ODESys_Code specific
+    depv_tok = 'y' # see ode_template.c
+    depv_offset = None
+
+    param_tok = 'k' # see ode_template.c
+    param_offset = None
+
     def __init__(self, *args, **kwargs):
         self._basedir = os.path.dirname(__file__)
         super(GSL_Code, self).__init__(*args, **kwargs)

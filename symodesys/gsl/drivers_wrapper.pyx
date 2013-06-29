@@ -16,8 +16,8 @@ def integrate_equidistant_output(double t, double t1, double [:] y0,
                                  double eps_rel, double [:] params, int nderiv,
                                  str step_type = 'msadams'):
     cdef int status
-    cdef np.ndarray[np.float64_t, ndim=1]     y0_arr = ensure_contiguous(y0)
-    cdef np.ndarray[np.float64_t, ndim=1] params_arr = ensure_contiguous(params)
+    cdef np.ndarray[np.float64_t, ndim=1]     y0_arr = np.ascontiguousarray(y0) #ensure_contiguous(y0)
+    cdef np.ndarray[np.float64_t, ndim=1] params_arr = np.ascontiguousarray(params) #ensure_contiguous(params)
     cdef np.ndarray[np.float64_t, ndim=1] tout = np.ascontiguousarray(np.empty(n_steps, dtype=np.float64))
     cdef np.ndarray[np.float64_t, ndim=1] Yout = np.ascontiguousarray(np.empty(n_steps * len(y0) * (nderiv + 1), dtype=np.float64))
     status = integrate_fixed_step(

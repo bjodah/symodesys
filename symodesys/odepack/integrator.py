@@ -39,6 +39,20 @@ class LSODES_Code(ODESys_Code, F90_Code):
 
     preferred_vendor = 'gnu'
 
+
+    # ODESys_Code specific
+    depv_tok = 'y' # see ode_template.f90
+    depv_offset = 1 # fortran arrays starts at 1
+
+    # Oddity of ODEPACK, params passed at end of y-array:
+    param_tok = 'y' # see ode_template.f90
+    param_offset = property(labmda self: 1+self.NY)
+
+    # @property
+    # def param_offset(self):
+    #     return 1+self.NY
+
+
     def __init__(self, *args, **kwargs):
         self._basedir = self._basedir or os.path.dirname(__file__)
         super(LSODES_Code, self).__init__(*args, **kwargs)

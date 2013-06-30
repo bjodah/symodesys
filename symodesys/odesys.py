@@ -95,7 +95,7 @@ class _ODESystemBase(object):
                         match = known_symb
                     else:
                         # This place should never be reached
-                        raise KeyError(
+                        raise RuntimeError(
                             'Key ambigous, there are ' +\
                             'several symbols with same str repr')
             if match == None:

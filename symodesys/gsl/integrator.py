@@ -17,7 +17,7 @@ class GSL_Code(ODESys_Code, C_Code):
     # Implement hash of fo_odesys and hash of code?
     # Serialization to double check against collision?
 
-    _copy_files = ['drivers.c', 'prebuilt/drivers_wrapper.o',
+    _copy_files = ['prebuilt/drivers_wrapper.o',
                    'prebuilt/drivers.o',
                    'drivers.h', 'ode.h', 'Makefile',
                    'prebuilt/'+CCompilerRunner.metadata_filename, # <--- Make sure we compile with same compiler

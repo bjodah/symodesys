@@ -89,7 +89,7 @@ def get_transformed_ivp(n):
     params = {'l{}'.format(i): (n-i)/10.0 for i in range(n)}
     t0, tend, N = 0, 10.0, 500
     ivp = IVP(bd, y0, params, t0, integrator=Binary_IVP_Integrator(save_temp=True, tempdir='tmp/'))
-    trnsfm, inv_trnsfm = {}, {}
+    trnsfm, inv_trnsfm = OrderedDict(), OrderedDict()
     for i in range(n):
         # Generate the transform (incl. inverse)
         lny = ivp.mk_depv_symbol('lny{}'.format(i))

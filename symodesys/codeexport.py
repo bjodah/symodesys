@@ -63,16 +63,19 @@ class ODESys_Code(Generic_Code):
 
 
     def variables(self):
-        func_cse_defs, func_cse_exprs = sympy.cse(
-            self._fo_odesys.non_analytic_f.values(),
-            symbols = sympy.numbered_symbols('csefunc'))
+        # func_cse_defs, func_cse_exprs = sympy.cse(
+        #     self._fo_odesys.non_analytic_f.values(),
+        #     symbols = sympy.numbered_symbols('csefunc'))
 
-        code_func_exprs = [self.as_arrayified_code(x) for x in func_cse_exprs]
+        # code_func_exprs = [self.as_arrayified_code(x) for x in func_cse_exprs]
 
-        code_func_cse = []
-        for var_name, var_expr in func_cse_defs:
-            code_var_expr = self.as_arrayified_code(var_expr)
-            code_func_cse.append((var_name, code_var_expr))
+        # code_func_cse = []
+        # for var_name, var_expr in func_cse_defs:
+        #     code_var_expr = self.as_arrayified_code(var_expr)
+        #     code_func_cse.append((var_name, code_var_expr))
+
+        code_func_cse, code_func_exprs = self._get_cse_code(
+            self._fo_odesys.non_analytic_f.values(), 'csefunc')
 
         params = [(str(p), 1.0) for p in self.prog_param_symbs]
         y0 = ', '.join(['1.0'] * self.NY)
@@ -94,26 +97,34 @@ class ODESys_Code(Generic_Code):
                 )
             ])
 
-        jac_cse_defs, jac_cse_exprs = sympy.cse(
-            sparse_jac.values() + dfdt.values(),
-            symbols = sympy.numbered_symbols('csejac')
-            )
+        # jac_cse_defs, jac_cse_exprs = sympy.cse(
+        #     sparse_jac.values() + dfdt.values(),
+        #     symbols = sympy.numbered_symbols('csejac')
+        #     )
 
 
-        code_jac_exprs = zip(sparse_jac.keys(), [
-            self.as_arrayified_code(x) for x \
-            in jac_cse_exprs[:len(sparse_jac)]
-            ])
+        # code_jac_exprs = zip(sparse_jac.keys(), [
+        #     self.as_arrayified_code(x) for x \
+        #     in jac_cse_exprs[:len(sparse_jac)]
+        #     ])
 
-        code_dfdt_exprs = zip(dfdt.keys(), [
-            self.as_arrayified_code(x) for x \
-            in jac_cse_exprs[len(sparse_jac):]
-            ])
+        # code_dfdt_exprs = zip(dfdt.keys(), [
+        #     self.as_arrayified_code(x) for x \
+        #     in jac_cse_exprs[len(sparse_jac):]
+        #     ])
 
-        code_jac_cse = []
-        for var_name, var_expr in jac_cse_defs:
-            code_var_expr = self.as_arrayified_code(var_expr)
-            code_jac_cse.append((var_name, code_var_expr))
+        # code_jac_cse = []
+        # for var_name, var_expr in jac_cse_defs:
+        #     code_var_expr = self.as_arrayified_code(var_expr)
+        #     code_jac_cse.append((var_name, code_var_expr))
+
+
+        code_jac_cse, code_jac_exprs = self._get_cse_code(
+        sparse_jac.values() + dfdt.values(), 'csejac')
+
+        code_dfdt_exprs = code_jac_exprs[len(sparse_jac):]
+        code_jac_exprs = code_jac_exprs[:len(sparse_jac)]
+
 
         # Populate ia, ja (sparse index specifiers using fortran indexing)
         # see documentation of LSODES in ODEPACK for definition
@@ -180,8 +191,8 @@ class ODESys_Code(Generic_Code):
 
         # Dummify the expr (to avoid regular expressions to run berserk)
 
-        expr = self._dummify_expr(epxr, 'depvdummies', self._fo_odesys.non_analytic_depv)
-        expr = self._dummify_expr(epxr, 'paramdummies', self._fo_odesys.param_and_sol_symbs)
+        expr = self._dummify_expr(expr, 'depvdummies', self._fo_odesys.non_analytic_depv)
+        expr = self._dummify_expr(expr, 'paramdummies', self._fo_odesys.param_and_sol_symbs)
 
         # Generate code string
         scode = self.wcode(expr)

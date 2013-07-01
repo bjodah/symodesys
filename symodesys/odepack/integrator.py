@@ -46,7 +46,7 @@ class LSODES_Code(ODESys_Code, F90_Code):
 
     # Oddity of ODEPACK, params passed at end of y-array:
     param_tok = 'y' # see ode_template.f90
-    param_offset = property(labmda self: 1+self.NY)
+    param_offset = property(lambda self: 1+self.NY)
 
     # @property
     # def param_offset(self):

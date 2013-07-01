@@ -30,20 +30,21 @@ class IVP_Integrator(object):
     reltol = 1e-6 # Default relative tolerance
     nderiv = 1 # Default maximum order of derivatives
 
-    kwargs_attr=['abstol', 'reltol']
+    # !!!! Let IVP abstract away the meaning of abstol and
+    # reltol... (transformation of variables, scaling)
 
-    def __init__(self, **kwargs):
-        """
+    # kwargs_attr=['abstol', 'reltol']
 
-        Arguments:
-        - `fo_odesys`: FO_ODESYS instance (initial value problem)
-        """
-        self._fo_odesys = None
-        for attr in kwargs:
-            if attr in self.kwargs_attr:
-                setattr(self, attr, kwargs.pop(attr))
-            else:
-                raise AttributeError('Unkown kwarg: {}'.format(attr))
+    # def __init__(self, **kwargs):
+    #     """
+    #     Arguments:
+    #     """
+    #     self._fo_odesys = None
+    #     for attr in kwargs:
+    #         if attr in self.kwargs_attr:
+    #             setattr(self, attr, kwargs.pop(attr))
+    #         else:
+    #             raise AttributeError('Unkown kwarg: {}'.format(attr))
 
     def set_fo_odesys(self, fo_odesys):
         self._fo_odesys = fo_odesys

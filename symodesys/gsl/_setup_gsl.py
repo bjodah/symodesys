@@ -11,7 +11,6 @@ def main(cwd, logger):
     fpath = os.path.join(cwd, f)
     dst = 'prebuilt/drivers.o'
     if missing_or_other_newer(dst, f):
-        # Intel Fortran fails for opkda1.f, hence prefer `gnu`
         runner = CCompilerRunner(
             [fpath], dst, run_linker=False,
             cwd=cwd, options=['pic', 'warn', 'fast'],

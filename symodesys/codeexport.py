@@ -122,8 +122,10 @@ class ODESys_Code(Generic_Code):
         code_jac_cse, code_jac_exprs = self._get_cse_code(
         sparse_jac.values() + dfdt.values(), 'csejac')
 
-        code_dfdt_exprs = code_jac_exprs[len(sparse_jac):]
-        code_jac_exprs = code_jac_exprs[:len(sparse_jac)]
+        code_dfdt_exprs = zip(dfdt.keys(),
+                              code_jac_exprs[len(sparse_jac):])
+        code_jac_exprs = zip(sparse_jac.keys(),
+                             code_jac_exprs[:len(sparse_jac)])
 
 
         # Populate ia, ja (sparse index specifiers using fortran indexing)

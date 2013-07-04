@@ -27,5 +27,6 @@ integrate_fixed_step_print(double t, double t1, double * y, int n_steps,
 
 #define PRECISION %.9e
 
+int print_state(double t, size_t dim, int nderiv, size_t idx, double * yout);
 
 #endif

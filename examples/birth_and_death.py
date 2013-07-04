@@ -47,7 +47,7 @@ class BirthDeathSystem(SimpleFirstOrderODESystem):
         y = [self['y{}'.format(i)] for i in range(self.dim)]
         l = [self['l{}'.format(i)] for i in range(self.dim)]
         first =  (y[0], -l[0]*y[0])
-        last  = (y[self.dim-1], -l[self.dim-2]*y[self.dim-1])
+        last  = (y[self.dim-1], l[self.dim-2]*y[self.dim-1])
         return OrderedDict([first] + [
             (y[i], y[i-1]*l[i-1]-y[i]*l[i]) for \
             i in range(1,self.dim-1)
@@ -85,9 +85,11 @@ def plot_population(ivp, depv_z_map):
 
 def get_transformed_ivp(n):
     bd = BirthDeathSystem.mk_of_dim(n)
+    print("Original system:")
+    print('\n'.join([str(x) for x in bd.eqs]))
     y0 = {'y{}'.format(i): (n-i)*1.0 for i in range(n)}
     params = {'l{}'.format(i): (n-i)/10.0 for i in range(n)}
-    t0, tend, N = 0, 10.0, 500
+    t0, tend, N = 0, 15.0, 500
     ivp = IVP(bd, y0, params, t0, integrator=Binary_IVP_Integrator(save_temp=True, tempdir='tmp/'))
     trnsfm, inv_trnsfm = OrderedDict(), OrderedDict()
     for i in range(n):
@@ -98,6 +100,8 @@ def get_transformed_ivp(n):
         inv_trnsfm[y] = sympy.exp(lny)
     # Apply the transform
     ivp2 = ivp.use_internal_depv_trnsfm(trnsfm, inv_trnsfm)
+    print("Transformed:")
+    print('\n'.join([str(x) for x in ivp2._fo_odesys.eqs]))
     ivp2.integrate(tend, N)
     return ivp2
 

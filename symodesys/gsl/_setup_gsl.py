@@ -16,6 +16,7 @@ def main(cwd, logger):
             cwd=cwd, options=['pic', 'warn', 'fast'],
             preferred_vendor='gnu', metadir='prebuilt/',
             logger=logger)
+        os.unlink(dst) # make sure failed compilation kills the party..
         runner.run()
     else:
         logger.info("{} newer than {}, did not recompile.".format(dst, fpath))

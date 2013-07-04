@@ -19,7 +19,7 @@ class GSL_Code(ODESys_Code, C_Code):
 
     _copy_files = ['prebuilt/drivers_wrapper.o',
                    'prebuilt/drivers.o',
-                   'drivers.h', 'ode.h', 'Makefile',
+                   'drivers.h', 'ode.h', 'Makefile', 'plot.py',
                    'prebuilt/'+CCompilerRunner.metadata_filename, # <--- Make sure we compile with same compiler
                ]
 

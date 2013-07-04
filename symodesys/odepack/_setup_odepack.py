@@ -13,6 +13,8 @@ from pycompilation import (
     md5_of_file, missing_or_other_newer
 )
 
+from pycompilation.helpers import download_files, compile_sources
+
 def main(cwd, logger):
     websrc = 'https://computation.llnl.gov/casc/odepack/software/'
     files = ['opkdmain.f', 'opkda1.f', 'opkda2.f']
@@ -22,12 +24,12 @@ def main(cwd, logger):
         'opkdmain.f':  '47d81cc73a1e82210f47a97c43daa8cf'
     }
 
-    download_files(websrc, files, cwd, md5sums)
+    download_files(websrc, files, md5sums, cwd=cwd)
     # Intel Fortran fails for opkda1.f, hence prefer `gnu`
-    compile_sources(FortranCompilerRunner, files, cwd,
-                    'prebuilt/', run_linker=False,
-                    cwd=cwd, options=['pic', 'warn', 'fast'],
-                    preferred_vendor='gnu', metadir=dst, logger=logger)
+    compile_sources(FortranCompilerRunner, files, 'prebuilt/',
+                    cwd=cwd, run_linker=False,
+                    options=['pic', 'warn', 'fast'],
+                    preferred_vendor='gnu', metadir='prebuilt/', logger=logger)
 
     # Cythonize pyx file, and compile to object file
     src = 'pylsodes_bdf.pyx'

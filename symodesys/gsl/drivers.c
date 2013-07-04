@@ -94,13 +94,11 @@ integrate_fixed_step (double t, double t1, double * y, int n_steps,
         }
       /* Macro-step loop */
       ti = t + dt;//*(i+1);
+      printf("%.3f", ti);
       status = gsl_odeiv2_driver_apply (d, &t, ti, y);
 
       if (status != GSL_SUCCESS)
-        {
-          printf ("error, return value=%d\n", status);
           break;
-        }
 
     }
 
@@ -133,20 +131,13 @@ integrate_fixed_step_print(double t, double t1, double * y, int n_steps,
 						 step_type_idx);
   if (status != GSL_SUCCESS)
     {
+      printf ("Error, return value=%d\n", status);
       return status;
     }
 
   for (i = 0; i < n_steps; ++i)
     {
-	  printf(STRINGIFY(PRECISION), tout[i]);
-	  for (j = 0; j < dim; ++j)
-	    {
-          for (k = 0; k<=nderiv; ++k)
-            {
-              printf(" " STRINGIFY(PRECISION), Yout[i*dim*(nderiv+1)+j*(nderiv+1)+k]);
-            }
-	    }
-	  printf("\n");
+      print_state(tout[i], dim, nderiv, i, Yout);
     }
 
   free(tout);
@@ -154,3 +145,14 @@ integrate_fixed_step_print(double t, double t1, double * y, int n_steps,
   return status;
 }
 
+int print_state(double t, size_t dim, int nderiv, size_t idx, double * yout){
+  printf(STRINGIFY(PRECISION), t);
+  for (j = 0; j < dim; ++j)
+    {
+      for (k = 0; k<=nderiv; ++k)
+	{
+	  printf(" " STRINGIFY(PRECISION), yout[i*dim*(nderiv+1)+j*(nderiv+1)+k]);
+	}
+    }
+  printf("\n");  
+}

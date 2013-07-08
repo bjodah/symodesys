@@ -3,15 +3,8 @@
 
 from __future__ import print_function, division
 
-import os
-import sys
-import subprocess
-import shutil
-
-from pycompilation import (
-    FortranCompilerRunner, CCompilerRunner, pyx2obj,
-    md5_of_file, missing_or_other_newer
-)
+from pycompilation import FortranCompilerRunner,  pyx2obj
+from pycompilation.helpers import download_files
 
 from pycompilation.helpers import download_files, compile_sources
 

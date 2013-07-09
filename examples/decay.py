@@ -10,7 +10,7 @@ from symodesys.convenience import plot_numeric_error
 
 class Decay(SimpleFirstOrderODESystem):
 
-    dep_var_tokens = 'u',
+    depv_tokens = 'u',
     param_tokens   = 'lambda_u',
 
     @property

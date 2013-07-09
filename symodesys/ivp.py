@@ -16,7 +16,6 @@ from symodesys.integrator import Mpmath_IVP_Integrator, SympyEvalr
 from symodesys.odesys import FirstOrderODESystem
 from symvarsub import NumTransformer
 
-# LONG-TERM FUTURE TODO: Support uncertainties as parameter inputs
 
 def determine_const_val_for_init_val(expr, y0, indep_val,
                                      const_symb = sympy.symbols('C1')):
@@ -72,16 +71,16 @@ class IVP(object):
            the method `use_internal_depv_trnsfm`)
 
         """
-        self._fo_odesys = fo_odesys
+        self.fo_odesys = fo_odesys
         self._old_fo_odesys = [] # Save old sys when solving
                                  # analytically
         self.init_vals = init_vals
         self.param_vals = param_vals
         self._indepv_init_val = t0
         self.integrator = integrator or Mpmath_IVP_Integrator()
-        self.integrator.set_fo_odesys(self._fo_odesys)
+        self.integrator.set_fo_odesys(self.fo_odesys)
         self.analytic_evalr = analytic_evalr or SympyEvalr()
-        self.analytic_evalr.configure(self._fo_odesys, self.param_vals)
+        self.analytic_evalr.configure(self.fo_odesys, self.param_vals)
         self._indepv_inv_trnsfm = indepv_inv_trnsfm
         self._depv_inv_trnsfm = depv_inv_trnsfm
 
@@ -96,9 +95,9 @@ class IVP(object):
         Queries system using inintal values.
         """
         # Not working yet... (This is pseudo code mixed with to be fixed python)
-        y0_val_lst = [self.init_vals[k] for k in self._fo_odesys.non_analytic_depv]
-        param_val_lst = self._fo_odesys.param_val_lst(param_vals)
-        return self._fo_odesys.is_stiff(t0, y0_val_lss, param_val_lst, criteria)
+        y0_val_lst = [self.init_vals[k] for k in self.fo_odesys.na_depv]
+        param_val_lst = self.fo_odesys.param_val_lst(param_vals)
+        return self.fo_odesys.is_stiff(t0, y0_val_lss, param_val_lst, criteria)
 
 
     @property
@@ -107,7 +106,7 @@ class IVP(object):
 
     @init_vals.setter
     def init_vals(self, value):
-        self._init_vals = self._fo_odesys.ensure_dictkeys_as_symbs(value)
+        self._init_vals = self.fo_odesys.ensure_dictkeys_as_symbs(value)
 
     @property
     def param_vals(self):
@@ -115,7 +114,7 @@ class IVP(object):
 
     @param_vals.setter
     def param_vals(self, value):
-        self._param_vals = self._fo_odesys.ensure_dictkeys_as_symbs(value)
+        self._param_vals = self.fo_odesys.ensure_dictkeys_as_symbs(value)
 
     def use_internal_depv_trnsfm(self, trnsfm, inv_trnsfm, strict=True):
         """
@@ -129,7 +128,7 @@ class IVP(object):
         for the dependent variables will be independent of the
         transformation (the values will be converted internally)
         """
-        assert len(trnsfm) == len(self._fo_odesys.all_depv)
+        assert len(trnsfm) == len(self.fo_odesys.all_depv)
         assert len(trnsfm) == len(inv_trnsfm)
 
         if strict:
@@ -138,7 +137,7 @@ class IVP(object):
 
         self._depv_trnsfm = trnsfm
         self._depv_inv_trnsfm = inv_trnsfm
-        new_fo_odesys = self._fo_odesys.transform_depv(trnsfm, inv_trnsfm)
+        new_fo_odesys = self.fo_odesys.transform_depv(trnsfm, inv_trnsfm)
         new_init_vals = {}
         for new_depv, expr_in_old in trnsfm.items():
             new_init_vals[new_depv] = expr_in_old.subs(self.init_vals)
@@ -165,47 +164,40 @@ class IVP(object):
 
         self._indepv_trnsfm = trnsfm
         self._indepv_inv_trnsfm = inv_trnsfm
-        new_fo_odesys = self._fo_odesys.transform_indepv(
+        new_fo_odesys = self.fo_odesys.transform_indepv(
             trnsfm, inv_trsfm)
         new_indepv_init_val = self._indepv_init_val
         return self.__class__(
             new_fo_odesys, self.init_vals, self.param_vals, new_indepv_init_val,
             self.integrator, self.analytic_evalr, inv_trnsfm, self._indepv_inv_trnsfm)
 
-    def mk_depv_symbol(self, s):
-        """
-        Convenience function for generating sympy.Function symbols for
-        use in `use_internal_depv_trnsfm`
-        """
-        return self._fo_odesys.mk_func(s)
-
 
     def mk_init_val_symb(self, y):
-        new_symb = sympy.symbols(y.func.__name__ + '_init')
-        assert not new_symb in self._fo_odesys.known_symbs
+        new_symb = self.fo_odesys.mk_symb(y.func.__name__ + '_init')
+        assert not new_symb in self.fo_odesys.known_symbs
         return new_symb
 
 
-    def recursive_analytic_reduction(self):
+    def recursive_analytic_reduction(self, complexity=0):
         """
         Attempts to solve some y's analytically
 
         TODO: recreate possible 2nd order ODE and check solvability
         """
         new_init_val_symbs = []
-        self._fo_odesys.recursive_analytic_auto_sol()
-        for yi, (expr, sol_symbs) in self._fo_odesys._solved.iteritems():
+        self.fo_odesys.recursive_analytic_auto_sol(complexity)
+        for yi, (expr, sol_symbs) in self.fo_odesys._solved.iteritems():
             if yi in self._solved_init_val_symbs: continue
             assert len(sol_symbs) == 1 # Only one new constant per equation
-            sol_symb = sol_symbs.copy().pop()
+            sol_symb = sol_symbs.copy().pop() # sol_symbs is a set
             init_val_symb = self.mk_init_val_symb(yi)
             sol_init_val = determine_const_val_for_init_val(
-                expr, init_val_symb, self._fo_odesys.indepv, sol_symb)
-            self._fo_odesys.subs({sol_symb: sol_init_val})
+                expr, init_val_symb, self.fo_odesys.indepv, sol_symb)
+            self.fo_odesys.subs({sol_symb: sol_init_val})
             self._solved_init_val_symbs[yi] = init_val_symb
             new_init_val_symbs.append(init_val_symb)
         if len(new_init_val_symbs) > 0:
-            self.analytic_evalr.configure(self._fo_odesys,
+            self.analytic_evalr.configure(self.fo_odesys,
                                           self.param_vals)
         return new_init_val_symbs
 
@@ -226,11 +218,12 @@ class IVP(object):
 
         if len(self._solved_init_val_symbs) < len(self.init_vals):
             # If there are any non-analytic equations left
-            y0 = {yi: self.init_vals[yi] for yi \
-                  in self._fo_odesys.non_analytic_depv}
+            params_solved = self.param_vals
+            for yi, sol_symb in self._solved_init_val_symbs.items():
+                params_solved.update({sol_symb: self.init_vals[yi]})
             self.integrator.run(
-                y0, t0=self._indepv_init_val, tend=tend,
-                param_vals=self.param_vals, N=N, h=h,
+                self.init_vals, t0=self._indepv_init_val, tend=tend,
+                params=params_solved, N=N, h=h,
                 nderiv=self.nderiv, **kwargs)
             #self.tout = self.integrator.tout
         else:
@@ -243,8 +236,9 @@ class IVP(object):
             self.analytic_evalr.eval_for_indep_array(
                 self.indep_out(), {
                     self._solved_init_val_symbs[yi]: self.init_vals[yi]\
-                    for yi in self._fo_odesys.analytic_depv}
+                    for yi in self.fo_odesys.analytic_depv}
                 )
+
 
     @cache
     def indep_out(self):
@@ -259,6 +253,7 @@ class IVP(object):
         else:
             return tout
 
+
     @cache
     def trajectories(self):
         """
@@ -268,7 +263,7 @@ class IVP(object):
         Yres = self._Yres()
         tout = self.integrator.tout
         nt, ndepv, ndatapp = Yres.shape # time, dependent variables, data per point (nderiv+1)
-        indepv = self._fo_odesys.indepv
+        indepv = self.fo_odesys.indepv
         if self._depv_inv_trnsfm:
 
             # TODO: Handle self._indepv_inv_trnsfm
@@ -277,7 +272,7 @@ class IVP(object):
             # back to original variables
             od = OrderedDict()
             deriv_data = {depv.diff(indepv, j): Yres[:,i,j] for j in range(ndatapp) \
-                           for i, depv in enumerate(self._fo_odesys.all_depv)}
+                           for i, depv in enumerate(self.fo_odesys.all_depv)}
             deriv_data[indepv] = tout
 
             exprs = []
@@ -298,7 +293,7 @@ class IVP(object):
                 od[ori_depv] = tmfr_data[:,idxs]
             return od
         else:
-            return OrderedDict(zip(self._fo_odesys.all_depv,
+            return OrderedDict(zip(self.fo_odesys.all_depv,
                                    [Yres[:,i,:] for i in range(ndepv)]))
 
 
@@ -307,20 +302,21 @@ class IVP(object):
         """
         Unified the output of the numerical and analyitc results.
         first axis: independent variable value
-        second axis: dependent variable index (_fo_odesys.all_depv)
+        second axis: dependent variable index (fo_odesys.all_depv)
         third axis: 0-th, 1st, ... derivatives
         """
-        Yres = np.empty((len(self.indep_out()), len(self._fo_odesys.all_depv),
+        Yres = np.empty((len(self.indep_out()), len(self.fo_odesys.all_depv),
                           self.nderiv+1), self._dtype)
-        for i, yi in enumerate(self._fo_odesys.all_depv):
-            if yi in self._fo_odesys.analytic_depv:
+        for i, yi in enumerate(self.fo_odesys.all_depv):
+            if yi in self.fo_odesys.analytic_depv:
                 Yres[:, i, :] = self.analytic_evalr.Yout[
-                    :, self._fo_odesys.analytic_depv.index(yi),:]
+                    :, self.fo_odesys.analytic_depv.index(yi),:]
             else:
-                if len(self._fo_odesys.non_analytic_depv) > 0:
+                if len(self.fo_odesys.na_depv) > 0:
                     Yres[:, i, :] = self.integrator.Yout[
-                        :, self._fo_odesys.non_analytic_depv.index(yi),:]
+                        :, self.fo_odesys.na_depv.index(yi),:]
         return Yres
+
 
     @property
     def all_depv(self):
@@ -330,7 +326,8 @@ class IVP(object):
         if self._depv_inv_trnsfm:
             return self._depv_inv_trnsfm.keys()
         else:
-            return self._fo_odesys.all_depv
+            return self.fo_odesys.all_depv
+
 
     @cache
     def interpolators(self):
@@ -350,18 +347,19 @@ class IVP(object):
         variable use of internal variable transformation.
         """
         if self._depv_inv_trnsfm:
-            candidate = self.mk_depv_symbol(depvn)
+            candidate = self.fo_odesys.mk_func(depvn)
             if candidate in self._depv_inv_trnsfm.keys():
                 return candidate
             else:
                 raise KeyError('{} (created from {}) not found in original depv'.format(
                     candidate, depvn))
         else:
-            return self._fo_odesys[depvn]
+            return self.fo_odesys[depvn]
 
 
     def get_index_of_depv(self, depvn):
         return self.all_depv.index(self.get_depv_from_token(depvn))
+
 
     def plot(self, depvs=None, interpolate=True, datapoints=False,
              show=False, skip_helpers=True, usetex=False, texnames=None,
@@ -381,7 +379,7 @@ class IVP(object):
             depvs = self.all_depv
             if skip_helpers:
                 # Don't plot helper functions used in reduction of order of ode system
-                for hlpr in self._fo_odesys.frst_red_hlprs:
+                for hlpr in self.fo_odesys.frst_red_hlprs:
                     depvs.pop(depvs.index(hlpr[2]))
         if interpolate:
             ipx = np.linspace(self.indep_out()[0], self.indep_out()[-1], 1000)
@@ -407,6 +405,8 @@ class IVP(object):
                 ax.plot(self.indep_out(), self.trajectories()[depv][:, 0], label = lbl,
                          marker = mi, ls = lsi, color = ci)
 
+        if self.fo_odesys.title:
+            ax.title(self.fo_odesys.title)
 
         # Put a legend to the right of the current axis
         if show:
@@ -417,7 +417,9 @@ class IVP(object):
             plt.show()
         return ax
 
+
     def __enter__(self): return self
+
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
@@ -426,6 +428,7 @@ class IVP(object):
         # implement a clean method in the subclass if
         # you wish to use the context manager.
         self.clean()
+
 
     def clean(self):
         self.integrator.clean()

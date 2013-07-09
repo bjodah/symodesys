@@ -13,7 +13,7 @@ from symodesys.convenience import plot_numeric_vs_analytic
 
 class X5(SimpleFirstOrderODESystem):
 
-    dep_var_tokens = 'y',
+    depv_tokens = 'y',
 
     @property
     def expressions(self):

@@ -25,8 +25,8 @@ def reassign_const(expr, dest, known, source='C'):
         return sympy.Symbol(dest+id_+tail)
 
     new_symbs = get_new_symbs(expr, known)
-    reassigned_symbs = []
-    new_not_reassigned = []
+    reassigned_symbs = set()
+    new_not_reassigned = set()
     for symb in new_symbs:
         if source:
             # Only reassign matching source
@@ -34,11 +34,11 @@ def reassign_const(expr, dest, known, source='C'):
                 id_ = source.join(symb.name.split(source)[1:])
                 resymb = get_resymb(id_)
                 expr = expr.subs({symb: resymb})
-                reassigned_symbs.append(resymb)
+                reassigned_symbs.add(resymb)
             else:
                 # The new symb didn't match, store in
                 # new_not_reassigned
-                new_not_reassigned.append(symb)
+                new_not_reassigned.add(symb)
         else:
             # All new symbs are to be renamed
             resymb = get_resymb(symb.name)

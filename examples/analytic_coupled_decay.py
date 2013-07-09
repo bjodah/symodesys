@@ -41,8 +41,8 @@ def main(params):
     new_params = ivp.recursive_analytic_reduction()
     print new_params
 
-    ivp._Integrator.abstol = 1e-6
-    ivp._Integrator.reltol = 1e-6
+    ivp.integrator.abstol = 1e-6
+    ivp.integrator.reltol = 1e-6
 
     ivp.integrate(tend, N = N)
 

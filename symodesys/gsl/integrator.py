@@ -19,7 +19,7 @@ class GSL_Code(ODESys_Code, C_Code):
 
     _copy_files = ['prebuilt/drivers_wrapper.o',
                    'prebuilt/drivers.o',
-                   'drivers.h', 'ode.h', 'Makefile', 'plot.py',
+                   'drivers.h', 'drivers.c', 'ode.h', 'Makefile', 'plot.py',
                    'prebuilt/'+CCompilerRunner.metadata_filename, # <--- Make sure we compile with same compiler
                ]
 
@@ -68,42 +68,51 @@ class GSL_IVP_Integrator(Binary_IVP_Integrator):
     }
 
 
-    def run(self, y0, t0, tend, param_vals, N,
-                  abstol=None, reltol=None, h=None, h_init=None, h_max=0.0, nderiv=None,
-            **kwargs):
+    def run(self, y0, t0, tend, params, N,
+            abstol=None, reltol=None, h=None,
+            h_init=None, h_max=0.0, nderiv=None,
+            step_type='bsimp'):
         """
-        hmax won't be set if 0.0
+        -`params`: dict with keys mathcing param_and_sol_symbs
+
+        Notes: hmax won't be set if 0.0
         """
-        for k,v in kwargs.items():
-            # Assert valid option provided
-            if k in self.integrate_args:
-                assert v in self.integrate_args[k]
+        # The C-program knows nothing about dicts, provide values as an array
+        # Set (c-program) init vals to the (subset of non_anlytic) depv
+        y0_arr = np.array(
+            [y0[k] for k in self._fo_odesys.na_depv],
+            dtype = np.float64)
+
+        params_arr = np.array([params[k] for k \
+                               in self._code.prog_param_symbs],
+                              dtype = np.float64)
+
+        assert step_type in self.integrate_args['step_type']
+
+        # Below is a somewhat ad-hoc sanity check of condition
+        # of jacobian in the starting point, even though some
+        # solvers might not need the jacobian at the starting point.
+        # To work around this one would ideally use a variable transformation
+        # and/or solving/estimating parts of the problem analytically
+        jac_cond = np.linalg.cond(self._fo_odesys.evaluate_na_jac(
+            t0, y0_arr, params_arr))
+        print(jac_cond)
+        if jac_cond*np.finfo(np.float64).eps > max(self.abstol, self.reltol):
+            raise RuntimeError(("Unlikely that Jacboian with condition: {} "+\
+                               "will work with requested tolerances.").format(
+                                   jac_cond))
+
         self.nderiv = nderiv or self.nderiv
         if h_init == None:
             h_init = 1e-9 # TODO: along the lines of:
             #   h_init=calc_h_init(y0, dydt, jac, abstol, reltol)
 
-        # Set (c-program) init vals to the possible subset of non_anlytic depv
-        y0_arr = np.array(
-            [y0[k] for k in self._fo_odesys.non_analytic_depv],
-            dtype = np.float64)
-
-        # Extend (c-program) params with y0 values of analytic functions
-        prog_param_vals = dict(
-            param_vals.items() + \
-            [(k, v) for k, v in y0.items() if k \
-             in self._fo_odesys.analytic_depv])
-
-        # The C-program knows nothing about dicts, provide values as an array
-        params_arr = np.array([prog_param_vals[k] for k \
-                               in self._code.prog_param_symbs],
-                              dtype = np.float64)
         if N > 0:
             # Fixed stepsize
             #self.init_Yout_tout_for_fixed_step_size(t0, tend, N)
             tout, Yout = self.binary_mod.integrate_equidistant_output(
                 t0, tend, y0_arr, N, h_init, h_max, self.abstol,
-                self.reltol, params_arr, self.nderiv, **kwargs)
+                self.reltol, params_arr, self.nderiv, step_type)
             self.tout = tout
             self.Yout = Yout
         else:

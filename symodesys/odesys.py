@@ -6,26 +6,29 @@ import new
 import logging
 
 # other imports
+import numpy as np
 import sympy
 
 # project imports
-from symodesys.helpers import subs_set, get_new_symbs, deprecated, get_without_piecewise, reassign_const
+from symodesys.helpers import subs_set, get_new_symbs, deprecated, get_without_piecewise, reassign_const #, log_call_debug
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def log_call_debug(func):
-    from functools import wraps
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        logging.debug(func.__name__ + 'called.')
-        return func(*args, **kwargs)
-    return wrapper
 
-
-#This might be implemented+named better (unclear if namedtuple appropriate/adds value):
+#This might be implemented+named better (unclear if
+#  namedtuple appropriate/adds value):
 ODEExpr = namedtuple('ODEExpr', 'order expr')
+
+# Abbrevations used in the code:
+# ==============================
+# depv:   dependent variable (sometimes denoted `y`, as in dydt)
+# indepv: independent variable (sometimes denoted `t`, as in dydt)
+# f:      dydt denotes the derivates (with their expressions) of
+#         dependent variables with respect to the independent variable
+# na:     non-analytic
+#
 
 
 class _ODESystemBase(object):
@@ -49,8 +52,10 @@ class _ODESystemBase(object):
     # it is useful if one does not want to e.g. plot them
     frst_red_hlprs = None
 
-    # We need holder for analytically solved parts (instantiate to dict):
+    # We need holder for analytically solved parts
+    # (instantiate to dict):
     _solved = None
+    _solved_undefined = None
 
     indepv = None # ODE implies 1 indep. variable,
                           #  set to sympy.Symbol(...)
@@ -60,14 +65,16 @@ class _ODESystemBase(object):
     #_attrs_to_cmp_for_eq is used for checking equality of instances
     # of _ODESystemBase and its subclasses, the latter requires the
     # list of attrs be a common subset of attributes
-    _attrs_to_cmp_for_eq = ['_odeqs', 'param_symbs', '_solved', 'all_depv']
+    _attrs_to_cmp_for_eq = ['_odeqs', 'param_symbs', '_solved',
+                            '_solved_undefined', 'all_depv']
 
     # _canonical_attrs specifies what attributes are the _defining_
-    # attributes of the (sub)class. Hence it maybe changed in subclasses
+    # attributes of the (sub)class. It maybe changed in subclasses.
     _canonical_attrs = ['_odeqs', 'indepv', 'param_symbs',
-                        '_solved', 'frst_red_hlprs'] # Minimum variables needed
+                        '_solved', '_solved_undefined', 'frst_red_hlprs']
 
-    _redundant_attrs = [] # May be passed as kwargs to __init__ but must not be
+    # May be passed as kwargs to __init__ but must not be
+    _redundant_attrs = []
 
     def __init__(self, odesys = None, **kwargs):
         """
@@ -83,7 +90,7 @@ class _ODESystemBase(object):
                     setattr(self, attr, getattr(odesys, attr))
         # Idempotent initiation of attributes
         self._solved = self._solved or {}
-        self._solved_undefined = []
+        self._solved_undefined = self._solved_undefined or []
         self.frst_red_hlprs = self.frst_red_hlprs or []
 
     def __getitem__(self, key):
@@ -107,7 +114,7 @@ class _ODESystemBase(object):
                 return self[sympy.Function(key)(self.indepv)]
         return match
 
-    def mk_func(self, key):
+    def mk_depv(self, key):
         """
         Returns an sympy.Function instance with name key and correct
         dependent variable
@@ -143,7 +150,7 @@ class _ODESystemBase(object):
 
 
     @property
-    def non_analytic_depv(self):
+    def na_depv(self):
         """
         Returns all dependent variables of the system
         that have not been solved analytically
@@ -207,8 +214,12 @@ class _ODESystemBase(object):
         """
         Extends self.known_symbs to symbols with names coinciding with e.g. dependent variables.
         """
-        return self.known_symbs + [sympy.Symbol(dvfs.func.__name__, real=self.real) for \
+        return self.known_symbs + [self.mk_symb(dvfs.func.__name__) for \
                                    dvfs in self.all_depv]
+
+    def mk_symb(self, name):
+        """ Convenience function """
+        return sympy.Symbol(name, real=self.real)
 
 
     def subs(self, subsd):
@@ -225,7 +236,7 @@ class _ODESystemBase(object):
                 raise RuntimeError(('Symbol: {} is a dependent variable,' + \
                                    ' use `transform_depvs`').format(key))
             elif key == self.indepv:
-                self.transform_indep(value, key)
+                self.transform_indepv(value, key)
             elif key in self.param_and_sol_symbs:
                 if key in self.param_symbs:
                     self.param_symbs[self.param_symbs.index(key)] = value
@@ -249,7 +260,7 @@ class _ODESystemBase(object):
                                        subs_set(sol_symbs,
                                                 {key: value})
             else:
-                raise KeyError("{} not known in ODE system".format(key))
+                raise RuntimeError("This point should never be reached")
 
 
     @property
@@ -289,7 +300,7 @@ class _ODESystemBase(object):
         Convenience method, transforms the Function instances of the dependent variables
         possibly present in provided argument `expr` into Symbol instances.
         """
-        unfunc_subs = {dvfs: sympy.Symbol(dvfs.func.__name__, real=self.real) for \
+        unfunc_subs = {dvfs: self.mk_symb(dvfs.func.__name__) for \
                        dvfs in self.all_depv}
         return expr.subs(unfunc_subs)
 
@@ -300,7 +311,6 @@ class _ODESystemBase(object):
         pass
 
 
-    @log_call_debug
     def _do_sanity_check_of_odeqs(self):
         """
         Asserts that no expr contain dependent variable derivatives of higher order
@@ -384,8 +394,7 @@ class _ODESystemBase(object):
         return new_instance
 
 
-    @log_call_debug
-    def attempt_analytic_sol(self, depv, hypoexpr, sol_consts):
+    def attempt_analytic_sol(self, depv, hypoexpr, sol_consts=None):
         """
         Checks if provided analytic (similiar to
         sympy.solvers.ode.checkodesol) expr ``hypoexpr'' solves
@@ -394,7 +403,12 @@ class _ODESystemBase(object):
         """
         eq = self.eq(depv).subs({depv: hypoexpr})
         if bool(eq.doit()):
-            hypoparams = get_new_symbs(hypoexpr, self.known_symbs)
+            if sol_consts:
+                assert len(get_new_symbs(
+                    hypoexpr, self.known_symbs + sol_consts)) == 0
+            else:
+                sol_consts = get_new_symbs(
+                    hypoexpr, self.known_symbs + sol_consts)
             self._solved[depv] = hypoexpr, sol_consts
             return True
         else:
@@ -439,7 +453,7 @@ class AnyOrderODESystem(_ODESystemBase):
         """
         helpers = {}
         for i in range(1, order):
-            candidate = self.mk_func(fnc.func.__name__ + '_h' + str(i))
+            candidate = self.mk_depv(fnc.func.__name__ + '_h' + str(i))
             while candidate in self._odeqs:
                 candidate = candidate + '_h'
             helpers[i] = candidate
@@ -482,30 +496,31 @@ class AnyOrderODESystem(_ODESystemBase):
 
 class FirstOrderODESystem(_ODESystemBase):
     """
-    This class provides an efficient interface to the manipulation
-    and export of first order ODE Systems, it is a special case in the
+    This class provides an efficient interface to the manipulation and
+    export of first order ODE Systems, it is a special case in the
     sense that it only contains first order derivatives (which is a
     requirement for the numerical treatment of ODE Systems).
 
-    The attribute `f` is given a special role. It is a simpliciation of _odeqs
-    attribute which now has a redundant order part of its (order, expr) tuples.
-    Furthermore
-    Hence, `f` is a dictionary mapping the Symbol of the dependent variable to
-    the expression of the first derivative of same dependent variable with respect
-    to the independnt variable.
+    The attribute `f` is given a special role. It is a simpliciation
+    of _odeqs attribute which now has a redundant order part of its
+    (order, expr) tuples.  Furthermore Hence, `f` is a dictionary
+    mapping the Symbol of the dependent variable to the expression of
+    the first derivative of same dependent variable with respect to
+    the independnt variable.
 
-    When the ODE systems equations is generated from user
-    data this class is to be subclassed to provide similar routines
-    of the SimpleFirstOrderODESystem which is to be used when explicitly
+    When the ODE systems equations is generated from user data this
+    class is to be subclassed to provide similar routines of the
+    SimpleFirstOrderODESystem which is to be used when explicitly
     defining an ODE System.
     """
 
     f = None
 
     _canonical_attrs = ['f', 'indepv', 'param_symbs',
-                        '_solved', 'frst_red_hlprs']
+                        '_solved', '_solved_undefined', 'frst_red_hlprs']
 
     _redundant_attrs = ['_odeqs']
+
 
     def __init__(self, odesys = None, **kwargs):
         # Using property functions makes overwriting harder therefore
@@ -562,58 +577,94 @@ class FirstOrderODESystem(_ODESystemBase):
             self.f[depv] = odeexpr.expr
 
 
-    @log_call_debug
-    def recursive_analytic_auto_sol(self):
+    def recursive_analytic_auto_sol(self, complexity=0):
         """
-        Solves equations one by one
-        (hence it can only find solutions for
-         independent equations)
+        Solves equations one by one (hence it can only find solutions
+        for independent equations)
 
-        TODO: sometimes the different solutions are valid for different
-        conditions of choosen parameters. Best way avoid this problem
-        would be to run substitute all parameter symbols for chosen numeric
-        values (see self.subs) with the obvious caveat that the ODE System
-        is significantly less flexible from that point on.
+        Input arguments:
+        -`complexity`: Positivt integer denoting the degree of complexity
+            (an arbitrary measure) to solve for:
+          0: solve only constants
+          1: try to solve only differentials in independent variable
+          2: try to solve only differentials in auto-dependent variable
+          3: try to solve only differentials in independent and/or auto-dependent
+        variables
+
+        TODO: sometimes the different solutions are valid for
+        different conditions of choosen parameters. Best way avoid
+        this problem would be to run substitute all parameter symbols
+        for chosen numeric values (see self.subs) with the obvious
+        caveat that the ODE System is significantly less flexible from
+        that point on.
         """
         changed_last_loop = True
-        # new_y = []
         while changed_last_loop:
             changed_last_loop = False
             for yi, expr in self.f.iteritems():
                 if yi in self._solved: continue
-                # Check to see if it only depends on itself
+                # Substitute solved differentials of dependent variables
                 expr = expr.subs({yi: expr for yi, (expr, sol_symbs) \
                                   in self._solved.iteritems()})
-                Jac_row_off_diag = [expr.diff(m) for m \
-                                    in self.all_depv if m != yi]
-                if all([c == 0 for c in Jac_row_off_diag]):
-                    # Attempt solution (actually: assume success)
-                    rel = sympy.Eq(yi.diff(self.indepv), expr)
-                    sol = sympy.dsolve(rel, yi)
-                    # If sol contains a Piecewise definition,
-                    # accept the default solution and store
-                    # the others as undefined cases.
-                    if sol.rhs.has(sympy.Piecewise):
-                        sol_expr, undefined_cases = get_without_piecewise(sol.rhs)
-                        self._solved_undefined.extend(undefined_cases)
-                    else:
-                        sol_expr = sol.rhs
-                    # Assign new symbol to inital value
-                    sol_expr, rea, not_rea = reassign_const(
-                        sol_expr, yi.func.__name__+'C', self.known_symbs)
-                    assert len(not_rea) == 0
-                    self._solved[yi] = sol_expr, rea
-                    changed_last_loop = True
+                if complexity == 0:
+                    Jac_row = [expr.diff(m) for m \
+                               in self.na_depv]
+                    if all([c == 0 for c in Jac_row]):
+                        # no depv in expr
+                        if not expr.has(self.indepv):
+                            # It must be a constant!
+                            self._dsolve(yi, expr)
+                            changed_last_loop = True
+
+                if complexity == 1 or complexity == 3:
+                    Jac_row = [expr.diff(m) for m \
+                               in self.na_depv]
+                    if all([c == 0 for c in Jac_row]):
+                        # no depv in expr
+                        self._dsolve(yi, expr)
+                        changed_last_loop = True
+
+                if complexity == 2 or complexity == 3:
+                    # Check to see if it only depends on itself
+                    Jac_row_off_diag = [expr.diff(m) for m \
+                                        in self.na_depv if m != yi]
+                    if all([c == 0 for c in Jac_row_off_diag]):
+                        # expr is auto-dependent
+                        self._dsolve(yi, expr)
+                        changed_last_loop = True
+
+
+
+    def _dsolve(self, yi, expr):
+        """
+        Run sympy's dsolve routine
+        """
+        # Attempt solution (actually: assume success)
+        rel = sympy.Eq(yi.diff(self.indepv), expr)
+        sol = sympy.dsolve(rel, yi)
+        # If sol contains a Piecewise definition,
+        # accept the default solution and store
+        # the others as undefined cases.
+        if sol.rhs.has(sympy.Piecewise):
+            sol_expr, undefined_cases = get_without_piecewise(sol.rhs)
+            self._solved_undefined.extend(undefined_cases)
+        else:
+            sol_expr = sol.rhs
+        # Assign new symbol to inital value
+        sol_expr, rea, not_rea = reassign_const(
+            sol_expr, yi.func.__name__+'C', self.known_symbs)
+        assert len(not_rea) == 0
+        self._solved[yi] = sol_expr, rea
 
 
     def _init_param_symbs(self):
         """
         To be subclassed (or add attribute (list): param_symbs)
 
-        should return list of sympy.symbols(``token_string'') instances
-        The order in this list defines indices in vectors and matrices
-        used by underlying numerical integration.
-        (When subclassing, sympy.symarray might be useful.)
+        should return list of sympy.symbols(``token_string'')
+        instances The order in this list defines indices in vectors
+        and matrices used by underlying numerical integration.  (When
+        subclassing, sympy.symarray might be useful.)
         """
         if self.param_symbs == None:
             self.param_symbs = []
@@ -627,122 +678,278 @@ class FirstOrderODESystem(_ODESystemBase):
         *self.init_f() must:
           set self.f to a OrderedDict with the first-order
           derivatives as values (and dependent variable sympy.Function
-          instances as keys, use mk_func to create)
+          instances as keys, use mk_depv to create)
         """
         self.f = OrderedDict()
 
 
-    def _fmat(self):
-        """
-        Convert self.f to sympy Matrix, used to generate Jacobian.
-        """
-        return sympy.Matrix(
-            1, len(self.all_depv),
-            lambda q, i: self.f[self.all_depv[i]]
-            )
+    @property
+    def analytic_subs(self):
+        return {depv: expr for depv, (expr, symbs) \
+                in self._solved.items()}
 
 
     @property
-    def non_analytic_f(self):
+    def na_f(self):
         if len(self._solved) > 0:
             return OrderedDict(
-                [(k,  self.f[k].subs({
-                    depv: expr for depv,(expr, symbs) in self._solved.items()})) for k in \
-                 self.non_analytic_depv])
+                [(k,  self.f[k].subs(self.analytic_subs)) for k in \
+                 self.na_depv])
         else:
             return self.f
 
 
     @property
-    def _non_analytic_fmat(self):
-        return sympy.Matrix(
-            1, len(self.non_analytic_depv),
-            lambda q, i: self.f[self.non_analytic_depv[i]]
+    def jac(self):
+        fmat = sympy.Matrix(
+            1, len(self.all_depv),
+            lambda q, i: self.f[self.all_depv[i]]
             )
+        return fmat.jacobian(self.all_depv)
 
 
     @property
-    def non_analytic_jac(self):
-        return self._non_analytic_fmat.jacobian(self.non_analytic_depv)
+    def na_jac(self):
+        na_fmat = sympy.Matrix(
+            1, len(self.na_depv),
+            lambda q, i: self.f[self.na_depv[i]]
+            )
+        return na_fmat.jacobian(self.na_depv).subs(self.analytic_subs)
 
 
-    def _get_all_num_subs(self, indep_val, dep_vals, param_vals):
-        indep_subs = {self.indepv: indep_val}
-        dep_subs = dict(zip(self.all_depv, dep_vals))
+    def _get_num_subs(self, depv_vals, param_vals):
+        depv_subs = dict(zip(self.na_depv, depv_vals))
         param_subs = dict(zip(self.param_symbs, param_vals))
-        all_subs = {}
-        for d in [indep_subs, dep_subs, param_subs]:
-            all_subs.update(d)
-        return all_subs
+        subs = {}
+        for d in [depv_subs, param_subs]:
+            subs.update(d)
+        return subs
 
 
     def param_val_lst(self, param_vals_by_symb):
         return [param_vals_by_symb[k] for k in self.param_symbs]
 
 
-    def dydt(self, indep_val, dep_vals, param_vals):
+    def _subs_depv_dict(self, d, indepv_val, depv_vals_d, param_vals_d):
+        """
+        Provide e.g. self.f or self.na_f as `d`.
+        See self.subs_f
+        """
+        return OrderedDict([
+            (depv, expr.subs(depv_vals_d).subs(param_vals_d).subs(
+                {self.indepv: indepv_val})) for depv, expr in \
+            d.items()])
+
+
+    def subs_f(self, indepv_val, depv_d, param_d):
+        """
+        Returns dydt (f) with substituted expressions using the input
+        values:
+
+        -`indepv_val`: scalar
+        -`depv_d`: dictionary
+        -`param_d`: dictionary
+        """
+        return self._subs_depv_dict(self.f, indepv_val, depv_d, param_d)
+
+
+    def subs_na_f(self, indepv_val, depv_d, param_d):
+        """ Same as self.subs_f, but only for the dependent variables
+        not solved analytically, and param_d now also include
+        integration constants from the analytic treatment """
+        return self._subs_depv_dict(self.na_f, indepv_val,
+                               depv_d, param_d)
+
+
+    def evaluate_f(self, indepv_val, depv_arr, param_arr,
+                   dtype=np.float64):
         """
         Convenience function for evaluating dydt (f) for
-        provided values which is used for substituting the the symbols
-        in self.indepv, self.all_depv, self._param_symbs
-        for provided values of the independent, the dependent and
-        parameter variables (with same order)
+        provided input values:
+        -`indepv_val`: scalar
+        -`depv_arr`: array of floats (ordered as self.all_depv)
+        -`param_arr`: array of floats (ordered as self.param_symbs)
 
-        Note: The signature of the function employs float point data
-              (or lists thereof) in order to be compatible with
-              e.g. scipy integrators, hence _get_all_numb_subs
+        It returs an array with the numerical value of the derivatives
+        ordered as self.all_depv
         """
-        all_subs = self._get_all_num_subs(indep_val, dep_vals,
-                                          param_vals)
-        return [x.subs(all_subs) for x in \
-                [self.f[k] for k in self.non_analytic_depv]]
+        assert len(depv_arr) == len(self.all_depv)
+        assert len(param_arr) == len(self.param_symbs)
+        return np.array(self.subs_f(
+            indepv_val,
+            dict(zip(self.all_depv, depv_arr)),
+            dict(zip(self.param_symbs, param_arr))).values(),
+                        dtype=dtype)
 
 
-    def dydt_jac(self, indep_val, dep_vals, param_vals):
+    def evaluate_na_f(self, indepv_val, depv_arr, param_arr,
+                      dtype=np.float64):
         """
-        Convenience function for evaluating jacobian of dydt for
-        provided values which is used for substituting the the symbols
-        in self.indepv, self.all_depv,
-        self._param_symbs for provided values of the independent,
-        the dependent and parameter
-        variables (provided as dictionaries)
-
-        Note: The signature of the function employs float point
-               data (or lists thereof) in order to be compatible
-               with e.g. scipy integrators, hence _get_all_numb_subs
+        Same as evaluate_f but only for dependent vairables whose
+        derivates have not been integrated analytically, and param_arr
+        should now also include integration constants.
         """
-        all_subs = self._get_all_num_subs(
-            indep_val, dep_vals, param_vals)
-        return [[cell.subs(all_subs) for cell in row] for row in \
-                self.non_analytic_jac.tolist()]
+        assert len(depv_arr) == len(self.na_depv)
+        assert len(param_arr) == len(self.param_and_sol_symbs)
+        return np.array(self.subs_na_f(
+            indepv_val,
+            dict(zip(self.na_depv, depv_arr)),
+            dict(zip(self.param_and_sol_symbs, param_arr))).values(),
+                        dtype=dtype)
 
 
-    def d2ydt2(self, indep_val, dep_vals, param_vals):
+    def _subs_list_of_lists(self, ll, indepv_val, depv_d, param_d):
+        return [[cell.subs(param_d).subs(depv_d).subs(
+            {self.indepv: indepv_val}) for \
+                 cell in row] for row in ll]
+
+
+    def subs_jac(self, indepv_val, depv_d, param_d):
         """
-        Convenience function for evaluating d2ydt2 (f) for
-        provided values which is used for substituting the the symbols
-        in self.indepv, self.all_depv,
-        self._param_symbs for provided values of the independent,
-        the dependent and parameter variables (provided as dictionaries
+        Returns the Jacobian dfdy (f === dydt) with substituted
+        expressions using the input values:
 
-        Note: The signature of the function employs float point
-        data (or lists thereof) in order to be compatible with
-        e.g. scipy integrators, hence _get_all_numb_subs
+        -`indepv_val`: scalar
+        -`depv_d`: dictionary
+        -`param_d`: dictionary
         """
-        f = {k.diff(self.indepv): v for k, v in \
+        return self._subs_list_of_lists(self.jac.tolist(),
+                                        indepv_val, depv_d, param_d)
+
+
+    def subs_na_jac(self, indepv_val, depv_d, param_d):
+        return self._subs_list_of_lists(self.na_jac.tolist(),
+                                        indepv_val, depv_d, param_d)
+
+
+    def evaluate_jac(self, indepv_val, depv_arr, param_arr,
+                     dtype=np.float64):
+        """
+        Convenience function for evaluating the Jacobian dfdy
+        (f === dydt) for provided input values:
+        -`indepv_val`: scalar
+        -`depv_arr`: array of floats (ordered as self.all_depv)
+        -`param_arr`: array of floats (ordered as self.param_symbs)
+
+        It returs an rank 2 array with the numerical value of the
+        Jacobian elements ordered as self.all_depv
+        """
+        assert len(depv_arr) == len(self.all_depv)
+        assert len(param_arr) == len(self.param_symbs)
+        return np.array(self.subs_jac(
+            indepv_val,
+            dict(zip(self.all_depv, depv_arr)),
+            dict(zip(self.param_symbs, param_arr))),
+                        dtype=dtype)
+
+
+    def evaluate_na_jac(self, indepv_val, depv_arr, param_arr,
+                        dtype=np.float64):
+        assert len(depv_arr) == len(self.na_depv)
+        assert len(param_arr) == len(self.param_and_sol_symbs)
+        return np.array(self.subs_na_jac(
+            indepv_val,
+            dict(zip(self.na_depv, depv_arr)),
+            dict(zip(self.param_and_sol_symbs, param_arr))),
+                        dtype=dtype)
+
+
+    @property
+    def dfdt(self):
+        f_subs = {k.diff(self.indepv): v for k, v in \
              self.f.iteritems()}
-        dfdt_lst = [self.f[y].diff(self.indepv).subs(f) for \
-                    y in self.non_analytic_depv]
-        all_num_subs = self._get_all_num_subs(
-            indep_val, dep_vals, param_vals)
-        return [dfdt.subs(all_num_subs) for dfdt in dfdt_lst]
+        return OrderedDict([
+            (y, self.unfunc_depv(self.f[y]).diff(self.indepv).subs(f_subs)) for \
+                    y in self.all_depv])
 
 
-    def is_stiff(self, indep_val, dep_vals, param_vals, indep_val_end, criteria=100):
+    @property
+    def na_dfdt(self):
+        na_f_subs = {k.diff(self.indepv): v for k, v in \
+                     self.na_f.iteritems()}
+        return OrderedDict([
+            (y, self.unfunc_depv(self.na_f[y]).diff(self.indepv).subs(na_f_subs)) for \
+                y in self.na_depv])
+
+
+    def subs_dfdt(self, indepv_val, depv_d, param_d):
+        """
+        Returns dfdt (d2ydt2) with substituted expressions using the input
+        values:
+
+        -`indepv_val`: scalar
+        -`depv_d`: dictionary
+        -`param_d`: dictionary
+        """
+        return self._subs_depv_dict(self.dfdt, indepv_val, depv_d, param_d)
+
+
+    def subs_na_dfdt(self, indepv_val, depv_d, param_d):
+        """ Same as self.subs_dfdt, but only for the dependent variables
+        not solved analytically, and param_d now also include
+        integration constants from the analytic treatment """
+        return self._subs_depv_dict(self.na_dfdt, indepv_val,
+                                    depv_d, param_d)
+
+
+    def evaluate_dfdt(self, indepv_val, depv_arr, param_arr,
+                      dtype=np.float64):
+        """
+        Convenience function for evaluating dfdt (d2ydt2) for
+        provided input values:
+        -`indepv_val`: scalar
+        -`depv_arr`: array of floats (ordered as self.all_depv)
+        -`param_arr`: array of floats (ordered as self.param_symbs)
+
+        It returs an array with the numerical value of the derivatives
+        ordered as self.all_depv
+        """
+        assert len(depv_arr) == len(self.all_depv)
+        assert len(param_arr) == len(self.param_symbs)
+        return np.array(self.subs_dfdt(
+            indepv_val,
+            dict(zip(self.all_depv, depv_arr)),
+            dict(zip(self.param_symbs, param_arr))).values(),
+                        dtype=dtype
+        )
+
+
+    def evaluate_na_dfdt(self, indepv_val, depv_arr, param_arr,
+                         dtype=np.float64):
+        """
+        Same as evaluate_dfdt but only for dependent vairables whose
+        derivates have not been integrated analytically, and param_arr
+        should now also include integration constants.
+        """
+        assert len(depv_arr) == len(self.na_depv)
+        assert len(param_arr) == len(self.param_and_sol_symbs)
+        return np.array(self.subs_na_dfdt(
+            indepv_val,
+            dict(zip(self.na_depv, depv_arr)),
+            dict(zip(self.param_and_sol_symbs, param_arr))).values(),
+                        dtype=dtype)
+
+
+    def evaluate_d2ydt2(self, indepv_val, depv_arr, param_arr,
+                        dtype=np.float64):
+        return np.dot(self.evaluate_jac(indepv_val, depv_arr, param_arr, dtype),
+                      self.evaluate_f(indepv_val, depv_arr, param_arr, dtype)) +\
+            self.evaluate_dfdt(indepv_val, depv_arr, param_arr, dtype)
+
+
+    def evaluate_na_d2ydt2(self, indepv_val, depv_arr, param_arr,
+                        dtype=np.float64):
+        return np.dot(self.evaluate_na_jac(indepv_val, depv_arr, param_arr, dtype),
+                      self.evaluate_na_f(indepv_val, depv_arr, param_arr, dtype)) +\
+            self.evaluate_na_dfdt(indepv_val, depv_arr, param_arr, dtype)
+
+
+    def is_stiff(self, indepv_val, depv_vals, param_vals,
+                 indepv_val_end, criteria=100):
         """
         TODO: Add reference to definition of stiffness
         """
-        num_jac = self.dydt_jac(indep_val, dep_vals, param_vals)
+        num_jac = self.dydt_jac(indepv_val, depv_vals, param_vals)
         eigen_values = scipy.linalg.eigvals(num_jac)
         mineigen = np.min(eigenvalues)
         tspan = tend-t0
@@ -771,15 +978,17 @@ class FirstOrderODESystem(_ODESystemBase):
                     break
             assert used
 
-        eqsd = {eq.lhs: eq.rhs for eq in self.eqs} # d/dt(old): expr_in_old
+        # d/dt(old): expr_in_old
+        eqsd = {eq.lhs: eq.rhs for eq in self.eqs}
         new_solved = {}
         for new_depv, rel_in_old in trnsfm.iteritems():
             # First use our expressions for solved variables
             rel_in_old = rel_in_old.subs(dict(zip(
                 self.analytic_depv, self.analytic_relations)))
-            expr_in_old = rel_in_old.diff(self.indepv) # what does the derivatives look like?
+            # what does the derivatives look like?
+            expr_in_old = rel_in_old.diff(self.indepv)
             analytic = True
-            for depv in self.non_analytic_depv:
+            for depv in self.na_depv:
                 if expr_in_old.has(depv.diff(self.indepv)):
                     analytic = False
                     break
@@ -787,36 +996,41 @@ class FirstOrderODESystem(_ODESystemBase):
                 # This expression is known analytically
                 new_solved[new_depv] = rel_in_old.subs(inv_trnsfm)
             else:
-                # Ok, so it is interconnected to non-analytic dependent variables
-                expr_in_old = expr_in_old.subs(eqsd) # df/dt -> x**2+x+...
-                expr_in_new = expr_in_old.subs(inv_trnsfm) # put the new variables in place
+                # Ok, so it is interconnected to non-analytic ,
+                # dependent variables
+                # df/dt -> x**2+x+...
+                expr_in_old = expr_in_old.subs(eqsd)
+
+                # put the new variables in place
+                expr_in_new = expr_in_old.subs(inv_trnsfm)
                 new_f[new_depv] = expr_in_new
 
-        new_instance = self.__class__(self, f=new_f, _solved=new_solved)
+        new_instance = self.__class__(self, f=new_f,
+                                      _solved=new_solved)
         return new_instance
 
 
-    def transform_indep(self, new_indep_symb, expr_in_old_indep):
+    def transform_indepv(self, new_indepv_symb, expr_in_old_indepv):
         new_f = OrderedDict()
         for depv, old_expr in self.f.iteritems():
             new_expr = old_expr / \
-                       sympy.diff(expr_in_old_indep, self.indepv)
+                       sympy.diff(expr_in_old_indepv, self.indepv)
             new_expr = new_expr.subs({self.indepv: sympy.solve(
-                new_expr - new_indep_symb, self.indepv)[0]})
-            new_expr = new_expr.subs({expr_in_old_indep: new_indep_symb})
+                new_expr - new_indepv_symb, self.indepv)[0]})
+            new_expr = new_expr.subs({expr_in_old_indepv: new_indepv_symb})
             new_f[depv] = new_expr
 
         # Handle solved:
         new_solved = {}
         for depv, (old_expr, sol_symbs) in self._solved.iteritems():
-            new_expr = old_expr / sympy.diff(expr_in_old_indep,
+            new_expr = old_expr / sympy.diff(expr_in_old_indepv,
                                              self.indepv, order)
             new_expr = new_expr.subs({self.indepv: sympy.solve(
-                new_expr - new_indep_symb, self.indepv)[0]})
-            new_expr = new_expr.subs({expr_in_old_indep: new_indep_symb})
+                new_expr - new_indepv_symb, self.indepv)[0]})
+            new_expr = new_expr.subs({expr_in_old_indepv: new_indepv_symb})
             new_solved[depv] = new_expr, sol_symbs
         return self.__class__(self, f=new_f, _solved=new_solved,
-                              indepv=new_indep_symb)
+                              indepv=new_indepv_symb)
 
 
 class SimpleFirstOrderODESystem(FirstOrderODESystem):
@@ -830,16 +1044,16 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
     symbol instances of parent class.
     """
 
-    indepv = sympy.symbols('t') # ODE implies 1 indep. variable
+    indepv = sympy.symbols('t') # ODE implies 1 independent variable
 
     # The following must be provided in this "Simple" subclass
     # (string reprs instead of sympy.symbols)
-    dep_var_tokens = None
+    depv_tokens = None
     param_tokens = None
     expressions = None
 
     # Overwrite title for use in e.g. plots
-    title = 'System of ordinary differential equations'
+    title = None
 
 
     def __init__(self, *args, **kwargs):
@@ -851,9 +1065,9 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
         # First we need to set the keys (needed when self.expressions()
         # makes look-ups)
         self.f = OrderedDict(
-            [(self.mk_func(tok), None) for\
-                              tok in self.dep_var_tokens])
-        for tok in self.dep_var_tokens:
+            [(self.mk_depv(tok), None) for\
+                              tok in self.depv_tokens])
+        for tok in self.depv_tokens:
             self.f[self[tok]] = self.expressions[self[tok]]
 
 
@@ -863,8 +1077,6 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
 
 
     def _init_param_symbs(self):
-        # The assert is there to signal need to subclass if using
-        # SimpleFirstOrderODESystem
         if self.param_symbs == None:
-            self.param_symbs = [sympy.Symbol(k, real=self.real) for k in\
-                                self.param_tokens]
+            self.param_symbs = [self.mk_symb(k) for k \
+                                in self.param_tokens]

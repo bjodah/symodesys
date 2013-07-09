@@ -3,8 +3,10 @@ import sys
 from collections import OrderedDict
 from itertools import product
 
-from symodesys.odesys import _ODESystemBase, FirstOrderODESystem, SimpleFirstOrderODESystem, AnyOrderODESystem
+import numpy as np
 
+from symodesys.odesys import (
+    _ODESystemBase, FirstOrderODESystem, SimpleFirstOrderODESystem, AnyOrderODESystem)
 
 
 def test_AnyOrderODESystem___1():
@@ -24,14 +26,13 @@ def test_AnyOrderODESystem___1():
     new_odesys = odesys.reduce_to_sys_of_first_order()
 
     #sympy.pprint(new_odesys.eqs)
-
     # TODO: add assert statements
 
 
 def test_SimpleFirstOrderODESystem___1():
     class Decay(SimpleFirstOrderODESystem):
         real = True
-        dep_var_tokens = 'u',
+        depv_tokens = 'u',
         param_tokens   = 'lambda_u',
 
         @property
@@ -39,10 +40,9 @@ def test_SimpleFirstOrderODESystem___1():
             return {self['u']: self['lambda_u'] * -self['u']}
 
     d=Decay()
-
-    s = d.mk_func('s')
+    s = d.mk_depv('s')
     assert s.is_real
-    assert d.mk_func('s') == s # <--- Needed by variable substitution dict lookups
+    assert d.mk_depv('s') == s # <--- Needed by variable substitution dict lookups
 
 
 def _mk_decay_chain_system(n):
@@ -57,6 +57,7 @@ def _mk_decay_chain_system(n):
         f = OrderedDict([(x[i], b[i]-d[i]) for i in range(n)])
 
     return DecayChain()
+
 
 def test__ODESysBase___1():
     pass
@@ -74,13 +75,11 @@ def test_FirstOrderODESystem___1():
     b = [0]+[x[i-1]*l[i-1] for i in range(1,n)] # birth rate
     exprs = [b[i]-d[i] for i in range(n)]
 
-    # _ODESystemBase
-    #   __getitem__
     assert dc['x0'] == x[0]
     assert dc['x1'] == x[1]
     assert dc['x2'] == x[2]
     assert dc.all_depv == x
-    assert dc.non_analytic_depv == x
+    assert dc.na_depv == x
     assert dc.analytic_depv == []
     assert dc.analytic_relations == []
     assert dc.param_symbs == l
@@ -93,15 +92,37 @@ def test_FirstOrderODESystem___1():
     x_ = [sympy.Symbol('x'+str(i), real=True) for i in range(n)]
     assert dc.forbidden_symbs == [t]+x+l+x_
 
-    # FirstOrderODESystem specific
     assert dc._odeqs == OrderedDict([
         (x[i], (1, exprs[i])) for i in range(n)])
     assert all([dc.f[k] == exprs[i] for i,k in enumerate(dc.all_depv)])
 
-    assert dc._fmat() == sympy.Matrix(1,3, lambda q, i: b[i]-d[i])
+    # Numeric evaluation
+    num_t0 = 13.0
+    num_x0 = [2.0, 3.0, 5.0]
+    num_l = [7.0, 11.0]
 
+    assert np.allclose(dc.evaluate_f(num_t0, num_x0, num_l), np.array(
+        [-2.0*7.0, 2.0*7.0 - 3.0*11.0, 3.0*11.0]))
+    assert np.allclose(dc.evaluate_na_f(num_t0, num_x0, num_l), np.array(
+        [-2.0*7.0, 2.0*7.0 - 3.0*11.0, 3.0*11.0]))
 
-    # _ODESystemBase
+    ref_jac = np.array(
+        [[-7.0,   0.0, 0.0],
+         [ 7.0, -11.0, 0.0],
+         [ 0.0,  11.0, 0.0]])
+    assert np.allclose(dc.evaluate_jac(num_t0, num_x0, num_l), ref_jac)
+    assert np.allclose(dc.evaluate_na_jac(num_t0, num_x0, num_l), ref_jac)
+
+    assert np.allclose(dc.evaluate_dfdt(num_t0, num_x0, num_l), np.zeros(3))
+    assert np.allclose(dc.evaluate_na_dfdt(num_t0, num_x0, num_l), np.zeros(3))
+
+    ref_d2ydt2 = np.array(
+        [-7.0*-2.0*7.0,
+         7.0*-2.0*7.0 - 11.0*(2.0*7.0 - 3.0*11.0),
+         11.0*(2.0*7.0 - 3.0*11.0)])
+    assert np.allclose(dc.evaluate_d2ydt2(num_t0, num_x0, num_l), ref_d2ydt2)
+    assert np.allclose(dc.evaluate_na_d2ydt2(num_t0, num_x0, num_l), ref_d2ydt2)
+
     y  = [sympy.Function('y'+str(i))(t) for i in range(n)]
     y_ = [sympy.Symbol('y'+str(i), real=True) for i in range(n)]
     dcy = dc.transform_depv(OrderedDict(zip(y,x)),
@@ -117,17 +138,25 @@ def test_FirstOrderODESystem___1():
     assert map(dcy.unfunc_depv, y) == y_
     dcy._do_sanity_check_of_odeqs()
     assert dcy.from_list_of_eqs(dcy.eqs).f == dcy.f
+
+    assert dcy.is_linear
+    ref_jac = sympy.Matrix(
+        3,3, lambda i,j: (by[i]-dy[i]).diff(dcy.na_depv[j]))
+    assert dcy.jac == ref_jac
+    assert dcy.na_jac == ref_jac
+    assert dcy.na_f == dcy.f
+    assert dcy.na_dfdt == dcy.dfdt
     C0 = sympy.Symbol('C0')
+    # attempt_analytic_sol is NOT idempotent
     assert dcy.attempt_analytic_sol(y[0], C0*sympy.exp(-l[0]*t), [C0])
+    assert dcy.na_f != dcy.f
+    assert dcy.na_jac != ref_jac
+    assert dcy.na_dfdt != dcy.dfdt
+
     C1 = sympy.Symbol('C1')
     assert not dcy.attempt_analytic_sol(y[1], C1*sympy.exp(-l[1]*t), [C1])
 
-    # FirstOrderODESystem specific
-    assert dcy.is_linear
-    assert dcy._fmat() == sympy.Matrix(1,3, lambda q, i: by[i]-dy[i])
-    assert dcy.non_analytic_f == dcy.f
-    assert dcy.non_analytic_jac == sympy.Matrix(
-        3,3, lambda i,j: (by[i]-dy[i]).diff(dcy.non_analytic_depv[j]))
+
 
 def test_FirstOrderODESystem___2():
     """ Tests recursive_analytic_auto_sol """
@@ -136,7 +165,7 @@ def test_FirstOrderODESystem___2():
     dc.recursive_analytic_auto_sol()
 
     assert len(dc.analytic_depv) == 3
-    assert len(dc.non_analytic_depv) == 0
+    assert len(dc.na_depv) == 0
     assert len(dc.param_and_sol_symbs) == 5
 
     l = list(sympy.symbols('l:2')) # Decay prob. coefficient

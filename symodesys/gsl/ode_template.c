@@ -3,9 +3,6 @@
 #include <math.h>
 
 // Python Mako template of C file
-// Variables: f, cse_func
-// Variables: jac, dfdt, NY, cse_jac
-// CSE tokens: cse%d
 
 
 int
@@ -56,11 +53,10 @@ jac (double t, const double y[], double *dfdy, double dfdt[], void *params)
     gsl_matrix_set (m, ${i}, ${j}, ${expr});
 % endfor
 
-
   /*
     Populate the array dfdt of length NY
    */
-% for i, expr in dfdt:
+% for i, expr in enumerate(dfdt):
   dfdt[${i}] = ${expr};
 % endfor
 

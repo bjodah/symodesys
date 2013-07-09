@@ -92,7 +92,7 @@ class Mpmath_IVP_Integrator(IVP_Integrator):
         self.nderiv = nderiv or self.nderiv
         y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
         param_val_lst = self._fo_odesys.param_val_lst(param_vals)
-        cb = lambda x, y: self._fo_odesys.dydt(x, y, param_val_lst)
+        cb = lambda x, y: self._fo_odesys.evaluate_na_f(x, y, param_val_lst)
         self._num_y = sympy.mpmath.odefun(cb, t0, y0_val_lst, tol = abstol)
         if N > 0:
             # Fixed stepsize
@@ -104,10 +104,10 @@ class Mpmath_IVP_Integrator(IVP_Integrator):
                     self.Yout[i, :, 0] = self._num_y(self.tout[i])
 
                 if self.nderiv > 0:
-                    self.Yout[i, :, 1] = self._fo_odesys.dydt(
+                    self.Yout[i, :, 1] = self._fo_odesys.evaluate_na_f(
                         self.tout[i], self.Yout[i, :, 0], param_val_lst)
                 if self.nderiv > 1:
-                    self.Yout[i, :, 2] = self._fo_odesys.d2ydt2(
+                    self.Yout[i, :, 2] = self._fo_odesys.evaluate_d2ydt2(
                         self.tout[i], self.Yout[i, :, 0], param_val_lst)
 
         else:
@@ -130,7 +130,7 @@ class SciPy_IVP_Integrator(IVP_Integrator):
     def set_fo_odesys(self, fo_odesys):
         super(SciPy_IVP_Integrator, self).set_fo_odesys(fo_odesys)
         from scipy.integrate import ode
-        self._r = ode(self._fo_odesys.dydt, self._fo_odesys.dydt_jac)
+        self._r = ode(self._fo_odesys.evaluate_na_f, self._fo_odesys.evaluate_na_jac)
 
     def run(self, y0, t0, tend, param_vals,
                   N, abstol=None, reltol=None, h=None,
@@ -152,10 +152,10 @@ class SciPy_IVP_Integrator(IVP_Integrator):
                     self.Yout[i, :, 0] = self._r.integrate(self.tout[i])
 
                 if self.nderiv > 0:
-                    self.Yout[i, :, 1] = self._fo_odesys.dydt(
+                    self.Yout[i, :, 1] = self._fo_odesys.evaluate_na_f(
                         self.tout[i], self.Yout[i, :, 0], param_val_lst)
                 if self.nderiv > 1:
-                    self.Yout[i, :, 2] = self._fo_odesys.d2ydt2(
+                    self.Yout[i, :, 2] = self._fo_odesys.evaluate_d2ydt2(
                         self.tout[i], self.Yout[i, :, 0], param_val_lst)
                 assert self._r.successful()
         else:
@@ -172,10 +172,10 @@ class SciPy_IVP_Integrator(IVP_Integrator):
             while keep_going:
                 keep_going = self._r.t < tend
                 if self.nderiv > 0:
-                    dyout.append(self._fo_odesys.dydt(
+                    dyout.append(self._fo_odesys.evaluate_na_f(
                         self._r.t, self._r.y, param_val_lst))
                 if self.nderiv > 1:
-                    ddyout.append(self._fo_odesys.d2ydt2(
+                    ddyout.append(self._fo_odesys.evaluate_d2ydt2(
                         self._r.t, self._r.y, param_val_lst))
                 self._r.integrate(tend, step=True)
                 yout.append(self._r.y)

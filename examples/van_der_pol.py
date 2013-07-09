@@ -9,7 +9,7 @@ from symodesys.ivp import IVP
 
 class VanDerPolOscillator(SimpleFirstOrderODESystem):
 
-    dep_var_tokens = 'u v'.split()
+    depv_tokens = 'u v'.split()
     param_tokens = 'mu',
 
     @property

@@ -5,6 +5,7 @@
 import os
 import sys
 import pickle
+import logging
 from functools import wraps
 from collections import OrderedDict # for OrderedDefaultdict
 from hashlib import md5
@@ -53,9 +54,18 @@ def subs_set(s, subsd):
     t = s.copy()
     for k, v in subsd.iteritems():
         if k in s:
-            s.remove(k)
-            s.add(v)
+            t.remove(k)
+            t.add(v)
     return t
+
+
+def log_call_debug(func):
+    from functools import wraps
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        logging.debug(func.__name__ + ' called.')
+        return func(*args, **kwargs)
+    return wrapper
 
 
 class OrderedDefaultdict(OrderedDict):

@@ -43,21 +43,15 @@ integrate_fixed_step (double t, double t1, double * y, int n_steps,
 		      int nderiv, double * tout, double * Yout, int step_type_idx)
 {
   /* Nderiv can be 0, 1 or 2 */
-  size_t i; /* Counter in macro-step loop */
-  size_t j; /* Counter in print loop */
-  size_t k; /* Counter in dfdy loop */
   double temp;
-  int status;
+  int status = -1;
   double ti;
   double dt = (t1-t)/(double)(n_steps-1);
-  /* gsl_odeiv2_step_type * T = gsl_odeiv2_step_msbdf; */
   gsl_odeiv2_step * s = gsl_odeiv2_step_alloc (get_step_type(step_type_idx), dim);
-  /* gsl_odeiv2_control * c = gsl_odeiv2_control_y_new (eps_abs, eps_rel); */
-  /* gsl_odeiv2_evolve * e = gsl_odeiv2_evolve_alloc (dim); */
-
   gsl_odeiv2_system sys = {func, jac, dim, params};
 
-  gsl_odeiv2_driver * d = gsl_odeiv2_driver_alloc_y_new(&sys, gsl_odeiv2_step_msbdf, h_init, eps_abs, eps_rel);
+  gsl_odeiv2_driver * d = gsl_odeiv2_driver_alloc_y_new(&sys, gsl_odeiv2_step_msbdf,
+							h_init, eps_abs, eps_rel);
   gsl_odeiv2_step_set_driver(s, d);
 
   gsl_block * f = gsl_block_calloc(dim);
@@ -69,32 +63,28 @@ integrate_fixed_step (double t, double t1, double * y, int n_steps,
       gsl_odeiv2_driver_set_hmax(d, h_max);
     }
 
-  for (i = 0; i < n_steps; ++i)
-    {
+  for (int i = 0; i < n_steps; ++i){
       tout[i] = t;
       if (nderiv > 0)
         func(t, y, f->data, params);
       if (nderiv > 1)
         jac(t, y, dfdy->data, dfdt->data, params);
 
-      for (j = 0; j < dim; ++j)
-        {
+      for (size_t j = 0; j < dim; ++j){
           Yout[i*dim*(nderiv+1)+j*(nderiv+1)+0] = y[j];
           if (nderiv > 0)
             Yout[i*dim*(nderiv+1)+j*(nderiv+1)+1] = f->data[j];
-          if (nderiv > 1)
-            {
-              temp = 0;
-              for (k=0; k<dim; ++k)
-                {
-                  temp += gsl_matrix_get(dfdy, j, k)*f->data[k];
-                }
-              Yout[i*dim*(nderiv+1)+j*(nderiv+1)+2] = dfdt->data[j]+temp;
-            }
+          if (nderiv > 1){
+	    // calculate the second derivative (for later interpolation)
+	    temp = 0;
+	    for (size_t k=0; k<dim; ++k){
+	      temp += gsl_matrix_get(dfdy, j, k)*(f->data[k]);
+	    }
+	    Yout[i*dim*(nderiv+1)+j*(nderiv+1)+2] = dfdt->data[j]+temp;
+	  }
         }
       /* Macro-step loop */
       ti = t + dt;//*(i+1);
-      printf("%.3f", ti);
       status = gsl_odeiv2_driver_apply (d, &t, ti, y);
 
       if (status != GSL_SUCCESS)
@@ -115,12 +105,11 @@ integrate_fixed_step (double t, double t1, double * y, int n_steps,
 
 int
 integrate_fixed_step_print(double t, double t1, double * y, int n_steps,
-                                            double h_init, double h_max, double eps_abs,
-                                            double eps_rel, void *params, size_t dim, int nderiv,
-					    int step_type_idx)
+			   double h_init, double h_max, double eps_abs,
+			   double eps_rel, void *params, size_t dim, int nderiv,
+			   int step_type_idx)
 {
   int status;
-  int i,j,k;
   double * tout;
   double * Yout;
 
@@ -135,7 +124,7 @@ integrate_fixed_step_print(double t, double t1, double * y, int n_steps,
       return status;
     }
 
-  for (i = 0; i < n_steps; ++i)
+  for (int i = 0; i < n_steps; ++i)
     {
       print_state(tout[i], dim, nderiv, i, Yout);
     }
@@ -145,13 +134,13 @@ integrate_fixed_step_print(double t, double t1, double * y, int n_steps,
   return status;
 }
 
-int print_state(double t, size_t dim, int nderiv, size_t idx, double * yout){
-  printf(STRINGIFY(PRECISION), t);
-  for (j = 0; j < dim; ++j)
+void print_state(double t, size_t dim, int nderiv, size_t idx, double * yout){
+  printf(" " STRINGIFY(PRECISION), t);
+  for (size_t j = 0; j < dim; ++j)
     {
-      for (k = 0; k<=nderiv; ++k)
+      for (int k = 0; k<=nderiv; ++k)
 	{
-	  printf(" " STRINGIFY(PRECISION), yout[i*dim*(nderiv+1)+j*(nderiv+1)+k]);
+	  printf(" " STRINGIFY(PRECISION), yout[idx*dim*(nderiv+1)+j*(nderiv+1)+k]);
 	}
     }
   printf("\n");  

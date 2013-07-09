@@ -9,15 +9,17 @@ def main(cwd, logger):
 
     f = 'drivers.c'
     fpath = os.path.join(cwd, f)
-    dst = 'prebuilt/drivers.o'
+    dst = os.path.join(cwd, 'prebuilt/drivers.o')
     if missing_or_other_newer(dst, f):
         runner = CCompilerRunner(
             [fpath], dst, run_linker=False,
             flags=['-DGSL_RANGE_CHECK_OFF', '-DHAVE_INLINE'],
-            cwd=cwd, options=['pic', 'warn', 'fast'],
+            cwd=cwd, options=['pic', 'warn', 'fast', 'c99'],
             preferred_vendor='gnu', metadir='prebuilt/',
             logger=logger)
-        os.unlink(dst) # make sure failed compilation kills the party..
+        if os.path.exists(dst):
+            # make sure failed compilation kills the party..
+            os.unlink(dst)
         runner.run()
     else:
         logger.info("{} newer than {}, did not recompile.".format(dst, fpath))

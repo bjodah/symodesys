@@ -10,8 +10,10 @@ There is a bug in GSL driver which produces different results on different runs,
 is not due to not assigning zero to elements of dydt in jac() (established). The
 reason is currently unknown..
 
+Automatically solve constant expressions from IVP - avoids singular Jacobian
+
 
 Long-term:
 ==========
 DAE functionality
-
+Support uncertainties as parameter inputs

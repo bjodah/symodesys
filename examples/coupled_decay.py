@@ -20,7 +20,7 @@ class CoupledDecay(SimpleFirstOrderODESystem):
 
     # Following two lines are optional but useful for
     # automatic labeling when plotting:
-    dep_var_tokens = 'u v w'.split()
+    depv_tokens = 'u v w'.split()
     param_tokens   = 'lambda_u lambda_v lambda_w'.split()
 
     @property

@@ -17,8 +17,8 @@ from matplotlib.collections import PolyCollection
 # Project internal imports
 from symodesys.odesys import SimpleFirstOrderODESystem
 from symodesys.ivp import IVP
-#from symodesys.odepack import LSODES_IVP_Integrator as Binary_IVP_Integrator
-from symodesys.gsl import GSL_IVP_Integrator as Binary_IVP_Integrator
+#from symodesys.odepack import LSODES_IVP_Integrator as Integrator
+from symodesys.gsl import GSL_IVP_Integrator as Integrator
 
 """
 This example illustrates the need of symodesys
@@ -37,7 +37,7 @@ class BirthDeathSystem(SimpleFirstOrderODESystem):
         """
         Makes an instance of provided `dim`
         """
-        cls.dep_var_tokens = ['y{}'.format(i) for i in range(dim)]
+        cls.depv_tokens = ['y{}'.format(i) for i in range(dim)]
         cls.param_tokens   = ['l{}'.format(i) for i in range(dim)]
         cls.dim = dim
         return cls()
@@ -47,7 +47,7 @@ class BirthDeathSystem(SimpleFirstOrderODESystem):
         y = [self['y{}'.format(i)] for i in range(self.dim)]
         l = [self['l{}'.format(i)] for i in range(self.dim)]
         first =  (y[0], -l[0]*y[0])
-        last  = (y[self.dim-1], l[self.dim-2]*y[self.dim-1])
+        last  = (y[self.dim-1], l[self.dim-2]*y[self.dim-2])
         return OrderedDict([first] + [
             (y[i], y[i-1]*l[i-1]-y[i]*l[i]) for \
             i in range(1,self.dim-1)
@@ -87,22 +87,24 @@ def get_transformed_ivp(n):
     bd = BirthDeathSystem.mk_of_dim(n)
     print("Original system:")
     print('\n'.join([str(x) for x in bd.eqs]))
-    y0 = {'y{}'.format(i): (n-i)*1.0 for i in range(n)}
-    params = {'l{}'.format(i): (n-i)/10.0 for i in range(n)}
+    y0 = {'y{}'.format(i): (n-i+1)*1.0 for i in range(n)}
+    params = {'l{}'.format(i): (n-i+1)/n for i in range(n)}
     t0, tend, N = 0, 15.0, 500
-    ivp = IVP(bd, y0, params, t0, integrator=Binary_IVP_Integrator(save_temp=True, tempdir='tmp/'))
+    ivp = IVP(bd, y0, params, t0,
+              integrator=Integrator(save_temp=True, tempdir='tmp/'))
     trnsfm, inv_trnsfm = OrderedDict(), OrderedDict()
     for i in range(n):
         # Generate the transform (incl. inverse)
-        lny = ivp.mk_depv_symbol('lny{}'.format(i))
+        lny = ivp.fo_odesys.mk_depv('lny{}'.format(i))
         y = bd['y{}'.format(i)]
         trnsfm[lny] = sympy.log(y)
         inv_trnsfm[y] = sympy.exp(lny)
     # Apply the transform
     ivp2 = ivp.use_internal_depv_trnsfm(trnsfm, inv_trnsfm)
+    ivp2.recursive_analytic_reduction(complexity=0) #solve constants
     print("Transformed:")
-    print('\n'.join([str(x) for x in ivp2._fo_odesys.eqs]))
-    ivp2.integrate(tend, N)
+    print('\n'.join([str(x) for x in ivp2.fo_odesys.eqs]))
+    ivp2.integrate(tend, N, step_type='bsimp')
     return ivp2
 
 
@@ -117,4 +119,4 @@ def main(n):
     #ivp.clean()
 
 if __name__ == '__main__':
-    main(10)
+    main(5)

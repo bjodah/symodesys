@@ -1,18 +1,21 @@
-! Template for generating Fortran 90 code to wrapped using Cython for calling lsodes from python.
-! mako template variables: NY, NNZ, IA, JA
+! Template for generating Fortran 90 code for calling lsodes from python (cython).
 module lsodes_bdf
-use types, only: dp ! dp === double precision
-use ode, only: func, jac, d2ydt2, neq, nnz, nparams, ia, ja ! callbacks for calculating func and jac (generated from templates)
+! ode: callbacks for calculating func and jac (generated from templates)
+use ode, only: func, jac, d2ydt2, neq, nnz, nparams, ia, ja 
+use iso_c_binding, only: c_double, c_int
 implicit none
-
+integer, parameter :: dp = c_double ! c_double is so many characters...
 private
-public integrate
+public lsodes_bdf_integrate
 
 contains
 
-subroutine integrate(y, t0, tend, atol, rtol, nt, h_init, h_max, nderiv, yres, tres)
+subroutine lsodes_bdf_integrate(y, t0, tend, atol, rtol, nt, &
+     h_init, h_max, nderiv, yres, tres) bind(c)
   ! This template is for BDF (5th order) with analytic Jac provided as callback
-  integer, parameter :: mf=121, maxord=5 ! method flag, this means: MOSS=1, METH=2, MITER=1
+
+  ! mf: method flag, this means: MOSS=1, METH=2, MITER=1
+  integer, parameter :: mf=121, maxord=5 
   ! MOSS=1: user supplied JAC (generated symbolically)
   ! METH=2: Backward Differentiation Formulas (stiff), this implies maxord 5
   ! MITER=1: chord iteration with a user-supplied sparse Jac, given by sub JAC
@@ -22,19 +25,20 @@ subroutine integrate(y, t0, tend, atol, rtol, nt, h_init, h_max, nderiv, yres, t
   integer :: i, iwork(liw) ! MOSS=0 and MITER=1 or 2
 
   ! Define rwork length
-  integer, parameter :: lenrat = 2 !hardcoded (x64): sizeof(dp)/sizeof(integer)
+  integer, parameter :: lenrat = 2 !hardcoded (x64): sizeof(c_double)/sizeof(integer)
   integer, parameter :: lwm = 2*nnz + 2*neq + (nnz+9*neq)/lenrat
   integer, parameter :: safety_factor = 2
-  integer, parameter :: lrw=(20+9*neq+lwm)*safety_factor ! minimum len(rwork), formula for mf=121
+  ! lrw: minimum len(rwork), formula for mf=121
+  integer, parameter :: lrw=(20+9*neq+lwm)*safety_factor 
   real(dp) :: rwork(lrw)
 
   ! Define input variables
-  real(dp), intent(in) :: y(neq+nparams) ! params are stored in end of y
-  real(dp), intent(in) :: t0, tend, atol, rtol, h_init, h_max
-  integer, intent(in) :: nt
-  integer, intent(in) :: nderiv
-  real(dp), intent(inout) :: yres(:, :, :)
-  real(dp), intent(inout) :: tres(:)
+  real(c_double), intent(in), dimension(neq+nparams) :: y ! params are stored in end of y
+  real(c_double), intent(in) :: t0, tend, atol, rtol, h_init, h_max
+  integer(c_int), intent(in) :: nt
+  integer(c_int), intent(in) :: nderiv
+  real(c_double), intent(out), dimension(neq, nderiv+1, nt) :: yres
+  real(c_double), intent(out), dimension(nt) :: tres
 
   ! Define work variables
   real(dp) :: tout, t
@@ -48,7 +52,7 @@ subroutine integrate(y, t0, tend, atol, rtol, nt, h_init, h_max, nderiv, yres, t
 
   ! Initialize iwork, rwork to zero
   do i = 1,30
-     iwork(i) = 0.0
+     iwork(i) = 0
   end do
   do i = 1,lrw
      rwork(i) = 0.0
@@ -70,8 +74,9 @@ subroutine integrate(y, t0, tend, atol, rtol, nt, h_init, h_max, nderiv, yres, t
   ! Save first data point
   i=0
   tres(i+1) = t0
-  yres(:, 1, i+1) = y
-  ! Save higher derivatives
+  yres(:, 1, i+1) = y(1:neq)
+
+  ! Save higher derivatives (for interpolation)
   if (nderiv > 0) then
      call func(neq, t, y, ydot)
      yres(:, 2, i+1) = ydot
@@ -84,22 +89,21 @@ subroutine integrate(y, t0, tend, atol, rtol, nt, h_init, h_max, nderiv, yres, t
 
   
   t = t0
-  do i = 1,nt
-     tout = t0 + (tend-t0)/real(nt, dp)*real(i, dp)
+  do i = 1,nt-1
+     tout = t0 + (tend-t0)/real(nt-1, dp)*real(i, dp)
 
      call dlsodes (func, neq, y, t, tout, itol, rtol, atol, &
           itask, istate, iopt, rwork, lrw, iwork, liw, jac, mf)
 
-     ! TODO: determine if y corresponds to t (likely) or rwork(13)
-     ! (rwork(13) is current value of t solver has actually reached)
-     tres(i+1) = t ! rwork(13)
-     yres(:, 1, i+1) = y
+     tres(i+1) = t
+     yres(:, 1, i+1) = y(1:neq)
+
      ! Variables which could be of use if adding intelligence
      ! to this driving loop
      ! hu    = rwork(11) ! step sized used last
      ! hcur  = rwork(12) ! step size to be used on next step
 
-     ! Save higher derivatives
+     ! Save higher derivatives (for interpolation)
      if (nderiv > 0) then
         call func(neq, t, y, ydot)
         yres(:, 2, i+1) = ydot

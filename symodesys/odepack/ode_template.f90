@@ -63,8 +63,8 @@ subroutine dfdt(t, y, pdt)
   real(dp), intent(inout) :: pdt(${NY})
   integer :: i
   ! used fo explicit calc of d2ydt2
-% for k, expr in dfdt:
-  pdt(${k}+1) = ${expr}
+% for k, expr in enumerate(dfdt, 1):
+  pdt(${k}) = ${expr}
 % endfor
 end subroutine
 

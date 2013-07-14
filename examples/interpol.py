@@ -38,6 +38,11 @@ if __name__ == '__main__':
             nderiv=i,
             datapoints=True,
             ax=ax)
+        if i > 0:
+            box = ax.get_position()
+            # Shrink height with 20%
+            ax.set_position([box.x0, box.y0, box.width, box.height * 0.8])
+
         ax.legend(loc='upper left')
         plt.title('Using {} derivatives per point'.format(i))
 

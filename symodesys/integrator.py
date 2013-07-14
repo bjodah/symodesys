@@ -28,44 +28,76 @@ class IVP_Integrator(object):
 
     abstol = 1e-6 # Default absolute tolerance
     reltol = 1e-6 # Default relative tolerance
-    nderiv = 1 # Default maximum order of derivatives
+    h_init = None
+    h_max  = 0.0 # inifinte
 
-    # !!!! Let IVP abstract away the meaning of abstol and
-    # reltol... (transformation of variables, scaling)
+    # Default highest order of derivatives to save for output
+    nderiv = 1
 
-    # kwargs_attr=['abstol', 'reltol']
+    info = None
 
-    # def __init__(self, **kwargs):
-    #     """
-    #     Arguments:
-    #     """
-    #     self._fo_odesys = None
-    #     for attr in kwargs:
-    #         if attr in self.kwargs_attr:
-    #             setattr(self, attr, kwargs.pop(attr))
-    #         else:
-    #             raise AttributeError('Unkown kwarg: {}'.format(attr))
+    def __init__(self, **kwargs):
+        self.info = self.info or {}
+        for key, val in kwargs.items():
+            if hasattr(self, key):
+                # convenient...
+                setattr(self, key, val)
 
     def set_fo_odesys(self, fo_odesys):
         self._fo_odesys = fo_odesys
 
-    def run(self, y0, t0, tend, param_vals,
-                  N, abstol=None, reltol=None, h=None,
-                  nderiv=None):
+
+    def run(self, depv_init, params, indepv_init, indepv_end, N, **kwargs):
         """
-        Should assign to self.tout and self.yout
-        - `y0`: Dict mapping dep. var. symbs to initial values
-        - `t0`: Floating point value of initial value for indep var
-        - `tend`: Integration limit for the IVP (max val of indep var)
-        - `N`: number of output values. N = 0 signals adaptive step size and dynamic
-               allocation of length
-        - `abstol`: absolute tolerance for numerical integrator driver routine
-        - `reltol`: relative tolerance for numerical integrator driver routine
-        - `nderiv`: Up to what nderiv should d^n/dt^n derivatives of y be evaluated
-                   (defaults to 0)
-        Changes to the signature of this function must be propagated to IVP.integrate
+        Run the numeric integration.
+
+        Arguments:
+        -`depv_init`: dictionary mapping dependent variables (string
+          of its name or sympy.Symbol instance) to numeric values.
+        -`params`: dictionary mapping parameters (string
+          of its name or sympy.Symbol instance) to numeric values. Note
+          that the parameters may be different from those of the
+          original ODESys instance due to manipulation of the system
+          inbetween (analytic treatment in particular)
+        -`indepv_init`: numeric value of the initial value of the
+          independent variable
+        -`indepv_end`: the final value up to
+          which integration in the independent variable is to be
+          conducted.
+
+        self._run assigns to self.tout and self.yout
+
         """
-        pass
+        # The C-program knows nothing about dicts, provide values
+        # as an array
+        # Set (c-program) init vals to the (subset of non_anlytic) depv
+        depv_init_arr = np.array(
+            [depv_init[k] for k in self._fo_odesys.na_depv],
+            dtype = np.float64)
+
+        params_arr = np.array([params[k] for k \
+                               in self._fo_odesys.param_and_sol_symbs],
+                              dtype = np.float64)
+
+        # Below is a somewhat ad-hoc sanity check of condition
+        # of jacobian in the starting point, even though some
+        # solvers might not need the jacobian at the starting point.
+        # To work around this one would ideally use a variable transformation
+        # and/or solving/estimating parts of the problem analytically
+        jac_cond = np.linalg.cond(self._fo_odesys.evaluate_na_jac(
+            indepv_init, depv_init_arr, params_arr))
+        self.info['init_jac_cond'] = jac_cond
+        if jac_cond*np.finfo(np.float64).eps > max(self.abstol, self.reltol):
+            raise RuntimeError(("Unlikely that Jacboian with condition: {} "+\
+                               "will work with requested tolerances.").format(
+                                   jcond))
+
+        if self.h_init == None:
+            self.h_init = 1e-9 # TODO: along the lines of:
+            #   h_init=calc_h_init(depv_init, dydt, jac, abstol, reltol)
+
+        self._run(depv_init_arr, indepv_init, indepv_end, params_arr, N,
+                  **kwargs)
 
     def clean(self):
         """
@@ -73,42 +105,40 @@ class IVP_Integrator(object):
         """
         pass
 
-    def init_Yout_tout_for_fixed_step_size(self, t0, tend, N):
-        dt = (tend-t0) / (N-1)
-        NY = len(self._fo_odesys.non_analytic_depv)
-        self.tout = np.asarray(np.linspace(t0, tend, N), dtype = self._dtype)
+
+    def init_Yout_tout_for_fixed_step_size(self, indepv_init, indepv_end, N):
+        dt = (indepv_end-indepv_init) / (N-1)
+        NY = len(self._fo_odesys.na_depv)
+        self.tout = np.asarray(np.linspace(indepv_init, indepv_end, N), dtype = self._dtype)
         # Handle other dtype for tout here? linspace doesn't support dtype arg..
         self.Yout = np.zeros((N, NY, self.nderiv+1), dtype = self._dtype)
 
 
 class Mpmath_IVP_Integrator(IVP_Integrator):
     """
-    Only for demonstration purposes
+    Only for demonstration purposes - using mpmath has a severe performance
+    penalty
     """
 
-    def run(self, y0, t0, tend, param_vals,
-                  N, abstol = None, reltol = None, h = None,
-            nderiv=None):
-        self.nderiv = nderiv or self.nderiv
-        y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
-        param_val_lst = self._fo_odesys.param_val_lst(param_vals)
-        cb = lambda x, y: self._fo_odesys.evaluate_na_f(x, y, param_val_lst)
-        self._num_y = sympy.mpmath.odefun(cb, t0, y0_val_lst, tol = abstol)
+    def _run(self, depv_init_arr, indepv_init, indepv_end, params_arr, N):
+        cb = lambda x, y: self._fo_odesys.evaluate_na_f(x, y, params_arr)
+        self._num_y = sympy.mpmath.odefun(cb, indepv_init, depv_init_arr,
+                                          tol = self.abstol)
         if N > 0:
             # Fixed stepsize
-            self.init_Yout_tout_for_fixed_step_size(t0, tend, N)
+            self.init_Yout_tout_for_fixed_step_size(indepv_init, indepv_end, N)
             for i, t in enumerate(self.tout):
                 if i == 0:
-                    self.Yout[i, :, 0] = y0_val_lst
+                    self.Yout[i, :, 0] = depv_init_arr
                 else:
                     self.Yout[i, :, 0] = self._num_y(self.tout[i])
 
                 if self.nderiv > 0:
                     self.Yout[i, :, 1] = self._fo_odesys.evaluate_na_f(
-                        self.tout[i], self.Yout[i, :, 0], param_val_lst)
+                        self.tout[i], self.Yout[i, :, 0], params_arr)
                 if self.nderiv > 1:
-                    self.Yout[i, :, 2] = self._fo_odesys.evaluate_d2ydt2(
-                        self.tout[i], self.Yout[i, :, 0], param_val_lst)
+                    self.Yout[i, :, 2] = self._fo_odesys.evaluate_na_d2ydt2(
+                        self.tout[i], self.Yout[i, :, 0], params_arr)
 
         else:
             raise NotImplementedError('Mpmath_IVP_Integrator does not currently support'+\
@@ -132,31 +162,26 @@ class SciPy_IVP_Integrator(IVP_Integrator):
         from scipy.integrate import ode
         self._r = ode(self._fo_odesys.evaluate_na_f, self._fo_odesys.evaluate_na_jac)
 
-    def run(self, y0, t0, tend, param_vals,
-                  N, abstol=None, reltol=None, h=None,
-                  nderiv=None):
-        self.nderiv = nderiv or self.nderiv
-        y0_val_lst = [y0[k] for k in self._fo_odesys.non_analytic_depv]
-        param_val_lst = self._fo_odesys.param_val_lst(param_vals)
-        self._r.set_initial_value(y0_val_lst, t0)
-        self._r.set_f_params(param_val_lst)
-        self._r.set_jac_params(param_val_lst)
+    def _run(self, depv_init_arr, indepv_init, indepv_end, params_arr, N):
+        self._r.set_initial_value(depv_init_arr, indepv_init)
+        self._r.set_f_params(params_arr)
+        self._r.set_jac_params(params_arr)
         if N > 0:
             # Fixed stepsize
             self._r.set_integrator('vode', method = 'bdf', with_jacobian = True)
-            self.init_Yout_tout_for_fixed_step_size(t0, tend, N)
+            self.init_Yout_tout_for_fixed_step_size(indepv_init, indepv_end, N)
             for i, t in enumerate(self.tout):
                 if i == 0:
-                    self.Yout[i, :, 0] = y0_val_lst
+                    self.Yout[i, :, 0] = depv_init_arr
                 else:
                     self.Yout[i, :, 0] = self._r.integrate(self.tout[i])
 
                 if self.nderiv > 0:
                     self.Yout[i, :, 1] = self._fo_odesys.evaluate_na_f(
-                        self.tout[i], self.Yout[i, :, 0], param_val_lst)
+                        self.tout[i], self.Yout[i, :, 0], params_arr)
                 if self.nderiv > 1:
                     self.Yout[i, :, 2] = self._fo_odesys.evaluate_d2ydt2(
-                        self.tout[i], self.Yout[i, :, 0], param_val_lst)
+                        self.tout[i], self.Yout[i, :, 0], params_arr)
                 assert self._r.successful()
         else:
             # Adaptive step size reporting
@@ -166,18 +191,16 @@ class SciPy_IVP_Integrator(IVP_Integrator):
             self._r._integrator.iwork[2] =- 1
             tout, yout, dyout, ddyout = [], [], [], []
             warnings.filterwarnings("ignore", category=UserWarning)
-            # yout.append(np.array(y0_val_lst))
-            # tout.append(t0)
             keep_going = True
             while keep_going:
-                keep_going = self._r.t < tend
+                keep_going = self._r.t < indepv_end
                 if self.nderiv > 0:
                     dyout.append(self._fo_odesys.evaluate_na_f(
-                        self._r.t, self._r.y, param_val_lst))
+                        self._r.t, self._r.y, params_arr))
                 if self.nderiv > 1:
                     ddyout.append(self._fo_odesys.evaluate_d2ydt2(
-                        self._r.t, self._r.y, param_val_lst))
-                self._r.integrate(tend, step=True)
+                        self._r.t, self._r.y, params_arr))
+                self._r.integrate(indepv_end, step=True)
                 yout.append(self._r.y)
                 tout.append(self._r.t)
             warnings.resetwarnings()
@@ -191,6 +214,8 @@ class SciPy_IVP_Integrator(IVP_Integrator):
                 self.Yout = np.concatenate((yout[...,np.newaxis], dyout[...,np.newaxis],
                                            ddyout[...,np.newaxis]), axis=2)
             self.tout = tout
+        self.info.update(self.fo_odesys.info)
+
 
 class SympyEvalr(object):
     """
@@ -204,39 +229,36 @@ class SympyEvalr(object):
     up to requested order. (to facilitate interpolation)
     """
 
-    default_dtype = np.float64
+    _dtype = np.float64
 
-    def __init__(self, nderiv=0, dtype=None):
-        """
+    nderiv = None
 
-        Arguments:
-        - `nderiv`: set higher than 0 (default) in nderiv to also evaluate derivatives.
-                   (output is sotred in self.Yout)
-        """
-        self.nderiv = nderiv
-        if dtype == None: dtype = self.default_dtype
-        self._dtype = dtype
+    def __init__(self, **kwargs):
+        for key, val in kwargs.items():
+            if hasattr(self, key):
+                # convenient...
+                setattr(self, key, val)
 
 
-    def configure(self, fo_odesys, param_vals):
-        self._rels = fo_odesys.analytic_relations
-        self._indep_var_symb = fo_odesys.indepv
-        self._params_by_symb = param_vals
+    def set_fo_odesys(self, fo_odesys):
+        self._fo_odesys = fo_odesys
 
 
-    def eval_for_indep_array(self, arr, extra_params_by_symb):
+    def eval_for_indep_array(self, indepv_arr, params):
         """
         Evaluate all expressions for values of indepedndent variable
-        in array `arr` using self._params_symb and `extra_params_by_symb`
-        for static substitution in sympy expressions in the list self._rels
+        in array `indepv_arr` and using params (dict mapping Symbols to value)
+        for static substitution in sympy expressions in the list
+        self._fo_odesys.analytic_realtions
         """
-        _Yout = np.empty((len(arr), len(self._rels), self.nderiv+1), dtype=self._dtype)
-        for rel_idx, rel in enumerate(self._rels):
-            for nderiv in range(self.nderiv+1):
-                subs = self._params_by_symb
-                subs.update(extra_params_by_symb)
-                diff_expr = rel.diff(self._indep_var_symb, nderiv)
-                for i, t in enumerate(arr):
-                    subs.update({self._indep_var_symb: t})
-                    _Yout[i, rel_idx, nderiv] = diff_expr.subs(subs)
+        rels = self._fo_odesys.analytic_relations
+        indepv = self._fo_odesys.indepv
+
+        _Yout = np.empty((len(indepv_arr), len(rels), self.nderiv+1), dtype=self._dtype)
+        for rel_idx, rel in enumerate(rels):
+            for ideriv in range(self.nderiv+1):
+                diff_expr = rel.diff(indepv, ideriv)
+                for i, t in enumerate(indepv_arr):
+                    params.update({indepv: t})
+                    _Yout[i, rel_idx, ideriv] = diff_expr.subs(params)
         self.Yout = _Yout

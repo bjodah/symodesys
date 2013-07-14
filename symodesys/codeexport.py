@@ -30,7 +30,7 @@ import mako.template
 # Intrapackage imports
 from symodesys.integrator import IVP_Integrator
 from pycompilation import FortranCompilerRunner, CCompilerRunner
-from pycompilation.codeexport import Generic_Code
+from pycompilation.codeexport import Generic_Code, DummyGroup
 
 
 class ODESys_Code(Generic_Code):
@@ -63,12 +63,21 @@ class ODESys_Code(Generic_Code):
 
 
     def variables(self):
-        code_func_cse, code_func_exprs = self._get_cse_code(
-            self._fo_odesys.na_f.values(), 'csefunc')
+        dummy_groups = (
+            DummyGroup('depvdummies', self._fo_odesys.na_depv,
+                       self.depv_tok, self.depv_offset),
+            DummyGroup('paramdummies',
+                       self._fo_odesys.param_and_sol_symbs,
+                       self.param_tok, self.param_offset),
+        )
 
-        params = [(str(p), 1.0) for p in self.prog_param_symbs]
+        code_func_cse, code_func_exprs = self.get_cse_code(
+            self._fo_odesys.na_f.values(), 'csefunc', dummy_groups)
+
         y0 = ', '.join(['1.0'] * self.NY)
+        y0_names = ', '.join(map(str, self._fo_odesys.na_depv))
         params = ', '.join(['1.0'] * len(self.prog_param_symbs))
+        param_names = ', '.join(map(str, self.prog_param_symbs))
 
         indepv = self._fo_odesys.indepv
 
@@ -81,8 +90,8 @@ class ODESys_Code(Generic_Code):
 
         dfdt = self._fo_odesys.na_dfdt.values()
 
-        code_jac_cse, code_jac_exprs = self._get_cse_code(
-        sparse_jac.values() + dfdt, 'csejac')
+        code_jac_cse, code_jac_exprs = self.get_cse_code(
+            sparse_jac.values() + dfdt, 'csejac', dummy_groups)
 
         code_dfdt_exprs = code_jac_exprs[len(sparse_jac):]
         code_jac_exprs = zip(sparse_jac.keys(),
@@ -119,7 +128,7 @@ class ODESys_Code(Generic_Code):
 
             # Format code: expressions in cse terms
             code_exprs = zip(cur_ja, [
-                self.as_arrayified_code(x) for x \
+                self.as_arrayified_code(x, dummy_groups) for x \
                 in cse_exprs
             ])
             code_yale_jac_exprs.append(code_exprs)
@@ -127,7 +136,8 @@ class ODESys_Code(Generic_Code):
             # Format code: CSE definitions
             code_cse_defs=[]
             for var_name, var_expr in cse_defs:
-                code_var_expr = self.as_arrayified_code(var_expr)
+                code_var_expr = self.as_arrayified_code(
+                    var_expr, dummy_groups)
                 code_cse_defs.append((var_name, code_var_expr))
             code_yale_jac_cse.append(code_cse_defs)
         ia = ia [:-1]
@@ -137,37 +147,16 @@ class ODESys_Code(Generic_Code):
                 'IA': ia,
                 'JA': ja,
                 'NPARAM': len(self.prog_param_symbs),
-                'Y0_COMMA_SEP_STR': y0,
-                'PARAM_VALS_COMMA_SEP_STR': params,
+                'y0_comma_sep_str': y0,
+                'y0_names': y0_names,
+                'param_vals_comma_sep_str': params,
+                'param_names': param_names,
                 'cse_func': code_func_cse, 'f': code_func_exprs,
                 'cse_jac': code_jac_cse, 'jac': code_jac_exprs,
                 'yale_jac_exprs': code_yale_jac_exprs,
                 'yale_jac_cse': code_yale_jac_cse,
                 'dfdt': code_dfdt_exprs,
         }
-
-
-    def as_arrayified_code(self, expr):
-        """
-        We want to access variables as elements of arrays..
-        """
-
-        # Dummify the expr (to avoid regular expressions to run berserk)
-
-        expr = self._dummify_expr(expr, 'depvdummies', self._fo_odesys.na_depv)
-        expr = self._dummify_expr(expr, 'paramdummies', self._fo_odesys.param_and_sol_symbs)
-
-        # Generate code string
-        scode = self.wcode(expr)
-
-        # getitem syntaxify
-        scode = self._getitem_syntaxify(scode, 'depvdummies', self.depv_tok, self.depv_offset)
-        scode = self._getitem_syntaxify(scode, 'paramdummies', self.param_tok, self.param_offset)
-
-        # tgt = {'C':r'[\1]', 'F':r'(\1+1)'}.get(self.syntax)
-        # scode = re.sub('_(\d+)', tgt, scode)
-
-        return scode
 
 
 class Binary_IVP_Integrator(IVP_Integrator):
@@ -179,6 +168,7 @@ class Binary_IVP_Integrator(IVP_Integrator):
     """
 
     CodeClass = None
+    _code = None # will hold instance (set_fo_odesys)
 
     def __init__(self, **kwargs):
         self.tempdir = kwargs.pop('tempdir', None)
@@ -199,7 +189,8 @@ class Binary_IVP_Integrator(IVP_Integrator):
 
 
     def clean(self):
-        self._code.clean()
+        if self._code:
+            self._code.clean()
 
 
     @property

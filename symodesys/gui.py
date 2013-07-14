@@ -38,6 +38,7 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
 
         plot_type = Enum("line", "scatter")
 
+
         def _plot_default(self):
             plot = Plot(self.plotdata)
             self.plotdata.set_data(str(odesys.indepv), getattr(self, str(odesys.indepv)))
@@ -47,7 +48,9 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
                 plot.plot((str(odesys.indepv), dv.func.__name__),
                           color = COLR[i % len(COLR)], type_trait="plot_type", name = dv.func.__name__)
             plot.legend.visible = True
-            plot.title = getattr(odesys, 'title', 'Solution')
+            plot.title = 'Solution'
+            if hasattr(odesys, 'title'):
+                if odesys.title: plot.title = odesys.title
             plot.x_axis.title = str(odesys.indepv)
 
             # Add pan and zoom to the plot
@@ -71,7 +74,6 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
             for depv in odesys.all_depv:
                 # TODO: enusre 'init_' + ... does not collide
                 depv_str = depv.func.__name__
-                print all_init+all_param
                 setattr(cls, depv_str, Property(Array, depends_on=all_init+all_param))
                 setattr(cls, 'init_'+depv_str, Range(low=0.0, high=10.0, value=1.0))
 
@@ -102,15 +104,15 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
             view = View(*items,
                         width = 600,
                         height = 800,
-                        resizable = True,
-                        title = getattr(odesys, 'title', "Solution"))
+                        resizable = True)
+                       #title = getattr(odesys, 'title', "Solution"))
             setattr(cls, 'traits_view', view)
             newcls = type(cls.__name__, (HasTraits,),
                           {k: v for k,v in cls.__dict__.items() if k != '__new__'})
-            instnce = newcls.__new__(newcls)
-            instnce.__dict__ = {}
-            instnce.__init__(*args, **kwargs)
-            return instnce
+            instance = newcls.__new__(newcls)
+            instance.__dict__ = {}
+            instance.__init__(*args, **kwargs)
+            return instance
 
         def __init__(self, odesys_, y0, params, t0, tend, N, Integrator=GSL_IVP_Integrator):
             for k, v in y0.items():
@@ -176,7 +178,7 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
 
         def clean_up(self):
             try:
-                self.ivp.integrator._code.clean()
+                self.ivp.clean()
             except AttributeError:
                 pass
 

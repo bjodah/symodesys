@@ -84,7 +84,7 @@ integrate_fixed_step (double t, double t1, double * y, int n_steps,
 	  }
         }
       /* Macro-step loop */
-      ti = t + dt;//*(i+1);
+      ti = t + dt;
       status = gsl_odeiv2_driver_apply (d, &t, ti, y);
 
       if (status != GSL_SUCCESS)
@@ -94,7 +94,7 @@ integrate_fixed_step (double t, double t1, double * y, int n_steps,
 
   /* Memory management */
   gsl_odeiv2_driver_free (d);
-  gsl_odeiv2_step_free (s);
+  // gsl_odeiv2_step_free (s); <-- step_free called in driver_free
   gsl_block_free(f);
   gsl_block_free(dfdt);
   gsl_matrix_free(dfdy);

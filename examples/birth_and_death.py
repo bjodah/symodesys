@@ -104,7 +104,7 @@ def get_transformed_ivp(n):
     ivp2.recursive_analytic_reduction(complexity=0) #solve constants
     print("Transformed:")
     print('\n'.join([str(x) for x in ivp2.fo_odesys.eqs]))
-    ivp2.integrate(tend, N, step_type='bsimp')
+    ivp2.integrate(tend, N, step_type='msadams')
     return ivp2
 
 

@@ -1,1 +1,1 @@
-from integrator import GSL_IVP_Integrator
+from interface import GSL_IVP_Integrator

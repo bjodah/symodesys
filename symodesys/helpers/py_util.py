@@ -25,8 +25,31 @@ def deprecated(f):
     return wrapper
 
 
+def hashable(it):
+    frozen = []
+    for x in it:
+        if isinstance(x, dict):
+            candidate = frozenset(x.items())
+        elif isinstance(x, list):
+            candidate = tuple(x)
+        else:
+            candidate = x
+        try:
+            iter_cand = iter(candidate)
+            candidate = hashable(iter_cand)
+        except TypeError:
+            pass
+        frozen.append(candidate)
+
+    return tuple(frozen)
+
 def cache(f):
+    """
+    Defines an infinte cache decorator for a function
+    not accepting keyword arguments.
+    """
     data = {}
+
     @wraps(f)
     def wrapper(*args):
         hashable_args=[]
@@ -41,6 +64,7 @@ def cache(f):
         if not hashable_args in data:
             data[hashable_args] = f(*args)
         return data[hashable_args]
+
     wrapper.cache_clear = lambda: data.clear()
     wrapper.cache = data
     return wrapper

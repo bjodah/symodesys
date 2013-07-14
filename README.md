@@ -95,6 +95,12 @@ opkda1.f(9498): error #6633: The type of the actual argument differs from the ty
 compilation aborted for opkda1.f (code 1)
 `
 
+# Similar projects
+* symneqsys
+## Common dependencies
+* symvarsub
+* pycompilation
+
 ## Author
 Written by Björn Dahlgren. Copyright 2012-2013.
 

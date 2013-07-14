@@ -6,6 +6,8 @@
 // Python Mako template of C file
 // Variables: Y0_COMMA_SEP_STR, PARAM_VALS_COMMA_SEP_STR
 
+// Note that analytic expressions are not evaluated here.
+
 
 int
 main (void)
@@ -20,8 +22,8 @@ main (void)
   double	hmax    = 1e-2;
   double	eps_abs	= 1e-6;
   double	eps_rel	= 1e-6;
-  double y[]    = {${Y0_COMMA_SEP_STR}};
-  double params[] = {${PARAM_VALS_COMMA_SEP_STR}};
+  double y[]    = {${y0_comma_sep_str}}; // ${y0_names}
+  double params[] = {${param_vals_comma_sep_str}}; // ${param_names}
   int step_type_idx = 7;
 
   status = integrate_fixed_step_print(

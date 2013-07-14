@@ -1,10 +1,14 @@
+Test-suite!
+
+ODEPACK: support LSODE, (dense and diagonally sparse)
+
 There is a bug in GSL_IVP_Integrator (or rather the generated C-code or driver.c) which
 causes integration sometimes to fail with singular matrix. Runs are inconsisteent - suggesting that some array is not initiliazed to zero (or data is being read outside bounds). Inspect the value of the GSL objects during integration...
 
 Refactor gsl.integrator to use codegen (and factor out general bits)
 Add sundials
 Add odeint (www.odeint.com C++ library which exploits OpenCL)
-Pure root finding module, similiar syntax?
+Add RODAS
 
 There is a bug in GSL driver which produces different results on different runs, it
 is not due to not assigning zero to elements of dydt in jac() (established). The
@@ -12,8 +16,27 @@ reason is currently unknown..
 
 Automatically solve constant expressions from IVP - avoids singular Jacobian
 
+Better handling of PieceWise solutinos from sympy.dsolve, now the default
+       is accepted and the other are looked upon as "forbidden".
+
 
 Long-term:
 ==========
-DAE functionality
+N-order Discretization
+
 Support uncertainties as parameter inputs
+
+Automatically suggest: dense, irregular sparse, diagnoal sparse
+
+SymPy could even calculate e.g. tableauxs for integration algorithms...
+
+If Jacobian is sparse, the Hessian matrices are most probably even sparser.
+
+Sympy could allow series expansion / pade approximations of e.g. exp, multiple
+callbacks for eg. f, jac, hes (say precision full, medium, low) could be used by
+an intelligent driver
+
+Adaptive output could be made at points for 5th order polynomial interpolation errors
+of 1/10th of abstol and reltol.
+
+DAE functionality

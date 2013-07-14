@@ -2,23 +2,20 @@
 # -*- coding: utf-8 -*-
 
 import sys
+import logging
 
-import sympy
-import numpy as np
 import matplotlib.pyplot as plt
 
-from symodesys.odesys import FirstOrderODESystem
 from symodesys.ivp import IVP
 
 from coupled_decay import CoupledDecay
 
-# TODO
-# Verify efficiency of general method compared to special use of
-# Bateman's equations
 
-
-def main(params):
+def main(params, logger=None):
     """
+    Solve a couled decay network analytically
+    using sympy's symbolic algortihms and compare
+    with hand derived solution.
     """
     cd = CoupledDecay()
 
@@ -27,34 +24,27 @@ def main(params):
     N = 100
     t0 = 0.0
     tend = 1.5
-    u0 = 7.0
-    v0 = 5.0
-    w0 = 3.0
 
-    y0 = {cd['u']: u0,
-          cd['v']: v0,
-          cd['w']: w0,
+    y0 = {'u': 7,
+          'v': 5,
+          'w': 3,
           }
 
-    print y0
-    ivp = IVP(cd, y0, params, t0)
-    new_params = ivp.recursive_analytic_reduction()
-    print new_params
+    ivp = IVP(cd, y0, params, t0, logger=logger)
+    new_params = ivp.recursive_analytic_reduction(complexity=3)
 
     ivp.integrator.abstol = 1e-6
     ivp.integrator.reltol = 1e-6
 
     ivp.integrate(tend, N = N)
 
-    t = ivp.tout
-    print y0
-    analytic_u = cd.analytic_u(t, y0, params)
-    analytic_v = cd.analytic_v(t, y0, params)
-    analytic_w = cd.analytic_w(t, y0, params)
+    t = ivp.indepv_out()
+    analytic_u = cd.analytic_u(t, y0, params, t0)
+    analytic_v = cd.analytic_v(t, y0, params, t0)
+    analytic_w = cd.analytic_w(t, y0, params, t0)
 
-    uout = ivp.get_yout_by_symb(u)
-    vout = ivp.get_yout_by_symb(v)
-    wout = ivp.get_yout_by_symb(w)
+    traj = ivp.trajectories()
+    uout, vout, wout = [traj[cd[x]][:,0] for x in 'u v w'.split()]
 
     plt.subplot(311)
     plt.plot(t, uout, '*', label = 'Numerical u')
@@ -66,20 +56,20 @@ def main(params):
     plt.legend()
 
     plt.subplot(312)
-    plt.plot(t, (uout - analytic_u) / ivp._Integrator.abstol,
+    plt.plot(t, (uout - analytic_u) / ivp.integrator.abstol,
              label = 'u abserr / abstol')
-    plt.plot(t, (vout - analytic_v) / ivp._Integrator.abstol,
+    plt.plot(t, (vout - analytic_v) / ivp.integrator.abstol,
              label = 'v abserr / abstol')
-    plt.plot(t, (wout - analytic_w) / ivp._Integrator.abstol,
+    plt.plot(t, (wout - analytic_w) / ivp.integrator.abstol,
              label = 'w abserr / abstol')
     plt.legend()
 
     plt.subplot(313)
-    plt.plot(t, (uout - analytic_u) / analytic_u / ivp._Integrator.reltol,
+    plt.plot(t, (uout - analytic_u) / analytic_u / ivp.integrator.reltol,
              label = 'u relerr / reltol')
-    plt.plot(t, (vout - analytic_v) / analytic_v / ivp._Integrator.reltol,
+    plt.plot(t, (vout - analytic_v) / analytic_v / ivp.integrator.reltol,
              label = 'v relerr / reltol')
-    plt.plot(t, (wout - analytic_w) / analytic_w / ivp._Integrator.reltol,
+    plt.plot(t, (wout - analytic_w) / analytic_w / ivp.integrator.reltol,
              label = 'w relerr / reltol')
     plt.legend()
     plt.show()
@@ -91,4 +81,7 @@ if __name__ == '__main__':
     else:
         lambda_u, lambda_v, lambda_w = 3.0, 2.0, 1.0
 
-    main(params={'lambda_u': lambda_u, 'lambda_v': lambda_v, 'lambda_w': lambda_w})
+    logging.basicConfig(level=logging.DEBUG)
+    logger = logging.getLogger(__file__)
+    main(params={'lambda_u': lambda_u, 'lambda_v': lambda_v, 'lambda_w': lambda_w},
+         logger=logger)

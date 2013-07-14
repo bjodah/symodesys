@@ -21,5 +21,4 @@ if __name__ == '__main__':
             ),
         N = 100,
         tend = 5.0,
-        show=True
        )

@@ -31,8 +31,6 @@ def integrate_equidistant_output(double t, double t1, double [:] y0,
         np.ascontiguousarray(np.empty(
             n_steps * len(y0) * (nderiv + 1), dtype=np.float64))
 
-    print step_type
-
     status = integrate_fixed_step(
         t, t1, <double *>y0_arr.data, n_steps,
         h_init, h_max, eps_abs, eps_rel,

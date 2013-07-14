@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 # Package imports
 from symodesys import FirstOrderODESystem
 from symodesys.convenience import plot_numeric_error
+from symodesys.integrator import Mpmath_IVP_Integrator
 
 # Global
 t = sympy.symbols('t')
@@ -28,11 +29,11 @@ class Decay(FirstOrderODESystem):
     param_symbs   = [lambda_u]
     f = OrderedDict([(u, -lambda_u * u)])
 
-    def analytic_u(self, indep_vals, y0, params, t0):
-        return y0['u'] * np.exp(-params['lambda_u']*indep_vals)
+    def analytic_u(self, indepv_vals, y0, params, t0):
+        return y0['u'] * np.exp(-params['lambda_u']*indepv_vals)
 
     analytic_sol = {'u': analytic_u}
 
 
 if __name__ == '__main__':
-    plot_numeric_error(Decay, {'u': 1.0}, {'lambda_u': 0.2}, 0.0, 10.0, N=30)
+    plot_numeric_error(Decay, {'u': 1.0}, {'lambda_u': 0.2}, 0.0, 10.0, N=30, integrator=Mpmath_IVP_Integrator(nderiv=2))

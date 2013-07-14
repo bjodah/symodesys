@@ -214,7 +214,7 @@ class SciPy_IVP_Integrator(IVP_Integrator):
                 self.Yout = np.concatenate((yout[...,np.newaxis], dyout[...,np.newaxis],
                                            ddyout[...,np.newaxis]), axis=2)
             self.tout = tout
-        self.info.update(self.fo_odesys.info)
+        self.info.update(self._fo_odesys.info)
 
 
 class SympyEvalr(object):

@@ -28,7 +28,7 @@ class X5(SimpleFirstOrderODESystem):
 if __name__ == '__main__':
     for i in range(3):
         ax=plt.subplot(310+i+1)
-        ax=plot_numeric_vs_analytic(
+        plot_numeric_vs_analytic(
             ODESys = X5,
             y0 = {'y': 1.0},
             params = {},
@@ -44,6 +44,6 @@ if __name__ == '__main__':
             ax.set_position([box.x0, box.y0, box.width, box.height * 0.8])
 
         ax.legend(loc='upper left')
-        plt.title('Using {} derivatives per point'.format(i))
+        plt.title('Using {} derivative(s) per point'.format(i))
 
     plt.show()

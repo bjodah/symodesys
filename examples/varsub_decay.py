@@ -29,6 +29,7 @@ def main(ODESys, y0, t0, tend, params, N=0):
     inv_trsfm = {u: sympy.exp(z)}
     new_odesys = odesys.transform_depv(trnsfm, inv_trsfm)
     sympy.pprint(odesys.eqs)
+
     # Convert initial values:
     new_y0 = {new_odesys[dv]: y0[dv] if dv in y0 else trnsfm[dv].subs(
         odesys.ensure_dictkeys_as_symbs(y0)) for \
@@ -36,13 +37,11 @@ def main(ODESys, y0, t0, tend, params, N=0):
 
     ivp = IVP(new_odesys, new_y0, params, t0)
     ivp.integrate(tend, N = N)
-    t, z = ivp.indep_out(), ivp.trajectories()[new_odesys['z']]
+    t, z = ivp.indepv_out(), ivp.trajectories()[new_odesys['z']]
 
     ax = plt.subplot(311)
     ivp.plot(ax=ax, interpolate=True, show=False)
     ax.legend()
-    # ax.xlabel('t')
-    # ax.ylabel('z')
 
     analytic_u = odesys.analytic_u(t, y0, params, t0)
     analytic_z = np.log(analytic_u)

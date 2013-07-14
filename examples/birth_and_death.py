@@ -58,7 +58,8 @@ def plot_population(ivp, depv_z_map):
     ax = fig.add_subplot(111, projection='3d')
     verts=[]
     nt = 1000
-    t = np.linspace(ivp.indep_out()[0],ivp.indep_out()[-1], nt)
+    t = np.linspace(ivp.indepv_out()[0],
+                    ivp.indepv_out()[-1], nt)
     n = len(depv_z_map)
     maxval = 0
     for depv, x in depv_z_map.items():
@@ -104,7 +105,7 @@ def get_transformed_ivp(n):
     ivp2.recursive_analytic_reduction(complexity=0) #solve constants
     print("Transformed:")
     print('\n'.join([str(x) for x in ivp2.fo_odesys.eqs]))
-    ivp2.integrate(tend, N, step_type='msadams')
+    ivp2.integrate(tend, N, step_type='bsimp') # msadams sometimes fails - memory related bug?
     return ivp2
 
 

@@ -36,7 +36,7 @@ def main(ODESys, y0, t0, tend, params, N=0):
 
     ivp = IVP(new_odesys, new_y0, params, t0)
     ivp.integrate(tend, N = N)
-    t, z = ivp.indep_out(), ivp.trajectories()[new_odesys['z']]
+    t, z = ivp.indepv_out(), ivp.trajectories()[new_odesys['z']]
 
     ax = plt.subplot(311)
     ivp.plot(ax=ax, interpolate=True, show=False)

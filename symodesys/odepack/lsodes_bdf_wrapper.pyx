@@ -34,5 +34,4 @@ def integrate_equidistant_output(
     # ordering to C-order:
     Yres = swapaxes(yres, 0, 1)
     Yres = swapaxes(Yres, 0, 2)
-    print tres
     return tres, ascontiguousarray(Yres) #tres, yres

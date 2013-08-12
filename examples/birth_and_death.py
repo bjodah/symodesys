@@ -58,7 +58,7 @@ def plot_population(ivp, depv_z_map):
     ax = fig.add_subplot(111, projection='3d')
     verts=[]
     nt = 1000
-    t = np.linspace(ivp.indep_out()[0],ivp.indep_out()[-1], nt)
+    t = np.linspace(ivp.indepv_out()[0], ivp.indepv_out()[-1], nt)
     n = len(depv_z_map)
     maxval = 0
     for depv, x in depv_z_map.items():

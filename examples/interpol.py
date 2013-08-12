@@ -37,7 +37,8 @@ if __name__ == '__main__':
             N = 2,
             nderiv=i,
             datapoints=True,
-            ax=ax)
+            ax=ax,
+            show=False)
         if i > 0:
             box = ax.get_position()
             # Shrink height with 20%

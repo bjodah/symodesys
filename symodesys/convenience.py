@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from symodesys.ivp import IVP
 from symodesys.integrator import SciPy_IVP_Integrator
 
-def plot_numeric_error(ODESys, y0, params, t0, tend, N=0, integrator=None):
+def plot_numeric_error(ODESys, y0, params, t0, tend, N=0, integrator=None, show=True):
     """
     Convenience function for instantiating ODESys class and assigning
     it to an associated IVP instance, run the integration and in the case
@@ -32,11 +32,11 @@ def plot_numeric_error(ODESys, y0, params, t0, tend, N=0, integrator=None):
                      / analytic / ivp.integrator.reltol,
                      label = k+': relerr / reltol')
             plt.legend()
-    plt.show()
+    if show: plt.show()
 
 def plot_numeric_vs_analytic(ODESys, y0, params, t0, tend,
                              integrator=None, N=0, nderiv=2,
-                             **kwargs):
+                             show=True, **kwargs):
     """
     Used to plot numeric solution of odesystem and analytic solution
     in same (sub)plot, to also show absolute and relative error, see
@@ -55,10 +55,10 @@ def plot_numeric_vs_analytic(ODESys, y0, params, t0, tend,
         # Anlyse output
         plot_t = np.linspace(t0, tend, 50)
 
-        ax = ivp.plot(interpolate = True, **kwargs)
+        ax = ivp.plot(interpolate = True, show=False, **kwargs)
         for depv, cb in odesys.analytic_sol.items():
             ax.plot(plot_t, cb(odesys, plot_t, y0, params, t0),
                     label = 'Analytic {}'.format(depv))
         plt.legend()
-        plt.show()
+        if show: plt.show()
     return ax

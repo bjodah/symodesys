@@ -541,7 +541,7 @@ class FirstOrderODESystem(_ODESystemBase):
         if self.f == None:
             self.init_f()
         assert self.is_first_order
-        info = self.info or defaultdict(int)
+        self.info = self.info or defaultdict(int)
 
 
     @property

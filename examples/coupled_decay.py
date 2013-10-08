@@ -79,16 +79,16 @@ if __name__ == '__main__':
     integrator.reltol = 1e-7
     plot_numeric_error(
         CoupledDecay,
-        y0 = {'u': 7.0,
-              'v': 5.0,
-              'w': 3.0,
-          },
+        {'u': 7.0,
+         'v': 5.0,
+         'w': 3.0,
+     },
         params = {
             'lambda_u': lambda_u,
             'lambda_v': lambda_v,
             'lambda_w': lambda_w,
         },
-        t0 = 0.0,
-        tend = 1.5,
+        indepv_init = 0.0,
+        indepv_end = 1.5,
         integrator=integrator
     )

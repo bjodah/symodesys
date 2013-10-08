@@ -17,7 +17,7 @@ def main(cwd, logger):
 
     download_files(websrc, f_sources, md5sums, cwd)
     # Intel Fortran fails for opkda1.f, hence prefer `gnu`
-    compile_sources(FortranCompilerRunner, f_sources,
+    compile_sources(f_sources, FortranCompilerRunner,
                     'prebuilt/', cwd,
                     run_linker=False,
                     options=['pic', 'warn', 'fast'],

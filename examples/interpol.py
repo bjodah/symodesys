@@ -29,11 +29,10 @@ if __name__ == '__main__':
     for i in range(3):
         ax=plt.subplot(310+i+1)
         plot_numeric_vs_analytic(
-            ODESys = X5,
-            y0 = {'y': 1.0},
+            X5, {'y': 1.0},
             params = {},
-            t0 = 0,
-            tend = 3.0,
+            indepv_init = 0,
+            indepv_end = 3.0,
             N = 2,
             nderiv=i,
             datapoints=True,

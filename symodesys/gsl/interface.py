@@ -17,21 +17,21 @@ class GSL_Code(ODESys_Code, C_Code):
     # Implement hash of fo_odesys and hash of code?
     # Serialization to double check against collision?
 
-    _copy_files = ['prebuilt/drivers_wrapper.o',
+    copy_files = ['prebuilt/drivers_wrapper.o',
                    'prebuilt/drivers.o',
                    'drivers.h', 'drivers.c', 'ode.h', 'Makefile', 'plot.py',
                    'prebuilt/'+CCompilerRunner.metadata_filename, # <--- Make sure we compile with same compiler
-               ]
+    ]
 
-    _obj_files = ['ode.o', 'drivers.o', 'drivers_wrapper.o']
+    obj_files = ['ode.o', 'drivers.o', 'drivers_wrapper.o']
 
-    _templates = ['ode_template.c',
+    templates = ['ode_template.c',
                  'main_ex_template.c',
-              ]
+    ]
 
-    _source_files = ['ode.c']
+    source_files = ['ode.c']
 
-    _so_file = 'drivers_wrapper.so'
+    so_file = 'drivers_wrapper.so'
 
     extension_name = 'drivers_wrapper'
 
@@ -46,10 +46,10 @@ class GSL_Code(ODESys_Code, C_Code):
     def __init__(self, *args, **kwargs):
         self._basedir = os.path.dirname(__file__)
         super(GSL_Code, self).__init__(*args, **kwargs)
-        self._include_dirs.append(cython_gsl.get_include())
-        self._include_dirs.append(cython_gsl.get_cython_include_dir())
-        self._libraries.extend(cython_gsl.get_libraries())
-        self._library_dirs.append(cython_gsl.get_library_dir())
+        self.inc_dirs.append(cython_gsl.get_include())
+        self.inc_dirs.append(cython_gsl.get_cython_include_dir())
+        self.libs.extend(cython_gsl.get_libraries())
+        self.lib_dirs.append(cython_gsl.get_library_dir())
 
 
 class GSL_IVP_Integrator(Binary_IVP_Integrator):

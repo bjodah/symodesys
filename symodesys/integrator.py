@@ -204,8 +204,7 @@ class SciPy_IVP_Integrator(IVP_Integrator):
                 yout.append(self._r.y)
                 tout.append(self._r.t)
             warnings.resetwarnings()
-            tout = np.array(tout)
-            yout, dyout, ddyout = map(np.array, (yout, dyout, ddyout))
+            tout, yout, dyout, ddyout = map(np.array, (tout, yout, dyout, ddyout))
             if self.nderiv == 0:
                 self.Yout = yout.reshape((yout.shape[0], yout.shape[1], 1))
             elif self.nderiv == 1:

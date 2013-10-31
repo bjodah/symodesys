@@ -15,7 +15,7 @@ class LSODES_Code(ODESys_Code, F90_Code):
 
 
     # the files from prebuilt/ are built by _setup_odepack.py
-    _copy_files = [
+    copy_files = [
         'prebuilt/opkda1.o',
         'prebuilt/opkda2.o',
         'prebuilt/opkdmain.o',
@@ -24,15 +24,15 @@ class LSODES_Code(ODESys_Code, F90_Code):
         'prebuilt/'+FortranCompilerRunner.metadata_filename, # <-- Ensure same compiler
     ]
 
-    _templates = ['ode_template.f90']
+    templates = ['ode_template.f90']
 
-    _source_files = ['ode.f90', 'lsodes_bdf.f90']
+    source_files = ['ode.f90', 'lsodes_bdf.f90']
 
-    _obj_files = ['opkda1.o', 'opkda2.o', 'opkdmain.o',
+    obj_files = ['opkda1.o', 'opkda2.o', 'opkdmain.o',
                   'ode.o', 'lsodes_bdf.o',
                   'lsodes_bdf_wrapper.o']
 
-    _so_file = 'lsodes_bdf_wrapper.so'
+    so_file = 'lsodes_bdf_wrapper.so'
 
     preferred_vendor = 'gnu'
 

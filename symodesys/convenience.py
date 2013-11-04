@@ -40,11 +40,11 @@ def plot_numeric_error(ODESys, depv_init, params, indepv_init,
                      / analytic / ivp.integrator.reltol,
                      label = k+': relerr / reltol')
             plt.legend()
-    plt.show()
+    if show: plt.show()
 
 def plot_numeric_vs_analytic(ODESys, depv_init, params, indepv_init, indepv_end,
                              integrator=None, N=0, nderiv=2,
-                             **kwargs):
+                             show=True, **kwargs):
     """
     Used to plot numeric solution of odesystem and analytic solution
     in same (sub)plot, to also show absolute and relative error, see
@@ -63,7 +63,7 @@ def plot_numeric_vs_analytic(ODESys, depv_init, params, indepv_init, indepv_end,
         # Anlyse output
         plot_t = np.linspace(indepv_init, indepv_end, 50)
 
-        ax = ivp.plot(interpolate = True, **kwargs)
+        ax = ivp.plot(interpolate = True, show=False, **kwargs)
         for depv, cb in odesys.analytic_sol.items():
             ax.plot(plot_t, cb(odesys, plot_t, depv_init, params, indepv_init),
                     label = 'Analytic {}'.format(depv))

@@ -85,7 +85,7 @@ class IVP_Integrator(object):
         # To work around this one would ideally use a variable transformation
         # and/or solving/estimating parts of the problem analytically
         jac_cond = np.linalg.cond(self._fo_odesys.evaluate_na_jac(
-            indepv_init, depv_init_arr, params_arr))
+            indepv_init, depv_init_arr, params_arr))#
         self.info['init_jac_cond'] = jac_cond
         if jac_cond*np.finfo(np.float64).eps > max(self.abstol, self.reltol):
             raise RuntimeError(("Unlikely that Jacboian with condition: {} "+\
@@ -95,6 +95,8 @@ class IVP_Integrator(object):
         if self.h_init == None:
             self.h_init = 1e-9 # TODO: along the lines of:
             #   h_init=calc_h_init(depv_init, dydt, jac, abstol, reltol)
+            # Also print a warning if h_init is below machine_epsilon**0.5
+            # (or something) suggesting variable transformation.
 
         self._run(depv_init_arr, indepv_init, indepv_end, params_arr, N,
                   **kwargs)
@@ -154,8 +156,8 @@ class SciPy_IVP_Integrator(IVP_Integrator):
     generating integrator such as e.g. GSL_IVP_Integrator
     """
 
-    def __init__(self, **kwargs):
-        super(SciPy_IVP_Integrator, self).__init__(**kwargs)
+    # def __init__(self, **kwargs):
+    #     super(SciPy_IVP_Integrator, self).__init__(**kwargs)
 
     def set_fo_odesys(self, fo_odesys):
         super(SciPy_IVP_Integrator, self).set_fo_odesys(fo_odesys)

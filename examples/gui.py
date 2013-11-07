@@ -22,7 +22,7 @@ class ODESolViewer(HasTraits):
     plot = Instance(Plot)
     plotdata = Instance(ArrayPlotData, args=())
 
-    t = Array
+    indepv = Array
     u = Property(Array, depends_on = ['u0', 'v0', 'mu'])
     v = Property(Array, depends_on = ['u0', 'v0', 'mu'])
     u0 = Range(low = 0.0, high = 10.0, value = 1.0)
@@ -45,7 +45,7 @@ class ODESolViewer(HasTraits):
 
     def _plot_default(self):
         plot = Plot(self.plotdata)
-        self.plotdata.set_data('t', self.t)
+        self.plotdata.set_data('t', self.indepv)
         self.plotdata.set_data('u', self.u)
         self.plotdata.set_data('v', self.v)
         plot.plot(("t", "u"), color = 'red', type_trait="plot_type", name = 'u')
@@ -67,8 +67,8 @@ class ODESolViewer(HasTraits):
     def _v_changed(self):
         self.plotdata.set_data('v', self._get_v())
 
-    def _t_default(self):
-        return self.t_default
+    def _indepv_default(self):
+        return self.indepv_default
 
     def _get_u(self):
         self.run_integration()
@@ -78,7 +78,8 @@ class ODESolViewer(HasTraits):
         self.run_integration()
         return self.interpolated_yres[self.ivp.get_index_of_depv('v'),:]
 
-    def __init__(self, ODESys, y0, params, t0, tend, N, Integrator=Binary_IVP_Integrator):
+    def __init__(self, ODESys, y0, params, t0, tend, N,
+                 Integrator=Binary_IVP_Integrator):
         for k, v in y0.items():
             if hasattr(self, k+'0'):
                 setattr(self, k+'0', v)
@@ -89,7 +90,7 @@ class ODESolViewer(HasTraits):
                 setattr(self, k, v)
             else:
                 raise AttributeError('No param {}'.format(k))
-        self.t_default = np.linspace(t0, tend, 2048)
+        self.indepv_default = np.linspace(t0, tend, 2048)
         self.ivp = IVP(ODESys(), y0, params, t0,
                        integrator=Integrator(nderiv=2, tempdir='tmp', save_temp=True))
         self.N = N
@@ -97,23 +98,23 @@ class ODESolViewer(HasTraits):
         self.run_integration()
 
     @property
-    def init_vals(self):
+    def depv_init(self):
         return {'u': self.u0, 'v': self.v0}
 
     @property
-    def param_vals(self):
+    def params(self):
         return {'mu': self.mu}
 
     def run_integration(self):
         self.interpolated_yres = self._integrate(
-            self.init_vals, self.param_vals, self.t_default[-1], self.N,
+            self.depv_init, self.params, self.indepv_default[-1], self.N,
         )
 
-    def _integrate(self, init_vals, param_vals, tend, N):
-        self.ivp.init_vals=init_vals
-        self.ivp.param_vals=param_vals
+    def _integrate(self, depv_init, params, tend, N):
+        self.ivp.depv_init=depv_init
+        self.ivp.params=params
         self.ivp.integrate(tend, N=N, step_type='bsimp')
-        return self.ivp.get_interpolated(self.t)
+        return self.ivp.get_interpolated(self.indepv)
 
 if __name__ == '__main__':
     ODESys=VanDerPolOscillator

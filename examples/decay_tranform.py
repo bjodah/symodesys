@@ -1,11 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Example showing how to perform variable transformations
+prior to solving system of ODEs (can be very beneficial when
+used wisely). This is also a point where use of a CAS shines
+compared to hand-writing (buggy) code for the forward and inverse
+transforms.
+"""
+
+# External imports
 import sympy
 import numpy as np
 from decay import Decay
+
+# Project internal imports
 from symodesys.ivp import IVP
 from symodesys.integrator import Mpmath_IVP_Integrator
+
 
 def main(y0={'u':1.0}, params={'lambda_u':1.0}, t0=0.0, tend=5.0, N=20):
     """
@@ -31,6 +43,7 @@ def main(y0={'u':1.0}, params={'lambda_u':1.0}, t0=0.0, tend=5.0, N=20):
     assert np.allclose(u, expected_u)
 
     ivp2.plot(show=True)
+
 
 if __name__ == '__main__':
     main()

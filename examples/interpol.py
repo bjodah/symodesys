@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 from symodesys.odesys import SimpleFirstOrderODESystem
 from symodesys.ivp import IVP
-from symodesys.convenience import plot_numeric_vs_analytic
+from symodesys import numeric_vs_analytic
 
 class X5(SimpleFirstOrderODESystem):
 
@@ -27,8 +27,8 @@ class X5(SimpleFirstOrderODESystem):
 
 if __name__ == '__main__':
     for i in range(3):
-        ax=plt.subplot(310+i+1)
-        plot_numeric_vs_analytic(
+        ax=plt.subplot(3, 1, i+1)
+        numeric_vs_analytic(
             X5, {'y': 1.0},
             params = {},
             indepv_init = 0,
@@ -37,7 +37,8 @@ if __name__ == '__main__':
             nderiv=i,
             datapoints=True,
             ax=ax,
-            show=False)
+            show=False,
+            subplot=False)
         if i > 0:
             box = ax.get_position()
             # Shrink height with 20%

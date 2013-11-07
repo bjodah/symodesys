@@ -141,11 +141,11 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
             self.run_integration()
 
         @property
-        def init_vals(self):
+        def depv_init(self):
             return {dv: getattr(self, 'init_'+str(dv.func.__name__)) for dv in odesys.all_depv}
 
         @property
-        def param_vals(self):
+        def params(self):
             return {p: getattr(self, str(p)) for p in odesys.param_and_sol_symbs}
 
         def run_integration(self):
@@ -164,15 +164,15 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
 
             # Make a call to the heavy lifting.
             self.interpolated_yres = self._integrate(
-                self.init_vals, self.param_vals,
+                self.depv_init, self.params,
                 getattr(self, str(odesys.indepv)+'_default')[-1], self.N)
             for depv in odesys.all_depv:
                 depv_str = depv.func.__name__
                 self.plotdata.set_data(depv_str, getattr(self, '_get_'+depv_str)())
 
-        def _integrate(self, init_vals, param_vals, tend, N):
-            self.ivp.init_vals=init_vals
-            self.ivp.param_vals=param_vals
+        def _integrate(self, depv_init, params, tend, N):
+            self.ivp.depv_init=depv_init
+            self.ivp.params=params
             self.ivp.integrate(tend, N = N)
             return self.ivp.get_interpolated(getattr(self, str(odesys.indepv)))
 

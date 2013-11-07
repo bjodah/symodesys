@@ -25,15 +25,20 @@ def deprecated(f):
     return wrapper
 
 
+def _make_hashable(x):
+    if isinstance(x, dict):
+        return frozenset(x.items())
+    elif isinstance(x, list):
+        return tuple(x)
+    else:
+        return x
+
+
 def hashable(it):
     frozen = []
     for x in it:
-        if isinstance(x, dict):
-            candidate = frozenset(x.items())
-        elif isinstance(x, list):
-            candidate = tuple(x)
-        else:
-            candidate = x
+        candidate = _make_hashable(x)
+
         try:
             iter_cand = iter(candidate)
             candidate = hashable(iter_cand)
@@ -42,6 +47,7 @@ def hashable(it):
         frozen.append(candidate)
 
     return tuple(frozen)
+
 
 def cache(f):
     """
@@ -53,13 +59,7 @@ def cache(f):
     @wraps(f)
     def wrapper(*args):
         hashable_args=[]
-        for x in args:
-            if isinstance(x, dict):
-                hashable_args.append(frozenset(x.items()))
-            elif isinstance(x, list):
-                hashable_args.append(tuple(x))
-            else:
-                hashable_args.append(x)
+        map(hashable_args.append, map(_make_hashable, args))
         hashable_args = tuple(hashable_args)
         if not hashable_args in data:
             data[hashable_args] = f(*args)
@@ -68,6 +68,32 @@ def cache(f):
     wrapper.cache_clear = lambda: data.clear()
     wrapper.cache = data
     return wrapper
+
+
+def cache_w_kwargs(*kwtup):
+    """
+    Decorator factory.
+    >>> @cache_w_kwargs('x','y')
+    ... def func(x, y=None):
+    ...     pass
+    """
+    def cch(f):
+        data = {} # Could be made to size-limited LRU
+
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            hshbl = [] # hashable
+            map(hshbl.append, map(_make_hashable, args))
+            for kw in kwtup[len(args):]:
+                hshbl.append(_make_hashable(kwargs[kw]))
+            hshbl = tuple(hshbl)
+            if not hshbl in data:
+                data[hshbl] = f(*args, **kwargs)
+            return data[hshbl]
+        wrapper.cache_clear = lambda: data.clear()
+        wrapper.cache = data
+        return wrapper
+    return cch
 
 
 def subs_set(s, subsd):

@@ -9,7 +9,7 @@ from sympy import exp as e
 
 # Package imports
 from symodesys import SimpleFirstOrderODESystem
-from symodesys.convenience import plot_numeric_error
+from symodesys.convenience import numeric_vs_analytic
 
 """
 Product of early morning flight, not a single one is working
@@ -66,6 +66,6 @@ class Nonlinear2(SimpleFirstOrderODESystem):
 
 
 if __name__ == '__main__':
-    plot_numeric_error(Nonlinear2, {'u': 0.0, 'up': 1.0}, {}, 0.0, 10.0, N=30)
-    plot_numeric_error(Sin, {'u': 1.0}, {}, 0.0, 10.0, N=30)
-    plot_numeric_error(Nonlinear, {'u': 1.0}, {'lambda_u': 0.2}, 0.0, 10.0, N=30)
+    numeric_vs_analytic(Nonlinear2, {'u': 0.0, 'up': 1.0}, {}, 0.0, 10.0, N=30)
+    numeric_vs_analytic(Sin, {'u': 1.0}, {}, 0.0, 10.0, N=30)
+    numeric_vs_analytic(Nonlinear, {'u': 1.0}, {'lambda_u': 0.2}, 0.0, 10.0, N=30)

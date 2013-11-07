@@ -31,6 +31,8 @@ class IVP_Integrator(object):
     h_init = None
     h_max  = 0.0 # inifinte
 
+    _fo_odesys = None
+
     # Default highest order of derivatives to save for output
     nderiv = 1
 
@@ -47,7 +49,8 @@ class IVP_Integrator(object):
         self._fo_odesys = fo_odesys
 
 
-    def run(self, depv_init, params, indepv_init, indepv_end, N, **kwargs):
+    def run(self, depv_init, params, indepv_init, 
+            indepv_end, N, check_jac_cond=False, **kwargs):
         """
         Run the numeric integration.
 
@@ -75,22 +78,23 @@ class IVP_Integrator(object):
             [depv_init[k] for k in self._fo_odesys.na_depv],
             dtype = np.float64)
 
-        params_arr = np.array([params[k] for k \
-                               in self._fo_odesys.param_and_sol_symbs],
-                              dtype = np.float64)
+        params_arr = np.array(
+            [params[k] for k in self._fo_odesys.param_and_sol_symbs],
+            dtype = np.float64)
 
         # Below is a somewhat ad-hoc sanity check of condition
         # of jacobian in the starting point, even though some
         # solvers might not need the jacobian at the starting point.
         # To work around this one would ideally use a variable transformation
         # and/or solving/estimating parts of the problem analytically
-        jac_cond = np.linalg.cond(self._fo_odesys.evaluate_na_jac(
-            indepv_init, depv_init_arr, params_arr))#
-        self.info['init_jac_cond'] = jac_cond
-        if jac_cond*np.finfo(np.float64).eps > max(self.abstol, self.reltol):
-            raise RuntimeError(("Unlikely that Jacboian with condition: {} "+\
-                               "will work with requested tolerances.").format(
-                                   jcond))
+        if check_jac_cond:
+            jac_cond = np.linalg.cond(self._fo_odesys.evaluate_na_jac(
+                indepv_init, depv_init_arr, params_arr))#
+            self.info['init_jac_cond'] = jac_cond
+            if jac_cond*np.finfo(np.float64).eps > max(self.abstol, self.reltol):
+                raise RuntimeError(("Unlikely that Jacboian with condition: {} "+\
+                                   "will work with requested tolerances.").format(
+                                       jcond))
 
         if self.h_init == None:
             self.h_init = 1e-9 # TODO: along the lines of:

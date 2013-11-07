@@ -1,23 +1,23 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
+from __future__ import division
 
-import sympy
 import numpy as np
-import matplotlib.pyplot as plt
 
 from symodesys.odesys import SimpleFirstOrderODESystem
-from symodesys.ivp import IVP
-from symodesys.convenience import plot_numeric_error
-from symodesys.integrator import SciPy_IVP_Integrator
 
 # TODO
 # Implement automatic resolution of N - number of chained decays via
-# Bateman's equations <--- No, doesnt handle lambda_k = lambda_l
+# Bateman's equations (Note: breaks down when lambda_k = lambda_l)
 
 class CoupledDecay(SimpleFirstOrderODESystem):
-
+    """
+    A first order system of 3 ODEs (u, v, w)
+    with 3 parameters (lambda_u, lambda_v, lambda_w)
+    `analytic_sol` contains the analytic solutions (valid for
+    lambda_u != lambda_v != lambda_w)
+    """
     # Following two lines are optional but useful for
     # automatic labeling when plotting:
     depv_tokens = 'u v w'.split()
@@ -64,31 +64,29 @@ class CoupledDecay(SimpleFirstOrderODESystem):
     analytic_sol = {'u': analytic_u, 'v': analytic_v, 'w': analytic_w}
 
 
+def coupled_decay_numeric_vs_analytic(
+        Integrator=None, integrator_kwargs=None, logger=None,
+        **kwargs):
+    if Integrator == None:
+        from symodesys.integrator import SciPy_IVP_Integrator
+        Integrator = SciPy_IVP_Integrator
+    integrator_kwargs = integrator_kwargs or {}
+
+    if not 'acceptance_factor' in kwargs: kwargs['acceptance_factor'] = 100
+    from symodesys import numeric_vs_analytic
+    numeric_vs_analytic(
+        ODESys = CoupledDecay,
+        depv_init = {'u': 1.0, 'v': 1.0, 'w': 1.0},
+        params = {'lambda_u': 1/3,'lambda_v': 1/5,'lambda_w': 1/7},
+        indepv_init = 0,
+        indepv_end = 5.0,
+        integrator = Integrator(**integrator_kwargs),
+        N = 100,
+        plot=True,
+        logger=logger,
+        **kwargs
+    )
 
 
 if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        lambda_u = float(sys.argv[1])
-        lambda_v = float(sys.argv[2])
-        lambda_w = float(sys.argv[3])
-    else:
-        lambda_u, lambda_v, lambda_w = 3.0, 2.0, 1.0
-
-    integrator = SciPy_IVP_Integrator()
-    integrator.abstol = 1e-7
-    integrator.reltol = 1e-7
-    plot_numeric_error(
-        CoupledDecay,
-        {'u': 7.0,
-         'v': 5.0,
-         'w': 3.0,
-     },
-        params = {
-            'lambda_u': lambda_u,
-            'lambda_v': lambda_v,
-            'lambda_w': lambda_w,
-        },
-        indepv_init = 0.0,
-        indepv_end = 1.5,
-        integrator=integrator
-    )
+    coupled_decay_numeric_vs_analytic()

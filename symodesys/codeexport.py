@@ -178,14 +178,16 @@ class Binary_IVP_Integrator(IVP_Integrator):
 
 
     def set_fo_odesys(self, fo_odesys):
-        super(Binary_IVP_Integrator, self).set_fo_odesys(fo_odesys)
-        self._binary_mod = None # <-- Clears cache
-        self._code = self.CodeClass(
-            fo_odesys = self._fo_odesys,
-            tempdir = self.tempdir,
-            save_temp = self.save_temp,
-            logger=self.logger,
-        )
+        if fo_odesys != self._fo_odesys:
+            # Don't recompile if we system is the same
+            super(Binary_IVP_Integrator, self).set_fo_odesys(fo_odesys)
+            self._binary_mod = None # <-- Clears cache
+            self._code = self.CodeClass(
+                fo_odesys = self._fo_odesys,
+                tempdir = self.tempdir,
+                save_temp = self.save_temp,
+                logger=self.logger,
+            )
 
 
     def clean(self):

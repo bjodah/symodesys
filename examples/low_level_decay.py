@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""
+Example not using SimpleFirstOrderODESystem but the more low-level
+FirstOrderODESystem . The main difference is that this approach
+requires a bit more knowledge on how to use sympy and how symodesys
+represents the odesystem internally (with great power comes great
+responsibilities).
+"""
+
 # Standard library imports
 from collections import OrderedDict
 
@@ -9,9 +17,9 @@ import sympy
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Package imports
+# Project internal imports
 from symodesys import FirstOrderODESystem
-from symodesys.convenience import plot_numeric_error
+from symodesys.convenience import numeric_vs_analytic
 from symodesys.integrator import Mpmath_IVP_Integrator
 
 # Global
@@ -36,4 +44,5 @@ class Decay(FirstOrderODESystem):
 
 
 if __name__ == '__main__':
-    plot_numeric_error(Decay, {'u': 1.0}, {'lambda_u': 0.2}, 0.0, 10.0, N=30, integrator=Mpmath_IVP_Integrator(nderiv=2))
+    numeric_vs_analytic(Decay, {'u': 1.0}, {'lambda_u': 0.2}, 0.0, 10.0, N=30,
+                        integrator=Mpmath_IVP_Integrator(nderiv=2))

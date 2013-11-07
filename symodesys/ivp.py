@@ -14,7 +14,7 @@ except ImportError:
 import matplotlib.pyplot as plt
 import sympy
 
-from symodesys.helpers import cache
+from symodesys.helpers import cache, cache_w_kwargs
 from symodesys.integrator import Mpmath_IVP_Integrator, SympyEvalr
 from symodesys.odesys import FirstOrderODESystem
 from symvarsub import NumTransformer
@@ -214,7 +214,7 @@ class IVP(object):
     def _clear_caches(self):
         self.indepv_out.cache_clear()
         self._Yres.cache_clear()
-        self.interpolators.cache_clear()
+        self._interpolators.cache_clear()
         self.trajectories.cache_clear()
 
 
@@ -270,13 +270,13 @@ class IVP(object):
             return tout
 
 
-    @cache
-    def trajectories(self):
+    @cache_w_kwargs('nderiv')
+    def trajectories(self, nderiv=None):
         """
         Returns an OrderedDict instance of:
         depv: nt×nderiv
         """
-        Yres = self._Yres()
+        Yres = self._Yres(nderiv)
         tout = self.integrator.tout
         nt, ndepv, ndatapp = Yres.shape # time, dependent variables, data per point (nderiv+1)
         indepv = self.fo_odesys.indepv
@@ -313,24 +313,26 @@ class IVP(object):
                                    [Yres[:,i,:] for i in range(ndepv)]))
 
 
-    @cache
-    def _Yres(self):
+    @cache_w_kwargs('nderiv')
+    def _Yres(self, nderiv=None):
         """
         Unified the output of the numerical and analyitc results.
         first axis: independent variable value
         second axis: dependent variable index (fo_odesys.all_depv)
         third axis: 0-th, 1st, ... derivatives
         """
+        if nderiv == None: nderiv = self.integrator.nderiv
+        assert nderiv <= self.integrator.nderiv
         Yres = np.empty((len(self.indepv_out()), len(self.fo_odesys.all_depv),
-                          self.integrator.nderiv+1), self._dtype)
+                          nderiv+1), self._dtype)
         for i, yi in enumerate(self.fo_odesys.all_depv):
             if yi in self.fo_odesys.analytic_depv:
                 Yres[:, i, :] = self.analytic_evalr.Yout[
-                    :, self.fo_odesys.analytic_depv.index(yi),:]
+                    :, self.fo_odesys.analytic_depv.index(yi),:nderiv+1]
             else:
                 if len(self.fo_odesys.na_depv) > 0:
                     Yres[:, i, :] = self.integrator.Yout[
-                        :, self.fo_odesys.na_depv.index(yi),:]
+                        :, self.fo_odesys.na_depv.index(yi),:nderiv+1]
         return Yres
 
 
@@ -345,16 +347,17 @@ class IVP(object):
             return self.fo_odesys.all_depv
 
 
-    @cache
-    def interpolators(self):
+    @cache_w_kwargs('nderiv')
+    def _interpolators(self, nderiv):
+        traj = self.trajectories(nderiv)
         return OrderedDict([(k, PiecewisePolynomial(
-            self.indepv_out(), self.trajectories()[k])) for k,v \
-                            in self.trajectories().items()])
+            self.indepv_out(), traj[k])) for k,v \
+                            in traj.items()])
 
 
-    def get_interpolated(self, t, depvs=None):
+    def get_interpolated(self, t, depvs=None, nderiv=None):
         if depvs == None: depvs = self.all_depv
-        return np.array([self.interpolators()[depv](t) for depv in depvs])
+        return np.array([self._interpolators(nderiv)[depv](t) for depv in depvs])
 
 
     def get_depv_from_token(self, depvn):
@@ -379,7 +382,7 @@ class IVP(object):
 
     def plot(self, depvs=None, interpolate=True, datapoints=False,
              show=False, skip_helpers=True, usetex=False, texnames=None,
-             ax=None):
+             ax=None, nderiv=None):
         """
         Rudimentary plotting utility for quick inspection of solutions
         TODO: move to symodesys.convenience ?
@@ -399,7 +402,7 @@ class IVP(object):
                     depvs.pop(depvs.index(hlpr[2]))
         if interpolate:
             ipx = np.linspace(self.indepv_out()[0], self.indepv_out()[-1], 1000)
-            ipy = self.get_interpolated(ipx, depvs)
+            ipy = self.get_interpolated(ipx, depvs, nderiv)
         ls = ['-', '--', ':']
         c = 'k b r g m'.split()
         m = 'o s ^ * d p h'.split()
@@ -418,7 +421,7 @@ class IVP(object):
                          marker = 'None', ls = lsi, color = ci)
                 lsi = 'None'
             if datapoints:
-                ax.plot(self.indepv_out(), self.trajectories()[depv][:, 0], label = lbl,
+                ax.plot(self.indepv_out(), self.trajectories(nderiv)[depv][:, 0], label = lbl,
                          marker = mi, ls = lsi, color = ci)
 
         if hasattr(self.fo_odesys, 'title'):

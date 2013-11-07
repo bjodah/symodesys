@@ -51,10 +51,18 @@ def main(ODESys, y0, params, t0, tend, N = 0):
     # Anlyse output
     plot_t = np.linspace(t0, tend, 50)
 
-    ax = ivp2.plot(interpolate = True, show = False)
+    ax = ivp2.plot(interpolate = True, show = False, ax=plt.subplot(2, 1, 1))
     for depv, cb in odesys.analytic_sol.items():
         ax.plot(plot_t, cb(odesys, plot_t, y0, params, t0), label='Analytic {}'.format(depv))
+    plt.legend()
 
+    plt.subplot(2, 1, 2)
+
+    for depv, cb in odesys.analytic_sol.items():
+        analytic = cb(odesys, ivp2.indepv_out(),
+                      y0, params, t0)
+        numeric = ivp2.trajectories()[odesys[depv]][:,0]
+        plt.plot(ivp2.indepv_out(), analytic-numeric, label='Error {}'.format(depv))
     plt.legend()
     plt.show()
 

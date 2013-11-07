@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.collections import PolyCollection
+from matplotlib.ticker import MaxNLocator
 
 # Project internal imports
 from symodesys.odesys import SimpleFirstOrderODESystem
@@ -73,14 +74,17 @@ def plot_population(ivp, depv_z_map):
         verts.append(stacked)#.transpose())
     poly = PolyCollection(verts, facecolors = ['rgbk'[i%4] for i in range(len(verts))])
     poly.set_alpha(0.7)
-    ax.add_collection3d(poly, zs=[1.0*x/n for x in depv_z_map.values()], zdir='y')
+    ax.add_collection3d(poly, zs=[x+1 for x in depv_z_map.values()], zdir='y')
 
     ax.set_xlabel('t')
     ax.set_xlim3d(0, t[-1])
     ax.set_ylabel('y')
-    #ax.set_ylim3d(0, n)
+    ax.set_ylim3d(0.5, n+0.5)
     ax.set_zlabel('z')
     ax.set_zlim3d(0, maxval)
+
+    ya = ax.get_yaxis()
+    ya.set_major_locator(MaxNLocator(integer=True))
 
     plt.show()
 

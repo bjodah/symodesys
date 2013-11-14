@@ -5,10 +5,10 @@
 // Python Mako template of C file
 
 int
-band_jac (SIZE_T N, SIZE_T mu, SIZE_T ml,
-	    realtype t, N_Vector u, N_Vector fu, 
-	    DlsMat J, void *params,
-	    N_Vector tmp1, N_Vector tmp2, N_Vector tmp3)
+band_jac (DIM_T N, DIM_T mu, DIM_T ml,
+	  realtype t, N_Vector u, N_Vector fu, 
+	  DlsMat J, void *params,
+	  N_Vector tmp1, N_Vector tmp2, N_Vector tmp3)
 {
   const double *k = (double *) params;
 

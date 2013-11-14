@@ -11,41 +11,49 @@
 #ifdef USE_LAPACK
   #include <cvode/cvode_lapack.h>       /* prototype for CVDense */
   #define OUR_DENSE CVLapackDense
-  #define OUR_BANDED CVLapackBand
+  #define OUR_BAND CVLapackBand
   // Sundials 2.7.0 changed int -> long int, but BLAS uses int
-  // We use SIZE_T defined here:
-  #define SIZE_T int
+  // We use DIM_T defined here:
+  #define DIM_T int
 #else
   #include <cvode/cvode_dense.h>       /* prototype for CVDense */
+  #include <cvode/cvode_band.h>        /* prototype for CVBand */
   #define OUR_DENSE CVDense
   #define OUR_BAND CVBand
-  #define SIZE_T long int
+  #define DIM_T long int
 #endif
 
 int
 func (realtype t, N_Vector y, N_Vector f, void * params);
 int
-dense_jac (long int N, realtype t, N_Vector y, N_Vector fy, DlsMat J, void *params, N_Vector tmp1, N_Vector tmp2, N_Vector tmp3);
+dense_jac (DIM_T N, realtype t, N_Vector y, N_Vector fy, DlsMat J, void *params, N_Vector tmp1, N_Vector tmp2, N_Vector tmp3);
+
+int
+band_jac (DIM_T N, DIM_T mu, DIM_T ml,
+	  realtype t, N_Vector u, N_Vector fu, 
+	  DlsMat J, void *params,
+	  N_Vector tmp1, N_Vector tmp2, N_Vector tmp3);
 
 
 enum {
   DENSE_MODE = 0,
   BANDED_MODE = 1,
-}
+};
 
 
 int
 integrate_fixed_step (double t, double t1, double * y0, int n_steps,
 			double h_init, double h_max, double abstol,
-			double reltol, void * params, size_t dim,
+			double reltol, void * params, DIM_T dim,
 			int nderiv, double * tout, double * Yout,
-			int step_type_idx, int mode);
+			int step_type_idx, int mode, int mu, int ml);
 
 int
 integrate_fixed_step_print(double t, double t1, double * y, int n_steps,
 			     double h_init, double h_max, double abstol,
-			     double reltol, void *params, size_t dim, 
-			     int nderiv, int step_type_idx, int mode);
+			     double reltol, void *params, DIM_T dim, 
+			     int nderiv, int step_type_idx, int mode,
+			     int mu, int ml);
 
 
 #endif // _SYMODESYS_SUNDIALS_DRIVERS_H_

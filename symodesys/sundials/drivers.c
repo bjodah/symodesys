@@ -1,5 +1,8 @@
+#include <stdlib.h> // malloc, free
 #include "drivers.h"
+#include "symodesys_util.h"
 
+#include <stdio.h> // printf
 
 enum {
   STATUS_FOUT = 1000,
@@ -7,7 +10,7 @@ enum {
   STATUS_ABSTOL_,
   STATUS_CVODE_MEM,
   STATUS_DKY_OUT,
-}
+};
 
 /* 
 TODO: 
@@ -21,10 +24,10 @@ TODO:
 /* Scalar reltol and vector abstol */
 int integrate_fixed_step(
    double t, double t1, double * y0, int n_steps,
-   double h_init, double h_max, double * abstol,
-   double reltol, void * params, SIZE_T dim,
+   double h_init, double h_max, double abstol,
+   double reltol, void * params, DIM_T dim,
    int nderiv, double * tout, double * Yout,
-   int step_type_idx, int mode)
+   int step_type_idx, int mode, int mu, int ml)
 {
   /* 
      Adapted from cvRoberts_dns.c
@@ -42,7 +45,8 @@ int integrate_fixed_step(
   N_Vector y = NULL;
   N_Vector abstol_ = NULL;
   void *cvode_mem = NULL;
-  N_Vector * dky_out = NULL
+  N_Vector * dky_out = NULL;
+
 
   y = N_VMake_Serial(dim, y0);
   if (y == NULL){
@@ -50,11 +54,14 @@ int integrate_fixed_step(
     goto exit_y;
   }
 
-  abstol_ = N_VMake_Serial(dim, abstol);
+
+  abstol_ = N_VNew_Serial(dim);
+  for (int i=0; i<dim; ++i) NV_Ith_S(abstol_, i) = abstol; // TODO: let user input vector
   if (abstol_ == NULL){
     status = STATUS_ABSTOL_;
     goto exit_abstol_;
   }
+
 
   if (step_type_idx == 1) step_type_idx = CV_ADAMS;
   if (step_type_idx == 2) step_type_idx = CV_BDF;  
@@ -66,9 +73,9 @@ int integrate_fixed_step(
   }
 
   // Allocate memory for temporary arrays holding derivatives
-  dky_out = malloc(sizeof(*N_Vector));
+  dky_out = malloc(nderiv*sizeof(*dky_out));
   if (dky_out == NULL){
-    status = STATUS_DKY_OUT
+    status = STATUS_DKY_OUT;
     goto exit_dky_out;
   }
   for (int i=0; i<nderiv; ++i){
@@ -80,7 +87,7 @@ int integrate_fixed_step(
   status = CVodeInit(cvode_mem, func, t, y);
   if (status < 0) goto exit_runtime;
 
-  status = CVodeSVtolerances(cvode_mem, reltol, abstol);
+  status = CVodeSVtolerances(cvode_mem, reltol, abstol_);
   if (status < 0) goto exit_runtime;
 
   /* Call CVodeRootInit to specify the root function g with 2 components */
@@ -96,14 +103,12 @@ int integrate_fixed_step(
     status = CVDlsSetDenseJacFn(cvode_mem, dense_jac); 
     break;
   case(BANDED_MODE):
-    status = OUR_BAND(cvode_mem, dim);
+    status = OUR_BAND(cvode_mem, dim, mu, ml);
     if (status < 0) goto exit_runtime;
     status = CVDlsSetBandJacFn(cvode_mem, band_jac); 
     break;
   }
   if (status < 0) goto exit_runtime;
-
-
 
   status = CVodeSetUserData(cvode_mem, params);
   if (status < 0) goto exit_runtime;
@@ -111,20 +116,25 @@ int integrate_fixed_step(
   if (h_init > 0.0) CVodeSetInitStep(cvode_mem, h_init);
   if (h_max > 0.0) CVodeSetMaxStep(cvode_mem, h_max);
 
-
   /* Run integration */
   for (int i = 0; i < n_steps; ++i){
+    printf("i: %i\n", i); fflush(stdout);
     tout[i] = t;
-    for (int k = 1; k < nderiv+1; ++k)
-      CVodeGetDky(cvode_mem, t, k, dky_out[k]);
+    if (i > 0) 
+      for (int k = 0; k < nderiv; ++k)
+	CVodeGetDky(cvode_mem, t, k+1, dky_out[k]);
     for (size_t j = 0; j < dim; ++j){
+      printf("j: %i\n", j); fflush(stdout);
       Yout[i*dim*(nderiv+1)+j*(nderiv+1)+0] = NV_Ith_S(y, j);
-      for (int k=1; k < nderiv+1; ++k)
-	Yout[i*dim*(nderiv+1)+j*(nderiv+1)+k] = NV_Ith_S(dky_out[k], j);
+      for (int k=0; k < nderiv; ++k){
+	printf("k: %i\n", k); fflush(stdout);
+    	Yout[i*dim*(nderiv+1)+j*(nderiv+1)+k+1] = NV_Ith_S(dky_out[k], j);
+      }
     }
     /* Macro-step loop */
     ti = t + dt;
     status = CVode(cvode_mem, ti, y, &t, CV_NORMAL); // CV_ONE_STEP: single internal step
+    printf("A!\n"); fflush(stdout);
 
     /* If checking for root it may be printed here */
     if (status != CV_SUCCESS)
@@ -148,8 +158,8 @@ int integrate_fixed_step(
 int
 integrate_fixed_step_print(double t, double t1, double * y, int n_steps,
 			   double h_init, double h_max, double abstol,
-			   double reltol, void *params, size_t dim, int nderiv,
-			   int step_type_idx, int mode)
+			   double reltol, void *params, DIM_T dim, int nderiv,
+			   int step_type_idx, int mode, int mu, int ml)
 {
   int status;
   double * tout;
@@ -159,7 +169,7 @@ integrate_fixed_step_print(double t, double t1, double * y, int n_steps,
   Yout = malloc(sizeof(double)*n_steps*dim*(nderiv+1));
   status = integrate_fixed_step(t, t1, y, n_steps, h_init, h_max, abstol,
 				reltol, params, dim, nderiv, tout, Yout, 
-				step_type_idx, mode);
+				step_type_idx, mode, mu, ml);
   if (status != CV_SUCCESS)
     {
       printf ("Error, return value=%d\n", status);

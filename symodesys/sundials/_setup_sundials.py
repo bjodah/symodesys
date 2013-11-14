@@ -11,12 +11,13 @@ def main(cwd, logger):
     f = 'drivers.c'
     fpath = os.path.join(cwd, f)
     dst = os.path.join(cwd, 'prebuilt/drivers.o')
-#-lm -lsundials_cvode -llapack -lsundials_nvecserial
     if missing_or_other_newer(dst, f):
         runner = CCompilerRunner(
             [fpath], dst, run_linker=False,
-            cwd=cwd, options=['pic', 'warn', 'fast', 'c99', 'lapack'],
-            flags=['-DUSE_LAPACK'],
+            cwd=cwd,
+            options=['pic', 'warn', 'fast', 'c99', 'lapack'],
+            libs=['m', 'sundials_cvode', 'sundials_nvecserial'],
+            defmacros=['SUNDIALS_DOUBLE_PRECISION'],
             metadir='prebuilt/',
             logger=logger)
         if os.path.exists(dst):

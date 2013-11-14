@@ -5,7 +5,9 @@
 // Python Mako template of C file
 
 int
-dense_jac (SIZE_T N, realtype t, N_Vector y, N_Vector fy, DlsMat J, void *params, N_Vector tmp1, N_Vector tmp2, N_Vector tmp3)
+dense_jac (DIM_T N, realtype t, N_Vector y, N_Vector fy,
+	   DlsMat J, void *params, N_Vector tmp1,
+	   N_Vector tmp2, N_Vector tmp3)
 {
   const double *k = (double *) params;
 

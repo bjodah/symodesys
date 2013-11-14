@@ -134,7 +134,7 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
                 else:
                     raise AttributeError('No param {}'.format(k))
             setattr(self, str(odesys.indepv) + '_default', np.linspace(t0, tend, 500))
-            self.ivp = IVP(odesys_, y0, params, t0, integrator=GSL_IVP_Integrator())
+            self.ivp = IVP(odesys_, y0, params, t0, integrator=Integrator())
             self.N = N
             self.old_args = []
             #super(ODESolViewer, self).__init__()

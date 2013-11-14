@@ -11,6 +11,8 @@ TAGS
 */#*#
 */*.so
 */build/
+symodesys/*/prebuilt/*.*
+symodesys/*/prebuilt/.*
 examples/build_*/
 examples/tmp/
 examples/profile.out
@@ -23,14 +25,9 @@ symodesys/odepack/opkda2.f
 symodesys/odepack/*__genmod.*
 # Cython generated C file not tracked (might be provided as bz2 in future release though)
 symodesys/odepack/pylsodes_bdf.c
-symodesys/odepack/prebuilt/*.*
-symodesys/odepack/prebuilt/.*
 # Transform package
 # Cython generated C file
 symodesys/transform/transform_wrapper.c
-symodesys/transform/prebuilt/*.*
 symodesys/transform/tests/tmp*/*
-symodesys/gsl/prebuilt/.*
-symodesys/gsl/prebuilt/*.*
 symodesys/gsl/drivers_wrapper.c
 examples/tfm_tmp/

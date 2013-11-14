@@ -17,19 +17,23 @@ class GSL_Code(ODESys_Code, C_Code):
     # Implement hash of fo_odesys and hash of code?
     # Serialization to double check against collision?
 
+    compilation_options = ['c99'] # see pycompilation
+
     copy_files = ['prebuilt/drivers_wrapper.o',
-                   'prebuilt/drivers.o',
-                   'drivers.h', 'drivers.c', 'ode.h', 'Makefile', 'plot.py',
-                   'prebuilt/'+CCompilerRunner.metadata_filename, # <--- Make sure we compile with same compiler
+                  'prebuilt/drivers.o',
+                  'drivers.h', 'drivers.c', 'ode.h', 'Makefile', 'plot.py',
+                  'symodesys_util.c', 'symodesys_util.h',
+                  'prebuilt/'+CCompilerRunner.metadata_filename, # <--- Make sure we compile with same compiler
     ]
 
-    obj_files = ['ode.o', 'drivers.o', 'drivers_wrapper.o']
+    obj_files = ['ode.o', 'drivers.o',
+                 'drivers_wrapper.o', 'symodesys_util.o']
 
     templates = ['ode_template.c',
                  'main_ex_template.c',
     ]
 
-    source_files = ['ode.c']
+    source_files = ['ode.c', 'symodesys_util.c']
 
     so_file = 'drivers_wrapper.so'
 
@@ -80,7 +84,7 @@ class GSL_IVP_Integrator(Binary_IVP_Integrator):
 
         if N > 0:
             # Fixed stepsize
-            #self.init_Yout_tout_for_fixed_step_size(t0, tend, N)
+            self.h_init = self.h_init or 1e-9
             tout, Yout = self.binary_mod.integrate_equidistant_output(
                 indepv_init, indepv_end, depv_init_arr, N,
                 self.h_init, self.h_max, self.abstol,

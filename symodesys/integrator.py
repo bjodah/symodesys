@@ -49,7 +49,7 @@ class IVP_Integrator(object):
         self._fo_odesys = fo_odesys
 
 
-    def run(self, depv_init, params, indepv_init, 
+    def run(self, depv_init, params, indepv_init,
             indepv_end, N, check_jac_cond=False, **kwargs):
         """
         Run the numeric integration.
@@ -71,9 +71,9 @@ class IVP_Integrator(object):
         self._run assigns to self.tout and self.yout
 
         """
-        # The C-program knows nothing about dicts, provide values
+        # The C/Fortran/etc.. program knows nothing about dicts, provide values
         # as an array
-        # Set (c-program) init vals to the (subset of non_anlytic) depv
+        # Set (program) init vals to the (subset of non_anlytic) depv
         depv_init_arr = np.array(
             [depv_init[k] for k in self._fo_odesys.na_depv],
             dtype = np.float64)

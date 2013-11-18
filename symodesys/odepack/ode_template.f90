@@ -2,8 +2,9 @@
 ! mako template variables: NY, NNZ, IA, JA, NPARAM, f, cse_func, yale_jac_cse, yale_jac_expr, dfdt
 
 module ode
-use types, only: dp
+use iso_c_binding, only: c_double, c_int
 implicit none
+integer, parameter :: dp = c_double ! c_double is so many characters...
 ! Set problem specific values:
 integer, parameter :: nnz=${NNZ}, neq=${NY}, nparams=${NPARAM}
 !real(dp), save :: params(nparams)
@@ -63,7 +64,13 @@ subroutine dfdt(t, y, pdt)
   real(dp), intent(inout) :: pdt(${NY})
   integer :: i
   ! used fo explicit calc of d2ydt2
-% for k, expr in enumerate(dfdt, 1):
+% for cse_token, cse_expr in pure_dfdt_cse:
+  real(dp) :: ${cse_token}
+% endfor
+% for cse_token, cse_expr in pure_dfdt_cse:
+  ${cse_token} = ${cse_expr}
+% endfor
+% for k, expr in enumerate(pure_dfdt_exprs, 1):
   pdt(${k}) = ${expr}
 % endfor
 end subroutine

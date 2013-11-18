@@ -40,7 +40,7 @@ class ODESys_Code(Generic_Code):
     """
 
     tempdir_basename = "_symodesys_compile"
-
+    compilation_options = ['fast']
 
     def __init__(self, fo_odesys, **kwargs):
         self._fo_odesys = fo_odesys
@@ -92,6 +92,9 @@ class ODESys_Code(Generic_Code):
 
         code_jac_cse, code_jac_exprs = self.get_cse_code(
             sparse_jac.values() + dfdt, 'csejac', dummy_groups)
+
+        code_pure_dfdt_cse, code_pure_dfdt_exprs = self.get_cse_code(
+            dfdt, 'csedfdt', dummy_groups)
 
         code_dfdt_exprs = code_jac_exprs[len(sparse_jac):]
         code_jac_exprs = zip(sparse_jac.keys(),
@@ -156,6 +159,8 @@ class ODESys_Code(Generic_Code):
                 'yale_jac_exprs': code_yale_jac_exprs,
                 'yale_jac_cse': code_yale_jac_cse,
                 'dfdt': code_dfdt_exprs,
+                'pure_dfdt_exprs': code_pure_dfdt_exprs,
+                'pure_dfdt_cse': code_pure_dfdt_cse,
         }
 
 

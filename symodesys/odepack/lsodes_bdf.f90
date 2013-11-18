@@ -4,7 +4,6 @@ module lsodes_bdf
 use ode, only: func, jac, d2ydt2, neq, nnz, nparams, ia, ja 
 use iso_c_binding, only: c_double, c_int
 implicit none
-integer, parameter :: dp = c_double ! c_double is so many characters...
 private
 public lsodes_bdf_integrate
 
@@ -30,7 +29,7 @@ subroutine lsodes_bdf_integrate(y, t0, tend, atol, rtol, nt, &
   integer, parameter :: safety_factor = 2
   ! lrw: minimum len(rwork), formula for mf=121
   integer, parameter :: lrw=(20+9*neq+lwm)*safety_factor 
-  real(dp) :: rwork(lrw)
+  real(c_double) :: rwork(lrw)
 
   ! Define input variables
   real(c_double), intent(in), dimension(neq+nparams) :: y ! params are stored in end of y
@@ -41,9 +40,9 @@ subroutine lsodes_bdf_integrate(y, t0, tend, atol, rtol, nt, &
   real(c_double), intent(out), dimension(nt) :: tres
 
   ! Define work variables
-  real(dp) :: tout, t
+  real(c_double) :: tout, t
   integer :: itol, itask, istate, iopt
-  real(dp) :: ydot(neq), yddot(neq)
+  real(c_double) :: ydot(neq), yddot(neq)
  
   itol = 1
   itask = 1
@@ -90,7 +89,7 @@ subroutine lsodes_bdf_integrate(y, t0, tend, atol, rtol, nt, &
   
   t = t0
   do i = 1,nt-1
-     tout = t0 + (tend-t0)/real(nt-1, dp)*real(i, dp)
+     tout = t0 + (tend-t0)/real(nt-1, c_double)*real(i, c_double)
 
      call dlsodes (func, neq, y, t, tout, itol, rtol, atol, &
           itask, istate, iopt, rwork, lrw, iwork, liw, jac, mf)

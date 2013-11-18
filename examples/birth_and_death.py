@@ -14,12 +14,13 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.collections import PolyCollection
 from matplotlib.ticker import MaxNLocator
+import argh
 
 # Project internal imports
 from symodesys.odesys import SimpleFirstOrderODESystem
 from symodesys.ivp import IVP
-#from symodesys.odepack import LSODES_IVP_Integrator as Integrator
-from symodesys.gsl import GSL_IVP_Integrator as Integrator
+from symodesys.odepack import LSODES_IVP_Integrator as Integrator
+#from symodesys.gsl import GSL_IVP_Integrator as Integrator
 
 """
 This example illustrates the need of symodesys
@@ -109,19 +110,19 @@ def get_transformed_ivp(n):
     ivp2.recursive_analytic_reduction(complexity=0) #solve constants
     print("Transformed:")
     print('\n'.join([str(x) for x in ivp2.fo_odesys.eqs]))
-    ivp2.integrate(tend, N, step_type='bsimp') # msadams sometimes fails - memory related bug?
+    ivp2.integrate(tend, N) #, step_type='bsimp') # msadams sometimes fails - memory related bug?
     return ivp2
 
 
-def main(n):
+def main(n=5):
     """
     Plot the evolutoin of a birth death network
     """
     ivp = get_transformed_ivp(n)
     # ivp.plot(interpolate=True, datapoints=False, show=True)
-    sorted_keys = sorted(ivp.all_depv, key=lambda x: str(x))
+    sorted_keys = sorted(ivp.all_depv, key=lambda x: int(x.func.__name__[1:]))
+    print(sorted_keys)
     plot_population(ivp, depv_z_map=OrderedDict([(k, sorted_keys.index(k)) for k in sorted_keys]))
     #ivp.clean()
 
-if __name__ == '__main__':
-    main(5)
+argh.dispatch_command(main)

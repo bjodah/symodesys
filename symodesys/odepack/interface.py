@@ -13,6 +13,7 @@ from symodesys.codeexport import ODESys_Code, Binary_IVP_Integrator
 
 class LSODES_Code(ODESys_Code, F90_Code):
 
+    compilation_options = ['fast'] # see pycompilation
 
     # the files from prebuilt/ are built by _setup_odepack.py
     copy_files = [

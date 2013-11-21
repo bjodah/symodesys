@@ -357,8 +357,8 @@ class IVP(object):
 
     def get_interpolated(self, t, depvs=None, nderiv=None):
         if depvs == None: depvs = self.all_depv
-        return np.array([self._interpolators(nderiv)[depv](t) for depv in depvs])
-
+        return np.array([self._interpolators(nderiv)[depv](t) \
+                         for depv in depvs])
 
     def get_depv_from_token(self, depvn):
         """

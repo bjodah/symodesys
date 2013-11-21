@@ -137,7 +137,6 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
             self.ivp = IVP(odesys_, y0, params, t0, integrator=Integrator())
             self.N = N
             self.old_args = []
-            #super(ODESolViewer, self).__init__()
             self.run_integration()
 
         @property

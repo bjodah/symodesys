@@ -36,8 +36,8 @@ def integrate_equidistant_output(
         h_init, h_max, abstol, reltol, &params[0],
         len(y0), nderiv, <double *>tout.data,
         <double *>Yout.data,
-        step_types.index(step_type)+1,
-        modes.index(mode),
+        step_types.index(step_type.lower())+1,
+        modes.index(mode.lower())+1,
         -1, # mu
         -1, # ml
         )

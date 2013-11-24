@@ -35,11 +35,6 @@ band_jac (DIM_T N, DIM_T mu, DIM_T ml,
 	  N_Vector tmp1, N_Vector tmp2, N_Vector tmp3);
 
 
-enum {
-  DENSE_MODE = 0,
-  BANDED_MODE = 1,
-};
-
 
 int
 integrate_fixed_step (double t, double t1, double * y0, int n_steps,

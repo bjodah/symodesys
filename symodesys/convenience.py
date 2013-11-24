@@ -15,7 +15,7 @@ def _get_default_integrator(Integrator=SciPy_IVP_Integrator,
 def numeric_vs_analytic(ODESys, depv_init, params, indepv_init, indepv_end,
                         integrator=None, N=0, nderiv=None,
                         plot=True, subplot=True, show=True, acceptance_factor=0,
-                        logger=None, **kwargs):
+                        logger=None, interpolate=True, datapoints=False, **kwargs):
     """
     Used to plot and/or assert numeric solution in relation to analytic solution
     of odesystem
@@ -27,6 +27,10 @@ def numeric_vs_analytic(ODESys, depv_init, params, indepv_init, indepv_end,
 
     integrator = integrator or _get_default_integrator(nderiv=nderiv)
     odesys = ODESys()
+
+    ls = ['-', '--']
+    c = 'k b r g m'.split()
+
     with IVP(odesys, depv_init, params,
              indepv_init, integrator, logger=logger) as ivp:
         ivp.integrate(indepv_end, N)
@@ -39,24 +43,30 @@ def numeric_vs_analytic(ODESys, depv_init, params, indepv_init, indepv_end,
                 ax = plt.subplot(311)
             else:
                 ax = kwargs.pop('ax', None)
-            ax = ivp.plot(interpolate = True, show=False, ax=ax, nderiv=nderiv, **kwargs)
+            ax = ivp.plot(interpolate=interpolate, show=False, ax=ax,
+                          datapoints=datapoints,
+                          nderiv=nderiv, ls=ls[:1], c=c, **kwargs)
         if acceptance_factor:
             abserr, relerr = {}, {}
-        for depv, cb in odesys.analytic_sol.items():
+        for i, (depv, cb) in enumerate(odesys.analytic_sol.items()):
             analytic = cb(odesys, ivp.indepv_out(),
                           depv_init, params, indepv_init)
             numeric = ivp.trajectories(nderiv)[odesys[depv]][:,0]
             if plot:
-                ax.plot(plot_t, cb(odesys, plot_t, depv_init, params, indepv_init),
-                        label = 'Analytic {}'.format(depv))
+                ax.plot(plot_t, cb(odesys, plot_t, depv_init,
+                                   params, indepv_init),
+                        label = 'Analytic {}'.format(depv),
+                        c=c[i], ls=ls[1])
                 plt.legend()
                 if subplot:
                     plt.subplot(312)
-                    plt.plot(ivp.indepv_out(), (numeric-analytic)/integrator.abstol,
-                               label=depv+': abserr / abstol')
+                    plt.plot(ivp.indepv_out(),
+                             (numeric-analytic)/integrator.abstol,
+                             label=depv+': abserr / abstol')
                     plt.legend()
                     plt.subplot(313)
-                    plt.plot(ivp.indepv_out(), (numeric-analytic)/analytic/integrator.reltol,
+                    plt.plot(ivp.indepv_out(),
+                             (numeric-analytic)/analytic/integrator.reltol,
                                label=depv+': relerr / reltol')
                     plt.legend()
 

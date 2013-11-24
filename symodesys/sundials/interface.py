@@ -19,7 +19,9 @@ class CVODE_Code(ODESys_Code, C_Code):
     copy_files = ['prebuilt/drivers_wrapper.o',
                   'prebuilt/drivers.o',
                   'drivers.h', 'drivers.c', 'Makefile', 'plot.py',
-                  '../shared/prebuilt/symodesys_util.o', #, 'symodesys_util.h',
+                  '../shared/prebuilt/symodesys_util.o',
+                  '../shared/symodesys_util.h', # for main_ex
+                  '../shared/symodesys_util.c', # for main_ex
                   'prebuilt/'+CCompilerRunner.metadata_filename, # <--- Ensure we use the same compiler
     ]
 
@@ -49,11 +51,8 @@ class CVODE_Code(ODESys_Code, C_Code):
     def __init__(self, *args, **kwargs):
         self._basedir = os.path.dirname(__file__)
         super(CVODE_Code, self).__init__(*args, **kwargs)
-        # self.inc_dirs.append()
-        # self.inc_dirs.append()
         self.libs.extend(['m', 'sundials_cvode', 'sundials_nvecserial'])
         self.defmacros.extend(['SUNDIALS_DOUBLE_PRECISION'])
-        # self.lib_dirs.append()
 
 
 class CVODE_IVP_Integrator(Binary_IVP_Integrator):

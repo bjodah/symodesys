@@ -382,7 +382,7 @@ class IVP(object):
 
     def plot(self, depvs=None, interpolate=True, datapoints=False,
              show=False, skip_helpers=True, usetex=False, texnames=None,
-             ax=None, nderiv=None):
+             ax=None, nderiv=None, ls=None, c=None, m=None):
         """
         Rudimentary plotting utility for quick inspection of solutions
         TODO: move to symodesys.convenience ?
@@ -403,9 +403,9 @@ class IVP(object):
         if interpolate:
             ipx = np.linspace(self.indepv_out()[0], self.indepv_out()[-1], 1000)
             ipy = self.get_interpolated(ipx, depvs, nderiv)
-        ls = ['-', '--', ':']
-        c = 'k b r g m'.split()
-        m = 'o s ^ * d p h'.split()
+        ls = ls or ['-', '--', ':']
+        c = c or 'k b r g m'.split()
+        m = m or 'o s ^ * d p h'.split()
         ax = ax or plt.subplot(111)
 
         for i, depv in enumerate(depvs):

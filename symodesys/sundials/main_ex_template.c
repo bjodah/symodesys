@@ -23,10 +23,12 @@ main (void)
   double y[]    = {${y0_comma_sep_str}}; // ${y0_names}
   double params[] = {${param_vals_comma_sep_str}}; // ${param_names}
   int step_type_idx = 1;
+  int mu = -1;
+  int ml = -1;
 
   status = integrate_fixed_step_print(
     t, t1, y, n, h, hmax, eps_abs, eps_rel, params, dim, nderiv,
-    step_type_idx, DENSE_MODE);
+    step_type_idx, SUNDIALS_DENSE, mu, ml);
 
   if (status != CV_SUCCESS)
       return 1;

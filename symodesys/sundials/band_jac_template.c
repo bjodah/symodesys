@@ -4,6 +4,8 @@
 
 // Python Mako template of C file
 
+// BAND_ELEM def in sundials_direct.h included in drivers.h
+
 int
 band_jac (DIM_T N, DIM_T mu, DIM_T ml,
 	  realtype t, N_Vector u, N_Vector fu, 

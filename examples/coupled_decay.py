@@ -81,8 +81,10 @@ def coupled_decay_numeric_vs_analytic(
         indepv_init = 0,
         indepv_end = 5.0,
         integrator = Integrator(**integrator_kwargs),
-        N = 100,
+        N = 40,
         plot=True,
+        interpolate=False,
+        datapoints=True,
         logger=logger,
         **kwargs
     )

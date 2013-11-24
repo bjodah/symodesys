@@ -8,8 +8,10 @@ enum {
   STATUS_FOUT = 1000,
   STATUS_Y,
   STATUS_ABSTOL_,
+  STATUS_STEP_TYPE,
   STATUS_CVODE_MEM,
   STATUS_DKY_OUT,
+  STATUS_DKY_OUT_I,
 };
 
 /* 
@@ -35,8 +37,8 @@ int integrate_fixed_step(
         1 => CV_ADAMS
 	2 => CV_BDF
      mode:
-        0 => DENSE_MODE
-	1 => BANDED_MODE
+        1 => SUNDIALS_DENSE
+	2 => SUNDIALS_BAND
   */
 
   double ti;
@@ -62,9 +64,15 @@ int integrate_fixed_step(
     goto exit_abstol_;
   }
 
+  if (step_type_idx == 1){
+    step_type_idx = CV_ADAMS;
+  }else if (step_type_idx == 2) {
+    step_type_idx = CV_BDF;  
+  }else{
+    status = STATUS_STEP_TYPE;
+    goto exit_abstol_;
+  }
 
-  if (step_type_idx == 1) step_type_idx = CV_ADAMS;
-  if (step_type_idx == 2) step_type_idx = CV_BDF;  
   // For now we skip CV_FUNCTIONAL only use CV_NEWTON
   cvode_mem = CVodeCreate(step_type_idx, CV_NEWTON); 
   if (cvode_mem == NULL){
@@ -80,61 +88,75 @@ int integrate_fixed_step(
   }
   for (int i=0; i<nderiv; ++i){
     dky_out[i] = N_VNew_Serial(dim);
+    if (dky_out[i] == NULL){
+      for (int j=0; j<i; ++j)
+	N_VDestroy_Serial(dky_out[i]);
+      goto exit_dky_out_i;
+    }
     for (int j=0; j<dim; ++j) NV_Ith_S(dky_out[i], j) = 0.0;
   }
   
 
   status = CVodeInit(cvode_mem, func, t, y);
-  if (status < 0) goto exit_runtime;
+  if (status != 0) goto exit_runtime;
 
   status = CVodeSVtolerances(cvode_mem, reltol, abstol_);
-  if (status < 0) goto exit_runtime;
+  if (status != 0) goto exit_runtime;
 
-  /* Call CVodeRootInit to specify the root function g with 2 components */
+  /* Call CVodeRootInit to specify the root function g 
+     with 2 components */
   /* flag = CVodeRootInit(cvode_mem, 2, g); */
   /* if (check_flag(&flag, "CVodeRootInit", 1)) return(1); */
 
   /* Call CVDense/CVLapackDense to specify the dense linear solver */
   switch(mode){
-  case(DENSE_MODE):
+  case(SUNDIALS_DENSE):
     status = OUR_DENSE(cvode_mem, dim);
-    if (status < 0) goto exit_runtime;
-    /* /\* Set the Jacobian routine to Jac (user-supplied) *\/ */
+    if (status != 0) goto exit_runtime;
+    /* Set the Jacobian routine to Jac (user-supplied) */
     status = CVDlsSetDenseJacFn(cvode_mem, dense_jac); 
     break;
-  case(BANDED_MODE):
+  case(SUNDIALS_BAND):
     status = OUR_BAND(cvode_mem, dim, mu, ml);
-    if (status < 0) goto exit_runtime;
+    if (status != 0) goto exit_runtime;
     status = CVDlsSetBandJacFn(cvode_mem, band_jac); 
     break;
   }
-  if (status < 0) goto exit_runtime;
+  if (status != 0) goto exit_runtime;
 
   status = CVodeSetUserData(cvode_mem, params);
-  if (status < 0) goto exit_runtime;
+  if (status != 0) goto exit_runtime;
 
   if (h_init > 0.0) CVodeSetInitStep(cvode_mem, h_init);
   if (h_max > 0.0) CVodeSetMaxStep(cvode_mem, h_max);
 
+  /* Store output before first step */
+  for (int i = 0; i < dim; ++i)
+    Yout[i*(nderiv+1)] = y0[i];
+
+  /* We at most calculate first derivative for first step */
+  if (nderiv > 0){
+    func(t, y, dky_out[0], params); // we borrow dky_out[0]
+    for (int i=0; i<dim; ++i)
+      Yout[i*(nderiv+1)+1] = NV_Ith_S(dky_out[0], i);
+  }
+
   /* Run integration */
   for (int i = 0; i < n_steps; ++i){
-    printf("i: %i\n", i); fflush(stdout);
     tout[i] = t;
-    if (i > 0) 
+    if (i > 0){
       for (int k = 0; k < nderiv; ++k)
 	CVodeGetDky(cvode_mem, t, k+1, dky_out[k]);
-    for (size_t j = 0; j < dim; ++j){
-      printf("j: %i\n", j); fflush(stdout);
-      Yout[i*dim*(nderiv+1)+j*(nderiv+1)+0] = NV_Ith_S(y, j);
-      for (int k=0; k < nderiv; ++k){
-	printf("k: %i\n", k); fflush(stdout);
-    	Yout[i*dim*(nderiv+1)+j*(nderiv+1)+k+1] = NV_Ith_S(dky_out[k], j);
+      for (int j = 0; j < dim; ++j){
+	Yout[i*dim*(nderiv+1)+j*(nderiv+1)+0] = NV_Ith_S(y, j);
+	for (int k=0; k < nderiv; ++k){
+	  Yout[i*dim*(nderiv+1)+j*(nderiv+1)+k+1] = NV_Ith_S(dky_out[k], j);
+	}
       }
     }
     /* Macro-step loop */
     ti = t + dt;
     status = CVode(cvode_mem, ti, y, &t, CV_NORMAL); // CV_ONE_STEP: single internal step
-    printf("A!\n"); fflush(stdout);
 
     /* If checking for root it may be printed here */
     if (status != CV_SUCCESS)
@@ -143,10 +165,11 @@ int integrate_fixed_step(
 
   // Error handling
  exit_runtime:
-  CVodeFree(&cvode_mem);  
   for (int i=0; i<nderiv; ++i) N_VDestroy_Serial(dky_out[i]);
- exit_dky_out:
+ exit_dky_out_i:
   free(dky_out);
+ exit_dky_out:
+  CVodeFree(&cvode_mem);
  exit_cvode_mem: 
   N_VDestroy_Serial(abstol_);
  exit_abstol_:

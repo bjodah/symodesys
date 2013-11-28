@@ -476,6 +476,8 @@ class AnyOrderODESystem(_ODESystemBase):
         """
         new_odeqs = OrderedDict()
         frst_red_hlprs = self.frst_red_hlprs[:]
+        if default_red_init_val == None: default_red_init_val = 0.0
+
         # TODO, revise frst_red_hlprs format (cur.  len 3 tuple)
         # and update analytic_harmonic_oscillator.py and IVP.plot()
         for fnc, (order, expr) in self._odeqs.iteritems():

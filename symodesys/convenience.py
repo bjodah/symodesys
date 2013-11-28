@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from symodesys.ivp import IVP
 from symodesys.integrator import SciPy_IVP_Integrator
 
+plotting_colors = 'k b r g m'.split()
+
 def _get_default_integrator(Integrator=SciPy_IVP_Integrator,
                             abstol=1e-8, reltol=1e-8, nderiv=None):
     nderiv = nderiv or 1
@@ -29,7 +31,7 @@ def numeric_vs_analytic(ODESys, depv_init, params, indepv_init, indepv_end,
     odesys = ODESys()
 
     ls = ['-', '--']
-    c = 'k b r g m'.split()
+    c = plotting_colors
 
     with IVP(odesys, depv_init, params,
              indepv_init, integrator, logger=logger) as ivp:
@@ -48,12 +50,13 @@ def numeric_vs_analytic(ODESys, depv_init, params, indepv_init, indepv_end,
                           nderiv=nderiv, ls=ls[:1], c=c, **kwargs)
         if acceptance_factor:
             abserr, relerr = {}, {}
-        for i, (depv, cb) in enumerate(odesys.analytic_sol.items()):
-            analytic = cb(odesys, ivp.indepv_out(),
+        for i, depv in enumerate(odesys.all_depv):
+            cb = odesys.analytic_sol[depv]
+            analytic = cb(ivp.indepv_out(),
                           depv_init, params, indepv_init)
             numeric = ivp.trajectories(nderiv)[odesys[depv]][:,0]
             if plot:
-                ax.plot(plot_t, cb(odesys, plot_t, depv_init,
+                ax.plot(plot_t, cb(plot_t, depv_init,
                                    params, indepv_init),
                         label = 'Analytic {}'.format(depv),
                         c=c[i], ls=ls[1])
@@ -62,12 +65,12 @@ def numeric_vs_analytic(ODESys, depv_init, params, indepv_init, indepv_end,
                     plt.subplot(312)
                     plt.plot(ivp.indepv_out(),
                              (numeric-analytic)/integrator.abstol,
-                             label=depv+': abserr / abstol')
+                             label='{}: abserr / abstol'.format(depv))
                     plt.legend()
                     plt.subplot(313)
                     plt.plot(ivp.indepv_out(),
                              (numeric-analytic)/analytic/integrator.reltol,
-                               label=depv+': relerr / reltol')
+                               label='{}: relerr / reltol'.format(depv))
                     plt.legend()
 
             if acceptance_factor:

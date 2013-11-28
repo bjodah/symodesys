@@ -390,6 +390,8 @@ class IVP(object):
         - `depvs`: A sequence of depv to be plotted, plots all if it is None (default)
         """
         import matplotlib.pyplot as plt
+        from symodesys.convenience import plotting_colors
+
         if usetex:
             from matplotlib import rc
             rc('text', usetex=True)
@@ -404,7 +406,7 @@ class IVP(object):
             ipx = np.linspace(self.indepv_out()[0], self.indepv_out()[-1], 1000)
             ipy = self.get_interpolated(ipx, depvs, nderiv)
         ls = ls or ['-', '--', ':']
-        c = c or 'k b r g m'.split()
+        c = c or plotting_colors
         m = m or 'o s ^ * d p h'.split()
         ax = ax or plt.subplot(111)
 

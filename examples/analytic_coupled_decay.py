@@ -7,6 +7,7 @@ import logging
 import matplotlib.pyplot as plt
 
 from symodesys.ivp import IVP
+from symodesys.convenience import plotting_colors as c
 
 from coupled_decay import CoupledDecay
 
@@ -47,30 +48,30 @@ def main(params, logger=None):
     uout, vout, wout = [traj[cd[x]][:,0] for x in 'u v w'.split()]
 
     plt.subplot(311)
-    plt.plot(t, uout, '*', label = 'Numerical u')
-    plt.plot(t, vout, 'o', label = 'Numerical v')
-    plt.plot(t, wout, 'd', label = 'Numerical w')
-    plt.plot(t, analytic_u, label = 'Analytic u')
-    plt.plot(t, analytic_v, label = 'Analytic v')
-    plt.plot(t, analytic_w, label = 'Analytic w')
+    plt.plot(t, uout, '*', c=c[0], label = 'Numerical u')
+    plt.plot(t, vout, 'o', c=c[1], label = 'Numerical v')
+    plt.plot(t, wout, 'd', c=c[2], label = 'Numerical w')
+    plt.plot(t, analytic_u, c=c[0], label = 'Analytic u')
+    plt.plot(t, analytic_v, c=c[1], label = 'Analytic v')
+    plt.plot(t, analytic_w, c=c[2], label = 'Analytic w')
     plt.legend()
 
     plt.subplot(312)
     plt.plot(t, (uout - analytic_u) / ivp.integrator.abstol,
-             label = 'u abserr / abstol')
+             c=c[0], label = 'u abserr / abstol')
     plt.plot(t, (vout - analytic_v) / ivp.integrator.abstol,
-             label = 'v abserr / abstol')
+             c=c[1], label = 'v abserr / abstol')
     plt.plot(t, (wout - analytic_w) / ivp.integrator.abstol,
-             label = 'w abserr / abstol')
+             c=c[2], label = 'w abserr / abstol')
     plt.legend()
 
     plt.subplot(313)
     plt.plot(t, (uout - analytic_u) / analytic_u / ivp.integrator.reltol,
-             label = 'u relerr / reltol')
+             c=c[0], label = 'u relerr / reltol')
     plt.plot(t, (vout - analytic_v) / analytic_v / ivp.integrator.reltol,
-             label = 'v relerr / reltol')
+             c=c[1], label = 'v relerr / reltol')
     plt.plot(t, (wout - analytic_w) / analytic_w / ivp.integrator.reltol,
-             label = 'w relerr / reltol')
+             c=c[2], label = 'w relerr / reltol')
     plt.legend()
     plt.show()
 

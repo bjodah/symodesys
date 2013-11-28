@@ -61,7 +61,11 @@ class CoupledDecay(SimpleFirstOrderODESystem):
                   (np.exp( - params['lambda_v'] * indep_vals) - \
                    np.exp( - params['lambda_w'] * indep_vals)))
 
-    analytic_sol = {'u': analytic_u, 'v': analytic_v, 'w': analytic_w}
+    @property
+    def analytic_sol(self):
+        return {self['u']: self.analytic_u,
+                self['v']: self.analytic_v,
+                self['w']: self.analytic_w}
 
 
 def coupled_decay_numeric_vs_analytic(

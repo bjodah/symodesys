@@ -174,12 +174,6 @@ class IVP(object):
             self.integrator, self.analytic_evalr, inv_trnsfm, self._indepv_inv_trnsfm)
 
 
-    def mk_init_val_symb(self, y):
-        new_symb = self.fo_odesys.mk_symb(y.func.__name__ + '_init')
-        assert not new_symb in self.fo_odesys.known_symbs
-        return new_symb
-
-
     @property
     def indepv_init_symb(self):
         if not self._indepv_init_symb:
@@ -192,19 +186,26 @@ class IVP(object):
         """
         Attempts to solve some y's analytically
 
-        TODO: recreate possible 2nd order ODE and check solvability
+        (TODO: recreate possible 2nd order ODE and check solvability)
         """
         nsol = self.fo_odesys.recursive_analytic_auto_sol(
             complexity,
-            cb=partial(determine_const_val_for_init_val,
-                       indepv=self.fo_odesys.indepv,
-                       indepv_init=self.indepv_init_symb,
-                       init_symb_factory=self.mk_init_val_symb),
-            logger=self.logger)
+            cb=partial(
+                determine_const_val_for_init_val,
+                indepv=self.fo_odesys.indepv,
+                indepv_init=self.indepv_init_symb,
+                init_symb_factory=partial(
+                    self.fo_odesys.mk_symb_from_depv, tail='_init'
+                )),
+            logger=self.logger
+        )
+
 
         if nsol > 0:
             self.analytic_evalr.set_fo_odesys(self.fo_odesys)
-            if self.logger: self.logger.info('Done solving!')
+            if self.logger: self.logger.info(
+                    'Done solving (solved {} dependent '+\
+                    'variables)!'.format(nsol))
         else:
             if self.logger: self.logger.info(
                     ('Unable to make any analytic reductions at'+\
@@ -241,11 +242,12 @@ class IVP(object):
         if len(self.fo_odesys._solved) < len(self.depv_init):
             # If there are any non-analytic equations left
             self.integrator.set_fo_odesys(self.fo_odesys)
-            self.integrator.run(
+            texec = self.integrator.run(
                 self.depv_init, indepv_init=self._indepv_init_val,
                 indepv_end=indepv_end, params=params_complete, N=N, **kwargs)
         else:
             # If all equations were solved analytically
+            texec = None
             self.integrator.tout = np.linspace(self._indepv_init_val,
                                                indepv_end, N)
 
@@ -255,6 +257,7 @@ class IVP(object):
                 )
         if self.logger: self.logger.info('Detailed info about integration:\n{}'.format(
                 self.integrator.info))
+        return texec
 
     @cache
     def indepv_out(self):

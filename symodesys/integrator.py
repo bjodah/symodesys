@@ -11,6 +11,7 @@ import warnings
 
 import sympy.mpmath
 import numpy as np
+import time
 
 
 class IVP_Integrator(object):
@@ -102,8 +103,10 @@ class IVP_Integrator(object):
             # Also print a warning if h_init is below machine_epsilon**0.5
             # (or something) suggesting variable transformation.
 
+        t = time.time()
         self._run(depv_init_arr, indepv_init, indepv_end, params_arr, N,
                   **kwargs)
+        return time.time()-t
 
     def clean(self):
         """

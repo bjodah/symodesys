@@ -110,7 +110,8 @@ def get_transformed_ivp(n):
     ivp2.recursive_analytic_reduction(complexity=0) #solve constants
     print("Transformed:")
     print('\n'.join([str(x) for x in ivp2.fo_odesys.eqs]))
-    ivp2.integrate(tend, N) #, step_type='bsimp') # msadams sometimes fails - memory related bug?
+    t = ivp2.integrate(tend, N) #, step_type='bsimp') # msadams sometimes fails - memory related bug?
+    print('Time of integration: {} s'.format(t))
     return ivp2
 
 

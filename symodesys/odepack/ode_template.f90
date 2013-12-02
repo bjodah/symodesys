@@ -1,6 +1,9 @@
 ! Template for generating Fortran 90 code to wrapped using Cython for calling lsodes from python.
 ! mako template variables: NY, NNZ, IA, JA, NPARAM, f, cse_func, yale_jac_cse, yale_jac_expr, dfdt
 
+<%namespace name="hs" module="pycompilation.helpers"/>
+!<!% from pycompilation.helpers import line_cont_after_delim >
+
 module ode
 use iso_c_binding, only: c_double, c_int
 implicit none
@@ -9,8 +12,8 @@ integer, parameter :: dp = c_double ! c_double is so many characters...
 integer, parameter :: nnz=${NNZ}, neq=${NY}, nparams=${NPARAM}
 !real(dp), save :: params(nparams)
 ! Sparsity structure
-integer, parameter :: ia(neq) = ${IA} ! used in lsodes_bdf.f90
-integer, parameter :: ja(nnz) = ${JA} ! used in lsodes_bdf.f90
+integer, parameter :: ia(neq) = ${hs.line_cont_after_delim(IA)} ! sparsity used in lsodes_bdf.f90
+integer, parameter :: ja(nnz) = ${hs.line_cont_after_delim(JA)} ! sparsity used in lsodes_bdf.f90
 
 public func, jac
 

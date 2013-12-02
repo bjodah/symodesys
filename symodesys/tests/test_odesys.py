@@ -135,7 +135,7 @@ def test_FirstOrderODESystem___1():
     assert dcy.is_first_order
     assert dcy.get_highest_order() == 1
     assert dcy.is_autonomous
-    assert map(dcy.unfunc_depv, y) == y_
+    assert map(dcy.unfunc_depv_in_expr, y) == y_
     dcy._do_sanity_check_of_odeqs()
     assert dcy.from_list_of_eqs(dcy.eqs).f == dcy.f
 

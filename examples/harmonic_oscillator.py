@@ -14,6 +14,7 @@ from symodesys.gui import get_chaco_viewer
 def HarmonicOscillator():
     """
     Returns AnyOrderODESystem instance (mimics a class instantiation)
+    of a second order system of differential equation(s).
     """
     x = sympy.Symbol('x', real = True)
     y = sympy.Function('y')(x)
@@ -25,12 +26,12 @@ def HarmonicOscillator():
 
 def main(y0, t0, tend, params, N = 20):
     """
-    Integrate
+    Present a GUI with interactive control of initial values and
+    parameters.
     """
-
     odesys = HarmonicOscillator()
     fo_odesys = odesys.reduce_to_sys_of_first_order(y0, 0.0)
-    print fo_odesys.all_depv
+    print(fo_odesys.all_depv)
     viewer = get_chaco_viewer(fo_odesys, y0, params, t0, tend, N)
     viewer.configure_traits()
     viewer.clean_up()

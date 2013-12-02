@@ -16,7 +16,7 @@ from harmonic_oscillator import HarmonicOscillator
 This example is work in progress...
 """
 
-def main(init_y, k_val, indep_var_lim, N = 0):
+def main(init_y, init_dy, indep_var_lim, N = 0):
     """
     Solves a 1D harmonic oscillator analytically
     """
@@ -27,10 +27,19 @@ def main(init_y, k_val, indep_var_lim, N = 0):
     phi, A, omega = sympy.symbols('phi A omega')
 
     # Below it is obvious we want analytic reduction at very low level
-    solved_odesys = odesys.attempt_analytic_sol(
-        y, A * sympy.sin(omega * x + phi), [A, omega, phi])
+    hypo_expr = A * sympy.sin(omega * x + phi)
 
-    # TODO: FIX EVERYTHING BELOW
+    fo_odesys = odesys.reduce_to_sys_of_first_order()
+
+    success = odesys.attempt_analytic_sol(
+        y, hypo_expr, t0, y0, params, [A, omega, phi])
+
+    assert success
+
+    viewer = get_chaco_viewer(odesys, internal_y0, internal_params,
+                              indep_var_lim[0], indep_var_lim[1], N)
+    viewer.configure_traits()
+    viewer.clean_up()
 
 
 if __name__ == '__main__':

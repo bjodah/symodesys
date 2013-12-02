@@ -2,17 +2,19 @@
 from functools import reduce
 from operator import add
 from collections import namedtuple, OrderedDict, defaultdict
-import new
+#import new
 import logging
 
 # other imports
 import numpy as np
 import sympy
 
-from symvarsub.utilities import MaybeRealFunction
+from symvarsub.utilities import MaybeRealFunction, reassign_const, get_new_symbs
+
 
 # project imports
-from symodesys.helpers import subs_set, get_new_symbs, deprecated, get_without_piecewise, reassign_const #, log_call_debug
+from symodesys.helpers import subs_set, deprecated, get_without_piecewise
+
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -38,7 +40,7 @@ class _ODESystemBase(object):
     Central to the _ODESystemBase if the attribute _odeqs
     which should be an OrderedDict(). The keys in the
     dictionary should be of the form:
-       sympy.Function('name')(self.indepv)
+       sympy.Function('name_of_dependent_variable')(self.indepv)
 
     User's should use or subclass either FirstOrderODESystem
     or AnyOrderODESystem. _ODESystemBase defines common attributes
@@ -60,6 +62,7 @@ class _ODESystemBase(object):
     # (instantiate to dict):
     _solved = None
     _solved_undefined = None
+    _solved_params = None # parameters not used any more
 
     indepv = None # ODE implies 1 indep. variable,
                   #  set to sympy.Symbol(...)
@@ -98,7 +101,9 @@ class _ODESystemBase(object):
         # note: _solved must be OrderedDict for solving
         # of constants to be efficient (introducing one unknown at a time)
         self._solved_undefined = self._solved_undefined or []
+        self._solved_params = self._solved_params or []
         self.frst_red_hlprs = self.frst_red_hlprs or []
+
 
     def __getitem__(self, key):
         if isinstance(key, sympy.Basic):
@@ -124,12 +129,26 @@ class _ODESystemBase(object):
     def mk_depv(self, key):
         """
         Returns an sympy.Function instance with name key and correct
-        dependent variable
+        dependent variable, if just a symbol is wanted: see mk_symb()
         """
         # metaclasses and special behaviour of subclassed
         # classes of sympy.Function makes this tricky.. see tests
         return MaybeRealFunction(key, [self.indepv], real=self.real)
         #return sympy.Function(key)(self.indepv)
+
+
+    def mk_symb(self, name):
+        """
+        Convenience function, if a dependent variable is wanted:
+        see mk_depv()
+        """
+        return sympy.Symbol(name, real=self.real)
+
+    def mk_symb_from_depv(self, depv, tail=None):
+        if tail == None: tail = ''
+        assert depv in self.all_depv
+        return self.mk_symb(depv.func.__name__+tail)
+
 
     def ensure_dictkeys_as_symbs(self, val_by_token):
         """
@@ -142,14 +161,14 @@ class _ODESystemBase(object):
 
     @property
     def all_depv(self):
-        """ Returns all dependent variables of the system """
+        """ Returns a list of all dependent variables of the system """
         return self._odeqs.keys()
 
 
     @property
     def na_depv(self):
         """
-        Returns all dependent variables of the system
+        Returns a list of all dependent variables of the system
         that have not been solved analytically
         """
         return [x for x in self.all_depv if not x in self._solved]
@@ -158,7 +177,7 @@ class _ODESystemBase(object):
     @property
     def analytic_depv(self):
         """
-        Returns all dependent variables of the system
+        Returns a list of all dependent variables of the system
         that have been solved analytically
         """
         return [x for x in self.all_depv if x in self._solved]
@@ -167,9 +186,9 @@ class _ODESystemBase(object):
     @property
     def analytic_relations(self):
         """
-        Convenience attribute, returns all the expressions of the analytic
-        solutions corresponding to the dependent variables which have been solved
-        analytically.
+        Convenience attribute, returns all the expressions of the
+        analytic solutions corresponding to the dependent variables
+        which have been solved analytically.
         """
         return [self._solved[yi][0] for yi in self.analytic_depv]
 
@@ -177,9 +196,8 @@ class _ODESystemBase(object):
     @property
     def analytic_sol_symbs(self):
         """
-        Returns a list of symbols introduced in when process of
-        analytically solving the expressions of the dependent
-        variables.
+        Returns a list of symbols introduced when solving
+        the expressions of the dependent variables analytically.
         """
         symbs = set()
         if len(self._solved) > 0:
@@ -202,22 +220,19 @@ class _ODESystemBase(object):
     @property
     def known_symbs(self):
         """
-        Convenience attribute, returns a list of all Symbol/Function isntances
-        in use in the system.
+        Convenience attribute, returns a list of all Symbol/Function
+        instances in use in the system.
         """
         return [self.indepv] + self.all_depv + self.param_and_sol_symbs
 
     @property
     def forbidden_symbs(self):
         """
-        Extends self.known_symbs to symbols with names coinciding with e.g. dependent variables.
+        Extends self.known_symbs to symbols with names coinciding with
+        e.g. dependent variables.
         """
         return self.known_symbs + [self.mk_symb(dvfs.func.__name__) for \
                                    dvfs in self.all_depv]
-
-    def mk_symb(self, name):
-        """ Convenience function """
-        return sympy.Symbol(name, real=self.real)
 
 
     def subs(self, subsd):
@@ -264,7 +279,7 @@ class _ODESystemBase(object):
     @property
     def is_first_order(self):
         """
-        Returns true if the highest order of the ODE's in the system is 1.
+        Is True if the highest order of the ODE's in the system is 1.
         """
         return all([v.order == 1 for v in self._odeqs.values()])
 
@@ -283,17 +298,17 @@ class _ODESystemBase(object):
     @property
     def is_autonomous(self):
         """
-        Returns true if the system is autonomous (the independent variable is abscent
+        Is True if the system is autonomous (the independent variable is abscent
         in all expressions for the derivatives of the dependent variables)
         """
         for depv, (order, expr) in \
                 self._odeqs.iteritems():
-            if self.unfunc_depv(expr).diff(self.indepv) != 0:
+            if self.unfunc_depv_in_expr(expr).diff(self.indepv) != 0:
                 return False
         return True
 
 
-    def unfunc_depv(self, expr):
+    def unfunc_depv_in_expr(self, expr):
         """
         Convenience method, transforms the Function instances of the dependent variables
         possibly present in provided argument `expr` into Symbol instances.
@@ -302,16 +317,18 @@ class _ODESystemBase(object):
                        dvfs in self.all_depv}
         return expr.subs(unfunc_subs)
 
-    def refunc_depv(self, expr):
-        """ The inverse of unfunc_depv """
+
+    def refunc_depv_in_expr(self, expr):
+        """ The inverse of unfunc_depv_in_expr """
         refunc_subs = {self.mk_symb(dvfs.func.__name__): dvfs for \
                        dvfs in self.all_depv}
         return expr.subs(refunc_subs)
 
+
     @property
     def is_homogeneous(self):
         """ TODO implement this """
-        pass
+        raise NotImplementedError
 
 
     def _do_sanity_check_of_odeqs(self):
@@ -385,7 +402,9 @@ class _ODESystemBase(object):
             fnc, wrt = eq.lhs.args[0], eq.lhs.args[1:]
             assert fnc not in _odeqs # we cannot have multiple definitions
             if indepv == None:
-                assert all([wrt[0] == x for x in wrt]) # No PDEs!
+                if not all([wrt[0] == x for x in wrt]):
+                    raise NotImplementedError('Systems of partial'+\
+                            ' differential equations not supported!')
                 indepv = wrt[0]
             else:
                 assert all([indepv == x for x in wrt]) # System of same indepv
@@ -409,7 +428,11 @@ class _ODESystemBase(object):
         diff eq of ``depv'' in odesys. If it does new symbols are
         generated and saved toghether with hypoexpr in self._solved
         """
-        eq = self.eq(depv).subs({depv: hypoexpr})
+        if depv in self._solved:
+            raise ValueError("{} already solved analytically".format(dpev))
+        else:
+            eq = self.eq(depv)
+
         if bool(eq.doit()):
             if sol_consts:
                 assert len(get_new_symbs(
@@ -418,6 +441,12 @@ class _ODESystemBase(object):
                 sol_consts = get_new_symbs(
                     hypoexpr, self.known_symbs + sol_consts)
             self._solved[depv] = hypoexpr, sol_consts
+
+            # Now express the new symbols in terms of the new ones
+            if order > 1:
+                eq = self.eq(depv).subs({depv: hypoexpr})
+
+            eq0 = eq.subs({self.indepv: t0})
             return True
         else:
             return False
@@ -440,7 +469,7 @@ class AnyOrderODESystem(_ODESystemBase):
         """
         assert self.is_first_order
         return OrderedDict([\
-            ODEExpr(k, v.expr) for k, v in self._odeqs.items()])
+            (k, ODEExpr(1, v.expr)) for k, v in self._odeqs.items()])
 
     @f.setter
     def f(self, value):
@@ -541,7 +570,7 @@ class FirstOrderODESystem(_ODESystemBase):
         super(FirstOrderODESystem, self).__init__(odesys, **kwargs)
         self._init_param_symbs()
         if self.f == None:
-            self.init_f()
+            self._init_f()
         assert self.is_first_order
         self.info = self.info or defaultdict(int)
 
@@ -557,7 +586,7 @@ class FirstOrderODESystem(_ODESystemBase):
             for wrt in self.all_depv:
                 expr = expr.diff(wrt)
 
-            if self.unfunc_depv(expr).diff(self.indepv) != 0:
+            if self.unfunc_depv_in_expr(expr).diff(self.indepv) != 0:
                 return False
         return True
 
@@ -575,7 +604,7 @@ class FirstOrderODESystem(_ODESystemBase):
         _odeqs can easily be generated from f.
         """
         return OrderedDict([
-            ODEExpr(k, ODEExpr(1, self.f[k])) for k in self.all_depv])
+            (k, ODEExpr(1, self.f[k])) for k in self.all_depv])
 
     @_odeqs.setter
     def _odeqs(self, value):
@@ -603,15 +632,14 @@ class FirstOrderODESystem(_ODESystemBase):
           3: try to solve only differentials in independent and/or auto-dependent
              variables
         -`cb`: a callback with signature (expr, depv, const_symb) for
-               custom assignment of integration constants. The the callback
+               custom assignment of integration constants. The callback
                returns a new expr
 
         TODO: sometimes the different solutions are valid for
-        different conditions of choosen parameters. Best way avoid
-        this problem would be to run substitute all parameter symbols
-        for chosen numeric values (see self.subs) with the obvious
-        caveat that the ODE System is significantly less flexible from
-        that point on.
+        different conditions of choosen parameters.
+        In sympy it indicated by the solution consisting of multiple
+        sympy.Piecewise instances. See docstring of
+        FirstOrderODESystem._dsolve for more information.
         """
         nsolved0 = len(self._solved)
         changed_last_loop = True
@@ -676,7 +704,8 @@ class FirstOrderODESystem(_ODESystemBase):
         stored as list of illegal conditions. This is done not to have
         a branching tree of analytic solutions. If the interest is in e.g.:
         param_a == param_b then consider ODESys.subs({param_b: param_a}) as
-        a possible work around.
+        a possible work around (with the obvious caveat that the ODE System
+        is significantly less flexible from that point on).
         """
         # Attempt solution (actually: assume success)
         rel = sympy.Eq(depv.diff(self.indepv), expr)
@@ -690,6 +719,7 @@ class FirstOrderODESystem(_ODESystemBase):
             self._solved_undefined.extend(undefined_cases)
         else:
             sol_expr = sol.rhs
+
         # Assign new symbol to inital value
         sol_expr, rea, not_rea = reassign_const(
             sol_expr, depv.func.__name__+'C', self.known_symbs)
@@ -700,9 +730,29 @@ class FirstOrderODESystem(_ODESystemBase):
             assert len(rea) == 1
             sol_expr = sol_expr.subs({
                 rea[0]: const_symb_in_init})
-            self._solved[depv] = sol_expr, [new_const]
+            self._new_solve(depv, sol_expr, [new_const], expr)
         else:
-            self._solved[depv] = sol_expr, rea
+            self._new_solve(depv, sol_expr, rea, expr)
+
+
+    def _new_solve(self, depv, sol_expr, sol_symbs, ori_expr):
+        """
+        Manipulates self._solved and handles param_symbs
+        """
+        # Handle param_symbs
+        ## Identify what params are used in current expr
+        exclusively_present = []
+        for symb in self.param_symbs:
+            if symb in ori_expr:
+                for dv in self.all_depv:
+                    if dv != depv:
+                        if symb in self._odeqs[dv][1]:
+                            break
+                else: # exlusive
+                    exclusively_present.append(symb)
+        assert len(sol_symbs) >= len(exclusively_present)
+        self._solved_params.extend(exclusively_present)
+        self._solved[depv] = sol_expr, sol_symbs
 
 
     def _init_param_symbs(self):
@@ -718,12 +768,12 @@ class FirstOrderODESystem(_ODESystemBase):
             self.param_symbs = []
 
 
-    def init_f(self):
+    def _init_f(self):
         """
         To be subclassed.
 
         *Is only exectuted if and only if self.f != None
-        *self.init_f() must:
+        *self._init_f() must:
           set self.f to a OrderedDict with the first-order
           derivatives as values (and dependent variable sympy.Function
           instances as keys, use mk_depv to create)
@@ -901,9 +951,10 @@ class FirstOrderODESystem(_ODESystemBase):
         f_subs = {k.diff(self.indepv): v for k, v in \
              self.f.iteritems()}
         return OrderedDict([
-            (y, self.refunc_depv(self.unfunc_depv(self.f[y]).diff(
-                self.indepv).subs(f_subs))) for \
-                    y in self.all_depv])
+            (y, self.refunc_depv_in_expr(
+                self.unfunc_depv_in_expr(self.f[y]).diff(
+                    self.indepv).subs(f_subs))) for \
+            y in self.all_depv])
 
 
     @property
@@ -911,9 +962,10 @@ class FirstOrderODESystem(_ODESystemBase):
         na_f_subs = {k.diff(self.indepv): v for k, v in \
                      self.na_f.iteritems()}
         return OrderedDict([
-            (y, self.refunc_depv(self.unfunc_depv(self.na_f[y]).diff(
-                self.indepv).subs(na_f_subs))) for \
-                y in self.na_depv])
+            (y, self.refunc_depv_in_expr(
+                self.unfunc_depv_in_expr(self.na_f[y]).diff(
+                    self.indepv).subs(na_f_subs))) for \
+            y in self.na_depv])
 
 
     def subs_dfdt(self, indepv_val, depv_d, param_d):
@@ -1101,7 +1153,7 @@ class SimpleFirstOrderODESystem(FirstOrderODESystem):
         super(SimpleFirstOrderODESystem, self).__init__(*args, **kwargs)
 
 
-    def init_f(self):
+    def _init_f(self):
         # First we need to set the keys (needed when self.expressions()
         # makes look-ups)
         self.f = OrderedDict(

@@ -30,7 +30,7 @@ import mako.template
 # Intrapackage imports
 from symodesys.integrator import IVP_Integrator
 from pycompilation import FortranCompilerRunner, CCompilerRunner
-from pycompilation.codeexport import Generic_Code, DummyGroup
+from pycompilation.codeexport import Generic_Code, DummyGroup, ArrayifyGroup
 
 
 class ODESys_Code(Generic_Code):
@@ -64,15 +64,17 @@ class ODESys_Code(Generic_Code):
 
     def variables(self):
         dummy_groups = (
-            DummyGroup('depvdummies', self._fo_odesys.na_depv,
-                       self.depv_tok, self.depv_offset),
-            DummyGroup('paramdummies',
-                       self._fo_odesys.param_and_sol_symbs,
-                       self.param_tok, self.param_offset),
+            DummyGroup('depvdummies', self._fo_odesys.na_depv),
+            DummyGroup('paramdummies', self._fo_odesys.param_and_sol_symbs),
+        )
+
+        arrayify_groups = (
+            ArrayifyGroup('depvdummies', self.depv_tok, self.depv_offset),
+            ArrayifyGroup('paramdummies', self.param_tok, self.param_offset)
         )
 
         code_func_cse, code_func_exprs = self.get_cse_code(
-            self._fo_odesys.na_f.values(), 'csefunc', dummy_groups)
+            self._fo_odesys.na_f.values(), 'csefunc', dummy_groups, arrayify_groups)
 
         y0 = ', '.join(['1.0'] * self.NY)
         y0_names = ', '.join(map(str, self._fo_odesys.na_depv))
@@ -91,10 +93,10 @@ class ODESys_Code(Generic_Code):
         dfdt = self._fo_odesys.na_dfdt.values()
 
         code_jac_cse, code_jac_exprs = self.get_cse_code(
-            sparse_jac.values() + dfdt, 'csejac', dummy_groups)
+            sparse_jac.values() + dfdt, 'csejac', dummy_groups, arrayify_groups)
 
         code_pure_dfdt_cse, code_pure_dfdt_exprs = self.get_cse_code(
-            dfdt, 'csedfdt', dummy_groups)
+            dfdt, 'csedfdt', dummy_groups, arrayify_groups)
 
         code_dfdt_exprs = code_jac_exprs[len(sparse_jac):]
         code_jac_exprs = zip(sparse_jac.keys(),
@@ -131,7 +133,7 @@ class ODESys_Code(Generic_Code):
 
             # Format code: expressions in cse terms
             code_exprs = zip(cur_ja, [
-                self.as_arrayified_code(x, dummy_groups) for x \
+                self.as_arrayified_code(x, dummy_groups, arrayify_groups) for x \
                 in cse_exprs
             ])
             code_yale_jac_exprs.append(code_exprs)
@@ -140,7 +142,7 @@ class ODESys_Code(Generic_Code):
             code_cse_defs=[]
             for var_name, var_expr in cse_defs:
                 code_var_expr = self.as_arrayified_code(
-                    var_expr, dummy_groups)
+                    var_expr, dummy_groups, arrayify_groups)
                 code_cse_defs.append((var_name, code_var_expr))
             code_yale_jac_cse.append(code_cse_defs)
         ia = ia [:-1]

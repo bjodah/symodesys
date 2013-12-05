@@ -14,7 +14,7 @@ subroutine lsodes_bdf_integrate(y, t0, tend, atol, rtol, nt, &
   ! This template is for BDF (5th order) with analytic Jac provided as callback
 
   ! mf: method flag, this means: MOSS=1, METH=2, MITER=1
-  integer, parameter :: mf=121, maxord=5 
+  integer, parameter :: mf=121 !, maxord=5 
   ! MOSS=1: user supplied JAC (generated symbolically)
   ! METH=2: Backward Differentiation Formulas (stiff), this implies maxord 5
   ! MITER=1: chord iteration with a user-supplied sparse Jac, given by sub JAC

@@ -9,6 +9,9 @@ from symodesys.odepack._setup_odepack import main as odepack_main
 from symodesys.gsl._setup_gsl import main as gsl_main
 from symodesys.sundials._setup_sundials import main as sundials_main
 
+mains = zip(['shared', 'odepack', 'gsl', 'sundials'],
+            [shared_main, odepack_main, gsl_main, sundials_main])
+
 
 def main():
     """
@@ -19,13 +22,12 @@ def main():
     logging.basicConfig(level=logging.DEBUG)
     logger = logging.getLogger(__name__)
 
-    for name, cb in zip(['shared', 'odepack', 'gsl', 'sundials'],
-                        [shared_main, odepack_main, gsl_main, sundials_main]):
+    for name, cb in mains:
 
         cwd = os.path.join(os.path.abspath(
             os.path.dirname(__file__)),
                            'symodesys/'+name+'/')
-        run_sub_setup(cwd, cb, logger)
+        run_sub_setup(cb, 'prebuilt/', cwd=cwd, logger=logger)
 
 
 if __name__ == '__main__':

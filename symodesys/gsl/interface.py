@@ -17,7 +17,10 @@ class GSL_Code(ODESys_Code, C_Code):
     # Implement hash of fo_odesys and hash of code?
     # Serialization to double check against collision?
 
-    compilation_options = ['c99', 'fast'] # see pycompilation
+    compile_kwargs = {
+        'options': ['warn', 'pic', 'fast'],
+        'std': 'c99'
+    }
 
     copy_files = ['prebuilt/drivers_wrapper.o',
                   'prebuilt/drivers.o',

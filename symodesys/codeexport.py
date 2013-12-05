@@ -40,7 +40,9 @@ class ODESys_Code(Generic_Code):
     """
 
     tempdir_basename = "_symodesys_compile"
-    compilation_options = ['fast']
+    compile_kwargs = {
+        'options': ['warn','pic','fast']
+    }
 
     def __init__(self, fo_odesys, **kwargs):
         self._fo_odesys = fo_odesys

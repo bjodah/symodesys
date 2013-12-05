@@ -14,7 +14,10 @@ from symodesys.codeexport import ODESys_Code, Binary_IVP_Integrator
 
 class CVODE_Code(ODESys_Code, C_Code):
 
-    compilation_options = ['c99', 'fast'] # see pycompilation
+    compile_kwargs = {
+        'options': ['warn', 'pic', 'fast'],
+        'std': 'c99'
+    }
 
     copy_files = ['prebuilt/drivers_wrapper.o',
                   'prebuilt/drivers.o',

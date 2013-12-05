@@ -29,7 +29,7 @@ lambda_u = sympy.symbols('lambda_u')
 
 class Decay(FirstOrderODESystem):
     """
-    Shows how to instantiate sympy.symbols and sympy.Function instances
+    Shows how to instantiate sympy.Symbol and sympy.Function instances
     manually and use them directly in FirstOrderODESystem
     """
     indepv = t
@@ -37,10 +37,11 @@ class Decay(FirstOrderODESystem):
     param_symbs   = [lambda_u]
     f = OrderedDict([(u, -lambda_u * u)])
 
-    def analytic_u(self, indepv_vals, y0, params, t0):
-        return y0['u'] * np.exp(-params['lambda_u']*indepv_vals)
-
-    analytic_sol = {'u': analytic_u}
+    # Analytic sol for plotting numerical error
+    @property
+    def analytic_sol(self):
+        from decay import analytic_decay
+        return {self['u']: analytic_decay}
 
 
 if __name__ == '__main__':

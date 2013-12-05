@@ -1,29 +1,28 @@
 import os
-from pycompilation import pyx2obj, CCompilerRunner, missing_or_other_newer
+from pycompilation import pyx2obj, src2obj
 
-def main(cwd, logger):
+USE_LAPACK = False
+
+def main(dst, **kwargs):
     # Cythonize pyx file
-    src = 'drivers_wrapper.pyx'
-    dst = 'prebuilt/drivers_wrapper.o'
-    pyx2obj(src, dst, cwd=cwd, logger=logger,
-            only_update=True, metadir='prebuilt/')
 
-    f = 'drivers.c'
-    fpath = os.path.join(cwd, f)
-    dst = os.path.join(cwd, 'prebuilt/drivers.o')
-    if missing_or_other_newer(dst, f):
-        runner = CCompilerRunner(
-            [fpath], dst, run_linker=False,
-            cwd=cwd,
-            options=['pic', 'warn', 'fast', 'c99', 'lapack'],
+    defmacros = ['SUNDIALS_DOUBLE_PRECISION']
+    options = ['pic', 'warn', 'fast']
+    if USE_LAPACK:
+        defmacros += ['USE_LAPACK']
+        options += ['lapack']
+
+    return [
+        pyx2obj('drivers_wrapper.pyx', dst,
+                only_update=True, metadir=dst, **kwargs),
+        src2obj(
+            'drivers.c',
+            objpath=dst,
+            options=options,
+            std='c99',
             libs=['m', 'sundials_cvode', 'sundials_nvecserial'],
-            defmacros=['SUNDIALS_DOUBLE_PRECISION'],
-            metadir='prebuilt/',
-            logger=logger)
-        if os.path.exists(dst):
-            # make sure failed compilation kills the party..
-            os.unlink(dst)
-        runner.run()
-    else:
-        logger.info("{} newer than {}, did not recompile.".format(
-            dst, fpath))
+            defmacros=defmacros,
+            metadir=dst,
+            only_update=True,
+            **kwargs)
+    ]

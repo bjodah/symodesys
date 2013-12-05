@@ -65,7 +65,7 @@ end subroutine
 subroutine dfdt(t, y, pdt)
   real(dp), intent(in) :: t, y(${NY}+${NPARAM})
   real(dp), intent(inout) :: pdt(${NY})
-  integer :: i
+  !integer :: i
   ! used fo explicit calc of d2ydt2
 % for cse_token, cse_expr in pure_dfdt_cse:
   real(dp) :: ${cse_token}

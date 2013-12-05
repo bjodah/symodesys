@@ -746,8 +746,12 @@ class FirstOrderODESystem(_ODESystemBase):
             if symb in ori_expr:
                 for dv in self.all_depv:
                     if dv != depv:
-                        if symb in self._odeqs[dv][1]:
-                            break
+                        if dv in self._solved:
+                            if symb in self._solved[dv][0]:
+                                break
+                        else:
+                            if symb in self._odeqs[dv][1]:
+                                break
                 else: # exlusive
                     exclusively_present.append(symb)
         assert len(sol_symbs) >= len(exclusively_present)
@@ -759,8 +763,9 @@ class FirstOrderODESystem(_ODESystemBase):
         """
         To be subclassed (or add attribute (list): param_symbs)
 
-        should return list of sympy.symbols(``token_string'')
-        instances The order in this list defines indices in vectors
+        should set self.param_symbs to a list of
+        sympy.symbols(``token_string'') instances.
+        The order in this list defines indices in vectors
         and matrices used by underlying numerical integration.  (When
         subclassing, sympy.symarray might be useful.)
         """

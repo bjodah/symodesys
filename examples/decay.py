@@ -8,6 +8,9 @@ import numpy as np
 from symodesys import SimpleFirstOrderODESystem
 from symodesys import numeric_vs_analytic
 
+def analytic_decay(indep_vals, y0, params, t0):
+    return y0['u'] * np.exp(-params['lambda_u']*indep_vals)
+
 class Decay(SimpleFirstOrderODESystem):
 
     depv_tokens = 'u',
@@ -17,10 +20,9 @@ class Decay(SimpleFirstOrderODESystem):
     def expressions(self):
         return {self['u']: self['lambda_u'] * -self['u']}
 
-    def analytic_u(self, indep_vals, y0, params, t0):
-        return y0['u'] * np.exp(-params['lambda_u']*indep_vals)
-
-    analytic_sol = {'u': analytic_u}
+    @property
+    def analytic_sol(self):
+        return {self['u']: analytic_decay}
 
 
 if __name__ == '__main__':

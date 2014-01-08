@@ -6,10 +6,11 @@ import numpy as np
 import sympy
 
 from symvarsub.utilities import MaybeRealFunction, reassign_const, get_new_symbs
+from symvarsub import get_without_piecewise
 
 
 # project imports
-from symodesys.helpers import subs_set, get_without_piecewise
+from symodesys.helpers import subs_set
 
 
 #This might be implemented+named better (unclear if

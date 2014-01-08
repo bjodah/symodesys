@@ -94,7 +94,7 @@ class IVP(object):
 
     def check_if_stiff(self, t0, tend, criteria=1e2):
         """
-        Queries system using inintal values.
+        Queries system using initial values.
         """
         # Not working yet... (This is pseudo code mixed with to be fixed python)
         y0_val_lst = [self.depv_init[k] for k in self.fo_odesys.na_depv]
@@ -309,11 +309,13 @@ class IVP(object):
                 idxs = []
                 for i in range(ndatapp):
                     idxs.append(ori_derivs.index(ori_depv.diff(indepv, i)))
-                od[ori_depv] = tmfr_data[:,idxs]
+                od[ori_depv] = np.ascontiguousarray(tmfr_data[:,idxs])
             return od
         else:
-            return OrderedDict(zip(self.fo_odesys.all_depv,
-                                   [Yres[:,i,:] for i in range(ndepv)]))
+            return OrderedDict(zip(
+                self.fo_odesys.all_depv,
+                [np.ascontiguousarray(Yres[:,i,:]) for\
+                 i in range(ndepv)]))
 
 
     @cache_w_kwargs('nderiv')
@@ -388,9 +390,21 @@ class IVP(object):
              ax=None, nderiv=None, ls=None, c=None, m=None):
         """
         Rudimentary plotting utility for quick inspection of solutions
-        TODO: move to symodesys.convenience ?
+
         Arguments:
-        - `depvs`: A sequence of depv to be plotted, plots all if it is None (default)
+        -`depvs`: A sequence of what depv to plot. Plots all if it is None (default)
+        -`interpolate`: Use polynomial interpolation
+        -`datapoints`: Markers on datapoints
+        -`show`: show pop up window
+        -`skip_helpers`: suppress output of auxiliary variables (e.g. in 2nd order systems)
+        -`usetex`: use latex printing
+        -`texnames`: {str(depv): '\LaTeX name', ...}
+        -`ax`: matplotlib.Axes instance to plot on
+        -`nderiv`: number of derivatives used in interpolation
+             (default None => self.integrator.nderiv)
+        -`ls`: list of linestyles
+        -`c`: list of colors
+        -`m`: list of markers
         """
         import matplotlib.pyplot as plt
         from symodesys.convenience import plotting_colors
@@ -403,7 +417,7 @@ class IVP(object):
             depvs = self.all_depv
             if skip_helpers:
                 # Don't plot helper functions used in reduction of order of ode system
-                for hlpr in self.fo_odesys.frst_red_hlprs:
+                for hlpr in self.fo_odesys._frst_red_hlprs:
                     depvs.pop(depvs.index(hlpr[2]))
         if interpolate:
             ipx = np.linspace(self.indepv_out()[0], self.indepv_out()[-1], 1000)

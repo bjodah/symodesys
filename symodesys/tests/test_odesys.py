@@ -90,7 +90,7 @@ def test_FirstOrderODESystem___1():
     assert dc.eqs == [sympy.Eq(x[i].diff(t), exprs[i]) for i in range(n)]
 
     x_ = [sympy.Symbol('x'+str(i), real=True) for i in range(n)]
-    assert dc.forbidden_symbs == [t]+x+l+x_
+    # assert dc.forbidden_symbs == [t]+x+l+x_
 
     assert dc._odeqs == OrderedDict([
         (x[i], (1, exprs[i])) for i in range(n)])

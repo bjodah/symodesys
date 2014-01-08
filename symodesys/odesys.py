@@ -1,9 +1,5 @@
 # stdlib imports
-from functools import reduce
-from operator import add
 from collections import namedtuple, OrderedDict, defaultdict
-#import new
-import logging
 
 # other imports
 import numpy as np
@@ -13,12 +9,7 @@ from symvarsub.utilities import MaybeRealFunction, reassign_const, get_new_symbs
 
 
 # project imports
-from symodesys.helpers import subs_set, deprecated, get_without_piecewise
-
-
-# Setup logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from symodesys.helpers import subs_set, get_without_piecewise
 
 
 #This might be implemented+named better (unclear if
@@ -56,7 +47,7 @@ class _ODESystemBase(object):
     # For tracking what dep var func symbs are generated upon
     # order reduction (instantiate as list)
     # it is useful if one does not want to e.g. plot them
-    frst_red_hlprs = None
+    _frst_red_hlprs = None
 
     # We need holder for analytically solved parts
     # (instantiate to dict):
@@ -79,7 +70,7 @@ class _ODESystemBase(object):
     # _canonical_attrs specifies what attributes are the _defining_
     # attributes of the (sub)class. It maybe changed in subclasses.
     _canonical_attrs = ['_odeqs', 'indepv', 'param_symbs',
-                        '_solved', '_solved_undefined', 'frst_red_hlprs']
+                        '_solved', '_solved_undefined', '_frst_red_hlprs']
 
     # May be passed as kwargs to __init__ but must not be
     _redundant_attrs = []
@@ -102,7 +93,7 @@ class _ODESystemBase(object):
         # of constants to be efficient (introducing one unknown at a time)
         self._solved_undefined = self._solved_undefined or []
         self._solved_params = self._solved_params or []
-        self.frst_red_hlprs = self.frst_red_hlprs or []
+        self._frst_red_hlprs = self._frst_red_hlprs or []
 
 
     def __getitem__(self, key):
@@ -225,14 +216,14 @@ class _ODESystemBase(object):
         """
         return [self.indepv] + self.all_depv + self.param_and_sol_symbs
 
-    @property
-    def forbidden_symbs(self):
-        """
-        Extends self.known_symbs to symbols with names coinciding with
-        e.g. dependent variables.
-        """
-        return self.known_symbs + [self.mk_symb(dvfs.func.__name__) for \
-                                   dvfs in self.all_depv]
+    # @property
+    # def forbidden_symbs(self):
+    #     """
+    #     Extends self.known_symbs to symbols with names coinciding with
+    #     e.g. dependent variables.
+    #     """
+    #     return self.known_symbs + [self.mk_symb(dvfs.func.__name__) for \
+    #                                dvfs in self.all_depv]
 
 
     def subs(self, subsd):
@@ -504,10 +495,10 @@ class AnyOrderODESystem(_ODESystemBase):
         with key,value entries (helper_function, default_red_init_val)
         """
         new_odeqs = OrderedDict()
-        frst_red_hlprs = self.frst_red_hlprs[:]
+        _frst_red_hlprs = self._frst_red_hlprs[:]
         if default_red_init_val == None: default_red_init_val = 0.0
 
-        # TODO, revise frst_red_hlprs format (cur.  len 3 tuple)
+        # TODO, revise _frst_red_hlprs format (cur.  len 3 tuple)
         # and update analytic_harmonic_oscillator.py and IVP.plot()
         for fnc, (order, expr) in self._odeqs.iteritems():
             if order == 1:
@@ -520,14 +511,14 @@ class AnyOrderODESystem(_ODESystemBase):
             subsd = {sympy.Derivative(fnc, self.indepv, i): \
                      hlpr[i] for i in range(1, order)}
             new_odeqs[hlpr[order - 1]] = ODEExpr(1, expr.subs(subsd))
-            frst_red_hlprs.extend([
+            _frst_red_hlprs.extend([
                 (fnc, o, expr) for o, expr in hlpr.iteritems()])
         new_instance = FirstOrderODESystem(
             f=OrderedDict([(k, v.expr)for k,v in new_odeqs.items()]),
             indepv=self.indepv, param_symbs=self.param_symbs[:])
-        new_instance.frst_red_hlprs = frst_red_hlprs
+        new_instance._frst_red_hlprs = _frst_red_hlprs
         if y0:
-            for source, order, helper in frst_red_hlprs:
+            for source, order, helper in _frst_red_hlprs:
                 if not helper in y0:
                     y0[helper] = default_red_init_val
         return new_instance
@@ -556,7 +547,7 @@ class FirstOrderODESystem(_ODESystemBase):
     f = None
 
     _canonical_attrs = ['f', 'indepv', 'param_symbs',
-                        '_solved', '_solved_undefined', 'frst_red_hlprs']
+                        '_solved', '_solved_undefined', '_frst_red_hlprs']
 
     _redundant_attrs = ['_odeqs']
 

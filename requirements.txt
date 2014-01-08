@@ -1,2 +1,3 @@
-git+https://github.com/bjodah/cinterpol#egg=cinterpol
-git+https://github.com/bjodah/pycompilation#egg=pycompilation
+https://github.com/bjodah/cinterpol/archive/v0.3.tar.gz
+https://github.com/bjodah/pycompilation/archive/v0.2.2.tar.gz
+https://github.com/bjodah/symvarsub/archive/v0.0.1.tar.gz

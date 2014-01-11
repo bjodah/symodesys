@@ -25,19 +25,23 @@ tool for dealing with systems of ODE's.
 
 Symodesys offers (for IVP's):
 * General Interactive plotting through Enthought's Chaco library
+Other software built using symodesys:
+* [TODO] symchemkin - Flexible framework for analysis of systems of
+  chemical reactions
+
+# TODO
+* More test cases where analytic solution is known.
+* Refactor out GSL, ODEPACK, SUNDIALS to general odetemplates (let templates have a #include "gen.c", where static functions are given)
 * [TODO] Add options of dynamic step size GSL integrator
-* [TODO] Add code generation support for: Sundials, ODEPACK and RODAS (look at assimulo)
-* [TODO] Improve code generation to write loops when possible (let compiler unroll if optimal, decalare global const paramters)
+* [TODO] Extend ODEPACK support LSODE dense and banded.
+* [TODO] Add code generation support for: RODAS (look at assimulo), ODEINT
+* [TODO] Improve code generation to write loops when possible (let compiler unroll if optimal, decalare global const paramters), param structs etc.
 * [TODO] Look into generating Jacobian as a sympy.SparseMatrix
 * [TODO] Visualization of sensitivity of system by accepting uncertain input parameters (normal distr for starters..)
 * [TODO] Optimization of paramters (fiting) to match e.g. numerical data.
 * [TODO] Add routines for scaling (and automatic rescaling) in e.g. the IVP class. Note: this is a simple special case of variable transformation and may hence be handled by that code, only convenience routines are needed to be added.
 * [TODO] Export of trajectories
-* [TODO] Add python code writer.
 
-Other software built using symodesys:
-* [TODO] symchemkin - Flexible framework for analysis of systems of
-  chemical reactions
 
 # Prerequisities
 (Tested against)
@@ -47,9 +51,11 @@ Cython 0.19
 
 # Optional packages
 Gnu sciencific library (GSL v. 1.15)
-[TODO] Sundials 
-[TODO] ODEPACK
+Sundials 
+ODEPACK
+[TODO] vode
 [TODO] RODAS
+[TODO] rkc
 
 # Installation
 Clone git-repo. Add to $PYTHONPATH
@@ -63,11 +69,10 @@ you may of course fork and I'll happily accept pull requests.
 1. Refactor and refine API until convergence is reached (current
 expected time frame for this: months)
 2. Write at least one non-trivial python package based on symodesys
-3. Write tests and expande doc strings and comments in code
+3. Write tests and expand doc strings and comments in code
 4. Write proper documentation and doctests (in Sympy style)
 5. Announce on Sympy maillist for comments.
-6. If received well, and as the project matures, it might be included
-(incrementally) in Sympy in some way.
+6. If received well, and as the project matures, it might be included in Sympy in some way.
 
 # Philosophy
 * "Small" codebase to aid future maintainence

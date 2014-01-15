@@ -1,7 +1,7 @@
 import os
 from pycompilation import pyx2obj, src2obj
 
-USE_LAPACK = False
+USE_LAPACK = os.environ.get('USE_LAPACK', False)
 
 def main(dst, **kwargs):
     # Cythonize pyx file
@@ -20,7 +20,7 @@ def main(dst, **kwargs):
             objpath=dst,
             options=options,
             std='c99',
-            libs=['m', 'sundials_cvode', 'sundials_nvecserial'],
+            #libs=['m', 'sundials_cvode', 'sundials_nvecserial'], #when linking
             defmacros=defmacros,
             metadir=dst,
             only_update=True,

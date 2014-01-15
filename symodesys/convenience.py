@@ -60,7 +60,6 @@ def numeric_vs_analytic(ODESys, depv_init, params, indepv_init, indepv_end,
                                    params, indepv_init),
                         label = 'Analytic {}'.format(depv),
                         c=c[i], ls=ls[1])
-                plt.legend()
                 if subplot:
                     plt.subplot(312)
                     plt.plot(ivp.indepv_out(),
@@ -76,8 +75,6 @@ def numeric_vs_analytic(ODESys, depv_init, params, indepv_init, indepv_end,
             if acceptance_factor:
                 abserr[depv] = numeric - analytic
                 relerr[depv] = abserr[depv]/numeric
-
-        if plot: plt.legend()
 
     if acceptance_factor:
         for depv, ae in abserr.items():

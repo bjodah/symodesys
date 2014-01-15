@@ -19,17 +19,18 @@ class CVODE_Code(ODESys_Code, C_Code):
         'std': 'c99'
     }
 
-    copy_files = ['prebuilt/drivers_wrapper.o',
-                  'prebuilt/drivers.o',
-                  'drivers.h', 'drivers.c', 'Makefile', 'plot.py',
-                  '../shared/prebuilt/symodesys_util.o',
-                  '../shared/symodesys_util.h', # for main_ex
-                  '../shared/symodesys_util.c', # for main_ex
-                  'prebuilt/'+CCompilerRunner.metadata_filename, # <--- Ensure we use the same compiler
+    copy_files = [
+        'prebuilt/drivers.o',
+        'prebuilt/drivers_wrapper.o',
+        'drivers.h', 'drivers.c', 'Makefile', 'plot.py',
+        '../shared/prebuilt/symodesys_util.o',
+        '../shared/symodesys_util.h', # for main_ex
+        '../shared/symodesys_util.c', # for main_ex
+        'prebuilt/'+CCompilerRunner.metadata_filename, # <--- Ensure we use the same compiler
     ]
 
     obj_files = ['func.o', 'dense_jac.o', 'band_jac.o', 'drivers.o',
-                 'drivers_wrapper.o', 'symodesys_util.o']
+                 'symodesys_util.o', 'drivers_wrapper.o']
 
     templates = ['func_template.c',
                  'dense_jac_template.c',
@@ -68,12 +69,14 @@ class CVODE_IVP_Integrator(Binary_IVP_Integrator):
     CodeClass = CVODE_Code
 
     # step_type choices are in `step_types` in drivers_wrapper.pyx
-    integrate_args = {'step_type': ('adams','bdf'),
+    integrate_args = {
+        'step_type': ('adams','bdf'),
+        'mode': ('dense', 'band')
     }
 
 
     def _run(self, depv_init_arr, indepv_init, indepv_end, params_arr, N,
-            step_type='adams'):
+             step_type='adams', mode='dense'):
         """
         -`params`: dict with keys mathcing param_and_sol_symbs
 
@@ -88,7 +91,7 @@ class CVODE_IVP_Integrator(Binary_IVP_Integrator):
             tout, Yout = self.binary_mod.integrate_equidistant_output(
                 indepv_init, indepv_end, depv_init_arr, N,
                 self.h_init, self.h_max, self.abstol,
-                self.reltol, params_arr, self.nderiv, step_type)
+                self.reltol, params_arr, self.nderiv, step_type, mode)
             self.tout = tout
             self.Yout = Yout
         else:

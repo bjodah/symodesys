@@ -107,3 +107,23 @@ Written by Björn Dahlgren. Copyright 2012-2013.
 ## License
 Open Soucrce. Released under the very permissive simplified
 (2-clause) BSD license. See LICENCE.txt for further details.
+
+## Install SUNDIALS 2.5.0
+Download from http://computation.llnl.gov/casc/sundials/main.html
+
+e.g.:
+mkdir /tmp/sundials_build/
+cd /tmp/sundials_build/
+cmake-gui ~/Downloads/sundials-2.5.0/
+
+There are many ways to configure Sundials depending on your
+system. I use Intel C compiler (icc) and ~/.local as prefix,
+-fPIC as CMAKE_C_FLAGS.
+
+For running a symodesys simulation you need to make sure the include
+and library dirs are searched, e.g.:
+
+env C_INCLUDE_PATH=~/.local/include:$C_INCLUDE_PATH LIBRARY_PATH=~/.local/lib python -m pudb codegen.py -i sundials
+
+if you build a shared sundials library at a custom prefix path you must
+ensure LD_LIBRARY_PATH is also set accordingly.

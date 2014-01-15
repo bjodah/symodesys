@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -*-
+
+# Cython wrapper of drivers.c (SUNDIALS integration driver)
+
 import numpy as np
 cimport numpy as cnp
 
@@ -8,8 +12,15 @@ cdef extern int integrate_fixed_step(
     int nderiv, double * tout, double * Yout,
     int step_type_idx, int mode, int mu, int ml)
 
-step_types = ('adams','bdf')
-modes = ('dense', 'band')
+step_types = {
+    'adams': 1, # CV_ADMAS
+    'bdf': 2,   # CV_BDF
+}
+
+modes = {
+    'dense': 1, # SUNDIALS_DENSE
+    'band': 2   # SUNDIALS_BAND
+}
 
 def integrate_equidistant_output(
         double t, double t1, double [::1] y0,
@@ -36,8 +47,8 @@ def integrate_equidistant_output(
         h_init, h_max, abstol, reltol, &params[0],
         len(y0), nderiv, <double *>tout.data,
         <double *>Yout.data,
-        step_types.index(step_type.lower())+1,
-        modes.index(mode.lower())+1,
+        step_types[step_type.lower()],
+        modes[mode.lower],
         -1, # mu
         -1, # ml
         )

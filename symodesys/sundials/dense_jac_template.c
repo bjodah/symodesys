@@ -1,8 +1,6 @@
+// ${_warning_in_the_generated_file_not_to_edit}
 #include <math.h>
-
 #include "drivers.h" 
-
-// Python Mako template of C file
 
 int
 dense_jac (DIM_T N, realtype t, N_Vector y, N_Vector fy,

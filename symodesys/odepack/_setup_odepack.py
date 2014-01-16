@@ -3,7 +3,12 @@
 
 from __future__ import print_function, division
 
+import os
+
 from pycompilation import pyx2obj, download_files, compile_sources
+from pycompilation.util import copy
+
+from .interface import LSODES_Code
 
 
 websrc = 'https://computation.llnl.gov/casc/odepack/software/'
@@ -15,16 +20,22 @@ src_md5 = {
 
 f_sources = src_md5.keys()
 
-def main(dst, **kwargs):
+def prebuild(srcdir, destdir, **kwargs):
 
     download_files(websrc, f_sources, src_md5,
-                   cwd=kwargs.get('cwd','.'))
+                   cwd=srcdir)
+    for cf in filter(lambda x: not x.startswith('prebuilt'),
+                     LSODES_Code.copy_files):
+        copy(os.path.join(srcdir, cf), destdir)
+    destdir = os.path.join(destdir, 'prebuilt')
     return compile_sources(
-        f_sources, destdir=dst,
-                    run_linker=False,
+        map(lambda x: os.path.join(srcdir, x), f_sources),
+        destdir=destdir,
+        run_linker=False,
         options=['pic', 'warn', 'fast'],
         preferred_vendor='gnu', # ifort chokes on opkda1.f
         only_update=True,
-        metadir=dst,
-        **kwargs) + [pyx2obj('lsodes_bdf_wrapper.pyx', dst,
-                             only_update=True, metadir=dst, **kwargs)]
+        metadir=destdir,
+        **kwargs) + [pyx2obj(
+            os.path.join(srcdir, 'lsodes_bdf_wrapper.pyx'),
+            destdir, only_update=True, metadir=destdir, **kwargs)]

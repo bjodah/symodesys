@@ -10,6 +10,7 @@ TAGS
 */.#*
 */#*#
 */*.so
+build/
 */build/
 symodesys/*/prebuilt/*.*
 symodesys/*/prebuilt/.*

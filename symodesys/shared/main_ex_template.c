@@ -1,12 +1,15 @@
+// ${_warning_in_the_generated_file_not_to_edit}
+<%doc>
+  // Python Mako template of C file
+  // Variables: y0_comma_sep_str, param_vals_comma_sep_str
+
+  // Note that analytic expressions are not evaluated here.
+</%doc>
 #include <stdlib.h>
 #include <gsl/gsl_errno.h>
 
 #include "drivers.h"
 
-// Python Mako template of C file
-// Variables: Y0_COMMA_SEP_STR, PARAM_VALS_COMMA_SEP_STR
-
-// Note that analytic expressions are not evaluated here.
 
 
 int

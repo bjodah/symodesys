@@ -8,6 +8,22 @@ pkg_name = 'symodesys'
 
 version_ = '0.0.1'
 
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: C",
+    "Programming Language :: Cython",
+    "Programming Language :: Fortran",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Compilers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
 if '--help'in sys.argv[1:] or sys.argv[1] in (
         '--help-commands', 'egg_info', 'clean', '--version'):
     cmdclass_ = {}
@@ -38,7 +54,7 @@ else:
         for name, cb in prebuilds:
             destdir = os.path.join(build_lib, pkg_name, name)
             prebuilt_destdir = os.path.join(destdir, 'prebuilt')
-            if not os.path.exists(prebuilt_destdir): make_dirs(prebuild_destdir)
+            if not os.path.exists(prebuilt_destdir): make_dirs(prebuilt_destdir)
             srcdir = os.path.join(os.path.dirname(__file__), pkg_name, name)
             cb(srcdir, destdir, logger=logger)
 
@@ -60,12 +76,10 @@ setup(
     author='Björn Dahlgren',
     author_email='bjodah@DELETEMEgmail.com',
     description='Convenience functions for use with sympy.',
-    license = "BSD",
+    license="BSD",
     url='https://github.com/bjodah/'+pkg_name,
     download_url='https://github.com/bjodah/'+pkg_name+'/archive/v'+version_+'.tar.gz',
     packages=['symodesys', 'symodesys.helpers'] + sub_pkgs,
-    # package_data={pkg_name: [
-    #     'symodesys/'
-    # ]}
-    cmdclass = cmdclass_
+    cmdclass=cmdclass_,
+    classifiers=classifiers
 )

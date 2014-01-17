@@ -1,8 +1,12 @@
+// ${_warning_in_the_generated_file_not_to_edit}
+<%doc>
+  // Python Mako template of C file
+</%doc>
+
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_errno.h>
 #include <math.h>
 
-// Python Mako template of C file
 
 
 int

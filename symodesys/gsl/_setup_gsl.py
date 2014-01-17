@@ -18,6 +18,7 @@ def prebuild(srcdir, destdir, **kwargs):
             objpath=destdir,
             defmacros=['GSL_RANGE_CHECK_OFF', 'HAVE_INLINE'],
             options=['pic', 'warn', 'fast'],
+            #remember to use libs=['gsl', 'gslcblas', 'm'], when linking
             std='c99',
             metadir=destdir,
             only_update=True,

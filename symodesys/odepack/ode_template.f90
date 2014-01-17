@@ -1,5 +1,8 @@
+! ${_warning_in_the_generated_file_not_to_edit}
+<%doc>
 ! Template for generating Fortran 90 code to wrapped using Cython for calling lsodes from python.
 ! mako template variables: NY, NNZ, IA, JA, NPARAM, f, cse_func, yale_jac_cse, yale_jac_expr, dfdt
+</%doc>
 
 <%namespace name="hs" module="pycompilation.helpers"/>
 !<!% from pycompilation.helpers import line_cont_after_delim >

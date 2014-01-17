@@ -22,8 +22,7 @@ f_sources = src_md5.keys()
 
 def prebuild(srcdir, destdir, **kwargs):
 
-    download_files(websrc, f_sources, src_md5,
-                   cwd=srcdir)
+    download_files(websrc, f_sources, src_md5, cwd=srcdir)
     for cf in filter(lambda x: not x.startswith('prebuilt'),
                      LSODES_Code.copy_files):
         copy(os.path.join(srcdir, cf), destdir)

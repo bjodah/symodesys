@@ -4,7 +4,7 @@
 ! mako template variables: NY, NNZ, IA, JA, NPARAM, f, cse_func, yale_jac_cse, yale_jac_expr, dfdt
 </%doc>
 
-<%namespace name="hs" module="pycompilation.helpers"/>
+<%namespace name="hs" module="pycompilation._helpers"/>
 !<!% from pycompilation.helpers import line_cont_after_delim >
 
 module ode

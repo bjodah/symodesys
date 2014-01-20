@@ -16,7 +16,8 @@ class CVODE_Code(ODESys_Code, C_Code):
 
     compile_kwargs = {
         'options': ['warn', 'pic', 'fast'],
-        'std': 'c99'
+        'std': 'c99',
+        'defmacros': ['SUNDIALS_DOUBLE_PRECISION', 'USE_LAPACK']
     }
 
     copy_files = [

@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import sys
 import os
+import shutil
+import sys
+import tempfile
 
 pkg_name = 'symodesys'
 
@@ -41,7 +43,7 @@ else:
                 [shared_prebuild, odepack_prebuild, gsl_prebuild, sundials_prebuild])
     sub_pkgs = ['symodesys.' + x for x in sub_folders]
 
-    def run_prebuilds(build_lib):
+    def run_prebuilds(build_lib, build_temp):
         """
         Precompile some sources to object files
         and store in `prebuilt/` directories for
@@ -56,7 +58,7 @@ else:
             prebuilt_destdir = os.path.join(destdir, 'prebuilt')
             if not os.path.exists(prebuilt_destdir): make_dirs(prebuilt_destdir)
             srcdir = os.path.join(os.path.dirname(__file__), pkg_name, name)
-            cb(srcdir, destdir, logger=logger)
+            cb(srcdir, destdir, build_temp, logger=logger)
 
     from distutils.command.build_py import build_py as _build_py
     from distutils.core import setup
@@ -65,7 +67,11 @@ else:
         """Specialized Python source builder."""
         def run(self):
             if not self.dry_run:
-                run_prebuilds(self.build_lib)
+                build_temp = tempfile.mkdtemp('build_temp')
+                try:
+                    run_prebuilds(self.build_lib, build_temp)
+                finally:
+                    shutil.rmtree(build_temp)
             _build_py.run(self)
 
     cmdclass_ = {'build_py': build_py}

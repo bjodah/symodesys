@@ -25,15 +25,16 @@ tool for dealing with systems of ODE's.
 
 Symodesys offers (for IVP's):
 * General Interactive plotting through Enthought's Chaco library
+* Code generation support for: GSL, Sundials and ODEPACK
 * [TODO] Add options of dynamic step size GSL integrator
-* [TODO] Add code generation support for: Sundials, ODEPACK and RODAS (look at assimulo)
+* [TODO] Add code generation support for: RODAS (look at assimulo), ODEINT, RKC
 * [TODO] Improve code generation to write loops when possible (let compiler unroll if optimal, decalare global const paramters)
 * [TODO] Look into generating Jacobian as a sympy.SparseMatrix
 * [TODO] Visualization of sensitivity of system by accepting uncertain input parameters (normal distr for starters..)
 * [TODO] Optimization of paramters (fiting) to match e.g. numerical data.
 * [TODO] Add routines for scaling (and automatic rescaling) in e.g. the IVP class. Note: this is a simple special case of variable transformation and may hence be handled by that code, only convenience routines are needed to be added.
-* [TODO] Export of trajectories
-* [TODO] Add python code writer.
+* [TODO] Export of trajectories. (easy)
+* [TODO] Add python code writer. (low priority)
 
 Other software built using symodesys:
 * [TODO] symchemkin - Flexible framework for analysis of systems of
@@ -42,13 +43,13 @@ Other software built using symodesys:
 # Prerequisities
 (Tested against)
 Python 2.7
-Sympy 0.7.2-git 
-Cython 0.19
+Sympy 0.7.3
+Cython 0.19.1
 
 # Optional packages
 Gnu sciencific library (GSL v. 1.15)
-[TODO] Sundials 
-[TODO] ODEPACK
+Sundials 
+ODEPACK
 [TODO] RODAS
 
 # Installation
@@ -63,11 +64,9 @@ you may of course fork and I'll happily accept pull requests.
 1. Refactor and refine API until convergence is reached (current
 expected time frame for this: months)
 2. Write at least one non-trivial python package based on symodesys
-3. Write tests and expande doc strings and comments in code
+3. Write tests and expand doc strings and comments in code
 4. Write proper documentation and doctests (in Sympy style)
 5. Announce on Sympy maillist for comments.
-6. If received well, and as the project matures, it might be included
-(incrementally) in Sympy in some way.
 
 # Philosophy
 * "Small" codebase to aid future maintainence
@@ -82,18 +81,18 @@ expected time frame for this: months)
 # Contribute
 Contributions are very welcome. If you want some ideas to work on:
 Enhance the binary IVP integrators (code generation).
-Look at symodeys/odepack and symodesys/gsl respectively.
-odeint, sundials, rodas and rkc are 4 other that comes to mind to be nice to have.
+Look at how to use more drivers in e.g. ODEPACK
 
 # Known issues
 ## ODEPACK
 opkda1.f fails using ifort 13.0.1 with the following error
-`
+``
 opkda1.f(9498): error #6633: The type of the actual argument differs from the type of the dummy argument.   [RWORK]
      1   RWORK(LACOR), IA, JA, IC, JC, RWORK(LWM), RWORK(LWM), IPFLAG,
 ---------------------------------------------------^
 compilation aborted for opkda1.f (code 1)
-`
+``
+I have not looked into whether this is a real bug detected by the Intel compiler.
 
 # Similar projects
 * symneqsys
@@ -112,18 +111,21 @@ Open Soucrce. Released under the very permissive simplified
 Download from http://computation.llnl.gov/casc/sundials/main.html
 
 e.g.:
-mkdir /tmp/sundials_build/
-cd /tmp/sundials_build/
-cmake-gui ~/Downloads/sundials-2.5.0/
+
+``
+   mkdir /tmp/sundials_build/
+   cd /tmp/sundials_build/
+   cmake-gui ~/Downloads/sundials-2.5.0/
+``
 
 There are many ways to configure Sundials depending on your
 system. I use Intel C compiler (icc) and ~/.local as prefix,
--fPIC as CMAKE_C_FLAGS.
+and ``CMAKE_C_FLAGS=-fPIC``.
 
 For running a symodesys simulation you need to make sure the include
 and library dirs are searched, e.g.:
 
-env C_INCLUDE_PATH=~/.local/include:$C_INCLUDE_PATH LIBRARY_PATH=~/.local/lib python -m pudb codegen.py -i sundials
+``env C_INCLUDE_PATH=~/.local/include:$C_INCLUDE_PATH LIBRARY_PATH=~/.local/lib python codegen.py -i sundials``
 
 if you build a shared sundials library at a custom prefix path you must
-ensure LD_LIBRARY_PATH is also set accordingly.
+ensure ``LD_LIBRARY_PATH`` is also set accordingly.

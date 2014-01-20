@@ -2,7 +2,7 @@
 <%doc>
 // Python Mako template of C file
 // Note that analytic expressions are not evaluated here.
-<%doc>
+</%doc>
 
 #include <stdlib.h>
 #include "drivers.h"

@@ -1,15 +1,12 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function, division
+from pycompilation.codeexport import prebuild_Code
 
-import os
-
-from pycompilation import pyx2obj, download_files, compile_sources
-from pycompilation.util import copy
-
-from .interface import LSODES_Code
-
+"""
+Precompiles ODEPACK sources from netlib (downloaded when needed)
+to object files for speeding up compilation/linking on the fly
+during runtime.
+"""
 
 websrc = 'https://computation.llnl.gov/casc/odepack/software/'
 src_md5 = {
@@ -18,23 +15,15 @@ src_md5 = {
     'opkdmain.f':  '47d81cc73a1e82210f47a97c43daa8cf'
 }
 
+
 f_sources = src_md5.keys()
 
-def prebuild(srcdir, destdir, **kwargs):
-
-    download_files(websrc, f_sources, src_md5, cwd=srcdir)
-    for cf in filter(lambda x: not x.startswith('prebuilt'),
-                     LSODES_Code.copy_files):
-        copy(os.path.join(srcdir, cf), destdir)
-    destdir = os.path.join(destdir, 'prebuilt')
-    return compile_sources(
-        map(lambda x: os.path.join(srcdir, x), f_sources),
-        destdir=destdir,
-        run_linker=False,
-        options=['pic', 'warn', 'fast'],
+def prebuild(srcdir, destdir, build_temp, **kwargs):
+    from .interface import LSODES_Code as Code
+    all_sources = f_sources+['_lsodes_bdf.pyx']
+    return prebuild_Code(
+        srcdir, destdir, build_temp, Code, all_sources,
+        downloads=(websrc, src_md5),
         preferred_vendor='gnu', # ifort chokes on opkda1.f
-        only_update=True,
-        metadir=destdir,
-        **kwargs) + [pyx2obj(
-            os.path.join(srcdir, 'lsodes_bdf_wrapper.pyx'),
-            destdir, only_update=True, metadir=destdir, **kwargs)]
+        **kwargs
+    )

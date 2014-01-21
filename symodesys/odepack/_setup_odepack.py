@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from pycompilation.codeexport import prebuild_Code
+import os
+from pycompilation.codeexport import make_CleverExtension_for_prebuilding_Code
 
 """
 Precompiles ODEPACK sources from netlib (downloaded when needed)
@@ -18,12 +19,12 @@ src_md5 = {
 
 f_sources = src_md5.keys()
 
-def prebuild(srcdir, destdir, build_temp, **kwargs):
-    from .interface import LSODES_Code as Code
-    all_sources = f_sources+['_lsodes_bdf.pyx']
-    return prebuild_Code(
-        srcdir, destdir, build_temp, Code, all_sources,
+def get_odepack_clever_ext(basename):
+    from .interface import LSODES_Code
+    return make_CleverExtension_for_prebuilding_Code(
+        basename+'.odepack._drivers', LSODES_Code,
+        f_sources+['_drivers.pyx'], # 'drivers.f90' uses module from ode_template
+        srcdir=os.path.join(basename, 'odepack'),
         downloads=(websrc, src_md5),
-        preferred_vendor='gnu', # ifort chokes on opkda1.f
-        **kwargs
+        logger=True
     )

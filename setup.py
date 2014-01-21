@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import os
-import shutil
 import sys
-import tempfile
+from distutils.core import setup
 
 pkg_name = 'symodesys'
 
@@ -29,52 +27,22 @@ classifiers = [
 if '--help'in sys.argv[1:] or sys.argv[1] in (
         '--help-commands', 'egg_info', 'clean', '--version'):
     cmdclass_ = {}
-    sub_pkgs = []
+    ext_modules=ext_modules_,
 else:
+    from pycompilation.dist import clever_build_ext
+    from symodesys.shared._setup_shared import get_shared_clever_ext
+    from symodesys.odepack._setup_odepack import get_odepack_clever_ext
+    from symodesys.gsl._setup_gsl import get_gsl_clever_ext
+    from symodesys.sundials._setup_sundials import get_sundials_clever_ext
 
-    from pycompilation.util import make_dirs
-    from symodesys.shared._setup_shared import prebuild as shared_prebuild
-    from symodesys.odepack._setup_odepack import prebuild as odepack_prebuild
-    from symodesys.gsl._setup_gsl import prebuild as gsl_prebuild
-    from symodesys.sundials._setup_sundials import prebuild as sundials_prebuild
+    ext_modules_ = [
+        get_shared_clever_ext(pkg_name),
+        get_odepack_clever_ext(pkg_name),
+        get_gsl_clever_ext(pkg_name),
+        get_sundials_clever_ext(pkg_name),
+    ]
+    cmdclass_ = {'build_ext': clever_build_ext}
 
-    sub_folders = ['shared', 'odepack', 'gsl', 'sundials']
-    prebuilds = zip(sub_folders,
-                [shared_prebuild, odepack_prebuild, gsl_prebuild, sundials_prebuild])
-    sub_pkgs = ['symodesys.' + x for x in sub_folders]
-
-    def run_prebuilds(build_lib, build_temp):
-        """
-        Precompile some sources to object files
-        and store in `prebuilt/` directories for
-        speeding up meta-programming compilations.
-        """
-        import logging
-        logging.basicConfig(level=logging.DEBUG)
-        logger = logging.getLogger(__name__)
-
-        for name, cb in prebuilds:
-            destdir = os.path.join(build_lib, pkg_name, name)
-            prebuilt_destdir = os.path.join(destdir, 'prebuilt')
-            if not os.path.exists(prebuilt_destdir): make_dirs(prebuilt_destdir)
-            srcdir = os.path.join(os.path.dirname(__file__), pkg_name, name)
-            cb(srcdir, destdir, build_temp, logger=logger)
-
-    from distutils.command.build_py import build_py as _build_py
-    from distutils.core import setup
-
-    class build_py(_build_py):
-        """Specialized Python source builder."""
-        def run(self):
-            if not self.dry_run:
-                build_temp = tempfile.mkdtemp('build_temp')
-                try:
-                    run_prebuilds(self.build_lib, build_temp)
-                finally:
-                    shutil.rmtree(build_temp)
-            _build_py.run(self)
-
-    cmdclass_ = {'build_py': build_py}
 
 setup(
     name=pkg_name,
@@ -85,7 +53,8 @@ setup(
     license="BSD",
     url='https://github.com/bjodah/'+pkg_name,
     download_url='https://github.com/bjodah/'+pkg_name+'/archive/v'+version_+'.tar.gz',
-    packages=['symodesys', 'symodesys.helpers'] + sub_pkgs,
+    packages=['symodesys', 'symodesys.helpers'],
     cmdclass=cmdclass_,
-    classifiers=classifiers
+    ext_modules=ext_modules_,
+    classifiers=classifiers,
 )

@@ -112,7 +112,7 @@ I have not looked into whether this is a real bug detected by the Intel compiler
 Written by Björn Dahlgren. Copyright 2012-2013.
 
 ## License
-Open Soucrce. Released under the very permissive simplified
+Open Source. Released under the very permissive simplified
 (2-clause) BSD license. See LICENCE.txt for further details.
 
 ## Install SUNDIALS 2.5.0

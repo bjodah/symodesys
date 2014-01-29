@@ -5,7 +5,7 @@ from collections import namedtuple, OrderedDict, defaultdict
 import numpy as np
 import sympy
 
-from symvarsub.utilities import MaybeRealFunction, reassign_const, get_new_symbs
+from symvarsub.utilities import RealFunction, ImagFunction, reassign_const, get_new_symbs
 from symvarsub import get_without_piecewise
 
 
@@ -125,8 +125,10 @@ class _ODESystemBase(object):
         """
         # metaclasses and special behaviour of subclassed
         # classes of sympy.Function makes this tricky.. see tests
-        return MaybeRealFunction(key, [self.indepv], real=self.real)
-        #return sympy.Function(key)(self.indepv)
+        if self.real:
+            return RealFunction(key)(self.indepv)
+        else:
+            return ImagFunction(key)(self.indepv)
 
 
     def mk_symb(self, name):
@@ -618,10 +620,10 @@ class FirstOrderODESystem(_ODESystemBase):
         Input arguments:
         -`complexity`: Positivt integer denoting the degree of complexity
             (an arbitrary measure) to solve for:
-          0: solve only constants
-          1: try to solve only differentials in independent variable
-          2: try to solve only differentials in auto-dependent variable
-          3: try to solve only differentials in independent and/or auto-dependent
+          0: only try to solve constants
+          1: only try to solve differentials in independent variable
+          2: only try to solve differentials in auto-dependent variable
+          3: try to solve differentials in independent and/or auto-dependent
              variables
         -`cb`: a callback with signature (expr, depv, const_symb) for
                custom assignment of integration constants. The callback

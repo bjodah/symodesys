@@ -56,24 +56,20 @@ def _mk_decay_chain_system(n):
         param_symbs = l
         f = OrderedDict([(x[i], b[i]-d[i]) for i in range(n)])
 
-    return DecayChain()
+    exprs = [b[i]-d[i] for i in range(n)]
+    return DecayChain(), (l,t,x,d,b), exprs
 
 
 def test__ODESysBase___1():
     pass
     # test mk_func
 
-
-def test_FirstOrderODESystem___1():
+#TODO: split this test into multiple tests and mark
+#      analytical solution with @pytest.mark.slow
+def test_FirstOrderODESystem():
     n = 3
-    dc = _mk_decay_chain_system(n)
-
-    l = list(sympy.symbols('l:'+str(n-1))) # Decay prob. coefficient
-    t = sympy.Symbol('t')
-    x = [sympy.Function('x'+str(i))(t) for i in range(n)]
-    d = [x[i]*l[i] for i in range(n-1)]+[0] # death rate
-    b = [0]+[x[i-1]*l[i-1] for i in range(1,n)] # birth rate
-    exprs = [b[i]-d[i] for i in range(n)]
+    dc, symbs, exprs = _mk_decay_chain_system(n)
+    l, t, x, d, b = symbs
 
     assert dc['x0'] == x[0]
     assert dc['x1'] == x[1]
@@ -90,38 +86,66 @@ def test_FirstOrderODESystem___1():
     assert dc.eqs == [sympy.Eq(x[i].diff(t), exprs[i]) for i in range(n)]
 
     x_ = [sympy.Symbol('x'+str(i), real=True) for i in range(n)]
-    # assert dc.forbidden_symbs == [t]+x+l+x_
 
     assert dc._odeqs == OrderedDict([
         (x[i], (1, exprs[i])) for i in range(n)])
     assert all([dc.f[k] == exprs[i] for i,k in enumerate(dc.all_depv)])
+
+def test_FirstOrderODESystem__evaluate_f():
+    n = 3
+    dc, symbs, exprs = _mk_decay_chain_system(n)
+    l, t, x, d, b = symbs
 
     # Numeric evaluation
     num_t0 = 13.0
     num_x0 = [2.0, 3.0, 5.0]
     num_l = [7.0, 11.0]
 
-    assert np.allclose(dc.evaluate_f(num_t0, num_x0, num_l), np.array(
-        [-2.0*7.0, 2.0*7.0 - 3.0*11.0, 3.0*11.0]))
-    assert np.allclose(dc.evaluate_na_f(num_t0, num_x0, num_l), np.array(
-        [-2.0*7.0, 2.0*7.0 - 3.0*11.0, 3.0*11.0]))
+    assert np.allclose(
+        np.array(dc.evaluate_f(num_t0, num_x0, num_l), dtype=np.float64),
+        np.array([-2.0*7.0, 2.0*7.0 - 3.0*11.0, 3.0*11.0]))
+    assert np.allclose(
+        np.array(dc.evaluate_na_f(num_t0, num_x0, num_l), dtype=np.float64),
+        np.array([-2.0*7.0, 2.0*7.0 - 3.0*11.0, 3.0*11.0]))
+
+def test_FirstOrderODESystem__evaluate_jac():
+    n = 3
+    dc, symbs, exprs = _mk_decay_chain_system(n)
+    l, t, x, d, b = symbs
+
 
     ref_jac = np.array(
         [[-7.0,   0.0, 0.0],
          [ 7.0, -11.0, 0.0],
          [ 0.0,  11.0, 0.0]])
-    assert np.allclose(dc.evaluate_jac(num_t0, num_x0, num_l), ref_jac)
-    assert np.allclose(dc.evaluate_na_jac(num_t0, num_x0, num_l), ref_jac)
+    assert np.allclose(np.array(dc.evaluate_jac(
+        num_t0, num_x0, num_l), dtype=np.float64), ref_jac)
+    assert np.allclose(np.array(dc.evaluate_na_jac(
+        num_t0, num_x0, num_l), dtype=np.float64), ref_jac)
 
-    assert np.allclose(dc.evaluate_dfdt(num_t0, num_x0, num_l), np.zeros(3))
-    assert np.allclose(dc.evaluate_na_dfdt(num_t0, num_x0, num_l), np.zeros(3))
+    assert np.allclose(np.array(dc.evaluate_dfdt(
+        num_t0, num_x0, num_l), dtype=np.float64), np.zeros(3))
+    assert np.allclose(np.array(dc.evaluate_na_dfdt(
+        num_t0, num_x0, num_l), dtype=np.float64), np.zeros(3))
+
+def test_FirstOrderODESystem__evaluate_d2ydt2():
+    n = 3
+    dc, symbs, exprs = _mk_decay_chain_system(n)
+    l, t, x, d, b = symbs
 
     ref_d2ydt2 = np.array(
         [-7.0*-2.0*7.0,
          7.0*-2.0*7.0 - 11.0*(2.0*7.0 - 3.0*11.0),
          11.0*(2.0*7.0 - 3.0*11.0)])
-    assert np.allclose(dc.evaluate_d2ydt2(num_t0, num_x0, num_l), ref_d2ydt2)
-    assert np.allclose(dc.evaluate_na_d2ydt2(num_t0, num_x0, num_l), ref_d2ydt2)
+    assert np.allclose(np.array(dc.evaluate_d2ydt2(
+        num_t0, num_x0, num_l), dtype=np.float64), ref_d2ydt2)
+    assert np.allclose(np.array(
+        dc.evaluate_na_d2ydt2(num_t0, num_x0, num_l), dtype=np.float64), ref_d2ydt2)
+
+def test_FirstOrderODESystem__transform_depv():
+    n = 3
+    dc, symbs, exprs = _mk_decay_chain_system(n)
+    l, t, x, d, b = symbs
 
     y  = [sympy.Function('y'+str(i))(t) for i in range(n)]
     y_ = [sympy.Symbol('y'+str(i), real=True) for i in range(n)]
@@ -146,6 +170,17 @@ def test_FirstOrderODESystem___1():
     assert dcy.na_jac == ref_jac
     assert dcy.na_f == dcy.f
     assert dcy.na_dfdt == dcy.dfdt
+
+
+def test_FirstOrderODESystem__transform_depv__attampt_analyic_sol():
+    n = 3
+    dc, symbs, exprs = _mk_decay_chain_system(n)
+    l, t, x, d, b = symbs
+
+    y  = [sympy.Function('y'+str(i))(t) for i in range(n)]
+    dcy = dc.transform_depv(OrderedDict(zip(y,x)),
+                            OrderedDict(zip(x,y)))
+
     C0 = sympy.Symbol('C0')
     # attempt_analytic_sol is NOT idempotent
     assert dcy.attempt_analytic_sol(y[0], C0*sympy.exp(-l[0]*t), [C0])
@@ -157,12 +192,12 @@ def test_FirstOrderODESystem___1():
     assert not dcy.attempt_analytic_sol(y[1], C1*sympy.exp(-l[1]*t), [C1])
 
 
-
+@pytest.mark.slow
 def test_FirstOrderODESystem___2():
     """ Tests recursive_analytic_auto_sol """
     # recursive_analytic_auto_sol
     dc = _mk_decay_chain_system(3)
-    dc.recursive_analytic_auto_sol()
+    dc.recursive_analytic_auto_sol(complexity=3)
 
     assert len(dc.analytic_depv) == 3
     assert len(dc.na_depv) == 0
@@ -225,16 +260,3 @@ def test_FirstOrderODESystem___2():
             # assert same within some tolerance
             assert sympy.N(dc.analytic_relations[i].subs(subsd_t)) -\
                 sympy.N(analytic_rel.subs(subsd_t)) < 1e-10
-
-
-if __name__ == '__main__':
-    test_AnyOrderODESystem___1()
-    test_FirstOrderODESystem___1()
-    test_SimpleFirstOrderODESystem___1()
-
-    skip_slow = False
-    if len(sys.argv) > 1:
-        if sys.argv[1] == '-s': # skip slow
-            skip_slow = True
-
-    if not skip_slow: test_FirstOrderODESystem___2()

@@ -37,7 +37,6 @@ class CVODE_Code(ODESys_Code, C_Code):
         '../shared/prebuilt/symodesys_util.o',
         'symodesys_util.h', # for main_ex
         'symodesys_util.c', # for main_ex
-        'prebuilt/'+CCompilerRunner.metadata_filename, # <--- Ensure we use the same compiler
     ]
 
     obj_files = ['func.o', 'dense_jac.o', 'band_jac.o', 'drivers.o',

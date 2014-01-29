@@ -53,7 +53,15 @@ ODEPACK
 [TODO] RODAS
 
 # Installation
-Clone git-repo. Add to $PYTHONPATH
+Installing and building symodesys can be a little challenging due to
+external dependencies. For example, when debugging the setup script I
+invoke it like:
+
+``env DEBUG_DISTUTILS=1 COMPILER_VENDOR=gnu C_INCLUDE_PATH=~/.local/include:$C_INCLUDE_PATH python -m pudb setup.py build``
+
+But if you have Sundials 2.5.0 on your systems standard include path
+and you don't have Intel's fortran compiler installed (and my setup
+script is clever enough) even pip should do the right thing.
 
 # Status
 symodesys is currently in its prototyping stage and hence big changes

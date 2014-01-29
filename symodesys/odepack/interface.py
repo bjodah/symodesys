@@ -24,7 +24,6 @@ class LSODES_Code(ODESys_Code, F90_Code):
         'prebuilt/opkdmain.o',
         'prebuilt/_drivers.o',
         'drivers.f90',
-        'prebuilt/'+FortranCompilerRunner.metadata_filename, # <-- Ensure same compiler
     ]
 
     templates = ['ode_template.f90']

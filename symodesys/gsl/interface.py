@@ -30,7 +30,6 @@ class GSL_Code(ODESys_Code, C_Code):
                   'prebuilt/drivers.o',
                   'drivers.h', 'drivers.c', 'ode.h', 'Makefile', 'plot.py',
                   'symodesys_util.c', 'symodesys_util.h',
-                  'prebuilt/'+CCompilerRunner.metadata_filename, # <--- Make sure we compile with same compiler
     ]
 
     obj_files = ['ode.o', 'drivers.o',

@@ -22,6 +22,10 @@ TODO:
       
 */
 
+/* #include "func.c" */
+/* #include "dense_jac.c" */
+/* #include "band_jac.c" */
+
 
 /* Scalar reltol and vector abstol */
 int integrate_fixed_step(

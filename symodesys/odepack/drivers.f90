@@ -10,7 +10,7 @@ public lsodes_bdf_integrate
 contains
 
 subroutine lsodes_bdf_integrate(y, t0, tend, atol, rtol, nt, &
-     h_init, h_max, nderiv, yres, tres) bind(c)
+     h_init, h_max, nderiv, yres, tres) bind(c, name="lsodes_bdf_integrate")
   ! This template is for BDF (5th order) with analytic Jac provided as callback
 
   ! mf: method flag, this means: MOSS=1, METH=2, MITER=1

@@ -1,12 +1,11 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from ..py_util import subs_set, cache
+from symodesys.helpers.py_util import subs_set, cache
 
 def test_subs_set():
     s1 = set('abc')
-    d = dict('b':'d')
-    s2 = subs_set(s, d)
+    d = {'b': 'd'}
+    s2 = subs_set(s1, d)
     assert s2 == set('acd')
 
 def test_cache():
@@ -26,8 +25,3 @@ def test_cache():
     assert a == 1
     assert f(3) == 9
     assert a == 2
-
-
-if __name__ == '__main__':
-    test_subs_set()
-    test_cache()

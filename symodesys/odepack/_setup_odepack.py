@@ -1,10 +1,13 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from __future__ import print_function, division
+import os
+from pycompilation.codeexport import make_CleverExtension_for_prebuilding_Code
 
-from pycompilation import pyx2obj, download_files, compile_sources
-
+"""
+Precompiles ODEPACK sources from netlib (downloaded when needed)
+to object files for speeding up compilation/linking on the fly
+during runtime.
+"""
 
 websrc = 'https://computation.llnl.gov/casc/odepack/software/'
 src_md5 = {
@@ -13,18 +16,15 @@ src_md5 = {
     'opkdmain.f':  '47d81cc73a1e82210f47a97c43daa8cf'
 }
 
+
 f_sources = src_md5.keys()
 
-def main(dst, **kwargs):
-
-    download_files(websrc, f_sources, src_md5,
-                   cwd=kwargs.get('cwd','.'))
-    return compile_sources(
-        f_sources, destdir=dst,
-                    run_linker=False,
-        options=['pic', 'warn', 'fast'],
-        preferred_vendor='gnu', # ifort chokes on opkda1.f
-        only_update=True,
-        metadir=dst,
-        **kwargs) + [pyx2obj('lsodes_bdf_wrapper.pyx', dst,
-                             only_update=True, metadir=dst, **kwargs)]
+def get_odepack_clever_ext(basename):
+    from .interface import LSODES_Code
+    return make_CleverExtension_for_prebuilding_Code(
+        basename+'.odepack._drivers', LSODES_Code,
+        f_sources+['_drivers.pyx'], # 'drivers.f90' uses module from ode_template
+        srcdir=os.path.join(basename, 'odepack'),
+        downloads=(websrc, src_md5),
+        logger=True
+    )

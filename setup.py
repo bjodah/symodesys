@@ -1,34 +1,60 @@
-import os
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
-import logging
+import sys
+from distutils.core import setup
 
-from pycompilation.util import run_sub_setup
+pkg_name = 'symodesys'
 
-from symodesys.shared._setup_shared import main as shared_main
-from symodesys.odepack._setup_odepack import main as odepack_main
-from symodesys.gsl._setup_gsl import main as gsl_main
-from symodesys.sundials._setup_sundials import main as sundials_main
+version_ = '0.0.1'
 
-mains = zip(['shared', 'odepack', 'gsl', 'sundials'],
-            [shared_main, odepack_main, gsl_main, sundials_main])
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: C",
+    "Programming Language :: Cython",
+    "Programming Language :: Fortran",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Compilers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+if '--help'in sys.argv[1:] or sys.argv[1] in (
+        '--help-commands', 'egg_info', 'clean', '--version'):
+    cmdclass_ = {}
+    ext_modules=ext_modules_,
+else:
+    from pycompilation.dist import clever_build_ext
+    from symodesys.shared._setup_shared import get_shared_clever_ext
+    from symodesys.odepack._setup_odepack import get_odepack_clever_ext
+    from symodesys.gsl._setup_gsl import get_gsl_clever_ext
+    from symodesys.sundials._setup_sundials import get_sundials_clever_ext
+
+    ext_modules_ = [
+        get_shared_clever_ext(pkg_name),
+        get_odepack_clever_ext(pkg_name),
+        get_gsl_clever_ext(pkg_name),
+        get_sundials_clever_ext(pkg_name),
+    ]
+    cmdclass_ = {'build_ext': clever_build_ext}
 
 
-def main():
-    """
-    Precompile some sources to object files
-    and store in `prebuilt/` directories for
-    speeding up meta-programming compilations.
-    """
-    logging.basicConfig(level=logging.DEBUG)
-    logger = logging.getLogger(__name__)
-
-    for name, cb in mains:
-
-        cwd = os.path.join(os.path.abspath(
-            os.path.dirname(__file__)),
-                           'symodesys/'+name+'/')
-        run_sub_setup(cb, 'prebuilt/', cwd=cwd, logger=logger)
-
-
-if __name__ == '__main__':
-    main()
+setup(
+    name=pkg_name,
+    version=version_,
+    author='Björn Dahlgren',
+    author_email='bjodah@DELETEMEgmail.com',
+    description='Convenience functions for use with sympy.',
+    license="BSD",
+    url='https://github.com/bjodah/'+pkg_name,
+    download_url='https://github.com/bjodah/'+pkg_name+'/archive/v'+version_+'.tar.gz',
+    packages=['symodesys', 'symodesys.helpers'],
+    cmdclass=cmdclass_,
+    ext_modules=ext_modules_,
+    classifiers=classifiers,
+)

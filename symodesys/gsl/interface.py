@@ -19,18 +19,21 @@ class GSL_Code(ODESys_Code, C_Code):
 
     compile_kwargs = {
         'options': ['warn', 'pic', 'fast'],
-        'std': 'c99'
+        'std': 'c99',
+        'defmacros': ['GSL_RANGE_CHECK_OFF', 'HAVE_INLINE'],
+        'libs': cython_gsl.get_libraries(),
+        'inc_dirs': [cython_gsl.get_include(), cython_gsl.get_cython_include_dir()],
+        'lib_dirs': [cython_gsl.get_library_dir()]
     }
 
-    copy_files = ['prebuilt/drivers_wrapper.o',
+    build_files = ['prebuilt/_drivers.o',
                   'prebuilt/drivers.o',
                   'drivers.h', 'drivers.c', 'ode.h', 'Makefile', 'plot.py',
                   'symodesys_util.c', 'symodesys_util.h',
-                  'prebuilt/'+CCompilerRunner.metadata_filename, # <--- Make sure we compile with same compiler
     ]
 
     obj_files = ['ode.o', 'drivers.o',
-                 'drivers_wrapper.o', 'symodesys_util.o']
+                 'symodesys_util.o', '_drivers.o']
 
     templates = ['ode_template.c',
                  'main_ex_template.c',
@@ -38,9 +41,9 @@ class GSL_Code(ODESys_Code, C_Code):
 
     source_files = ['ode.c', 'symodesys_util.c']
 
-    so_file = 'drivers_wrapper.so'
+    so_file = '_drivers.so'
 
-    extension_name = 'drivers_wrapper'
+    extension_name = '_drivers'
 
 
     # ODESys_Code specific
@@ -53,10 +56,6 @@ class GSL_Code(ODESys_Code, C_Code):
     def __init__(self, *args, **kwargs):
         self._basedir = os.path.dirname(__file__)
         super(GSL_Code, self).__init__(*args, **kwargs)
-        self.inc_dirs.append(cython_gsl.get_include())
-        self.inc_dirs.append(cython_gsl.get_cython_include_dir())
-        self.libs.extend(cython_gsl.get_libraries())
-        self.lib_dirs.append(cython_gsl.get_library_dir())
 
 
 class GSL_IVP_Integrator(Binary_IVP_Integrator):
@@ -68,7 +67,7 @@ class GSL_IVP_Integrator(Binary_IVP_Integrator):
 
     CodeClass = GSL_Code
 
-    # step_type choices are in `step_types` in drivers_wrapper.pyx
+    # step_type choices are in `step_types` in _drivers.pyx
     integrate_args = {'step_type': (
         'rk2','rk4','rkf45','rkck','rk8pd','rk2imp',
         'rk4imp','bsimp','rk1imp','msadams','msbdf'),

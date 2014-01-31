@@ -1,8 +1,7 @@
+// ${_warning_in_the_generated_file_not_to_edit}
 #include <math.h>
-
 #include "drivers.h" 
 
-// Python Mako template of C file
 
 // BAND_ELEM def in sundials_direct.h included in drivers.h
 

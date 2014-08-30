@@ -4,5 +4,6 @@ sympy>=0.7.3
 mako>=0.5.0
 CythonGSL>=0.2.1
 https://github.com/bjodah/cinterpol/archive/v0.3.3.tar.gz
-https://github.com/bjodah/pycompilation/archive/v0.2.16.tar.gz
+https://github.com/bjodah/pycompilation/archive/v0.3-dev.gz
+https://github.com/bjodah/pycodeexport/archive/master.tar.gz
 https://github.com/bjodah/symvarsub/archive/v0.0.9.tar.gz

@@ -29,7 +29,7 @@ if '--help'in sys.argv[1:] or sys.argv[1] in (
     cmdclass_ = {}
     ext_modules=ext_modules_,
 else:
-    from pycompilation.dist import clever_build_ext
+    from pycodeexport.dist import clever_build_ext
     from symodesys.shared._setup_shared import get_shared_clever_ext
     from symodesys.odepack._setup_odepack import get_odepack_clever_ext
     from symodesys.gsl._setup_gsl import get_gsl_clever_ext

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import os
-from pycompilation.codeexport import make_CleverExtension_for_prebuilding_Code
+from pycodeexport.codeexport import make_CleverExtension_for_prebuilding_Code
 
 """
 Precompiles ODEPACK sources from netlib (downloaded when needed)

@@ -29,8 +29,7 @@ import mako.template
 
 # Intrapackage imports
 from symodesys.integrator import IVP_Integrator
-from pycompilation import FortranCompilerRunner, CCompilerRunner
-from pycompilation.codeexport import Generic_Code, DummyGroup, ArrayifyGroup
+from pycodeexport.codeexport import Generic_Code, DummyGroup, ArrayifyGroup
 
 
 class ODESys_Code(Generic_Code):

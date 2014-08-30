@@ -6,7 +6,7 @@ when linking don't forget libs, usually: 'm', 'sundials_cvode', 'sundials_nvecse
 """
 
 import os
-from pycompilation.codeexport import make_CleverExtension_for_prebuilding_Code
+from pycodeexport.codeexport import make_CleverExtension_for_prebuilding_Code
 
 def get_sundials_clever_ext(basename):
     from .interface import CVODE_Code

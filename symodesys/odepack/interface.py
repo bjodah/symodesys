@@ -6,8 +6,7 @@ import os
 # External imports
 import numpy as np
 import cython_gsl
-from pycompilation import FortranCompilerRunner
-from pycompilation.codeexport import F90_Code
+from pycodeexport.codeexport import F90_Code
 # Intrapackage imports
 from symodesys.codeexport import ODESys_Code, Binary_IVP_Integrator
 

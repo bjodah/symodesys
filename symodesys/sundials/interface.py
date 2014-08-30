@@ -6,8 +6,7 @@ import os
 # External imports
 import numpy as np
 import cython_gsl
-from pycompilation import CCompilerRunner
-from pycompilation.codeexport import C_Code
+from pycodeexport.codeexport import C_Code
 
 # Intrapackage imports
 from symodesys.codeexport import ODESys_Code, Binary_IVP_Integrator

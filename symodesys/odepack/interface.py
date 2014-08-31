@@ -47,7 +47,7 @@ class LSODES_Code(ODESys_Code, F90_Code):
     param_offset = property(lambda self: 1+self.NY)
 
     def __init__(self, *args, **kwargs):
-        self._basedir = self._basedir or os.path.dirname(__file__)
+        self.basedir = self._basedir or os.path.dirname(__file__)
         super(LSODES_Code, self).__init__(*args, **kwargs)
 
 

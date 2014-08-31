@@ -4,6 +4,7 @@ from collections import OrderedDict
 from itertools import product
 
 import numpy as np
+import pytest
 
 from symodesys.odesys import (
     _ODESystemBase, FirstOrderODESystem, SimpleFirstOrderODESystem, AnyOrderODESystem)

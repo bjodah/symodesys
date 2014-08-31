@@ -53,7 +53,7 @@ class GSL_Code(ODESys_Code, C_Code):
     param_offset = None
 
     def __init__(self, *args, **kwargs):
-        self._basedir = os.path.dirname(__file__)
+        self.basedir = os.path.dirname(__file__)
         super(GSL_Code, self).__init__(*args, **kwargs)
 
 

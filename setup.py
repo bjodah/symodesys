@@ -29,19 +29,19 @@ if '--help'in sys.argv[1:] or sys.argv[1] in (
     cmdclass_ = {}
     ext_modules=ext_modules_,
 else:
-    from pycodeexport.dist import clever_build_ext
-    from symodesys.shared._setup_shared import get_shared_clever_ext
-    from symodesys.odepack._setup_odepack import get_odepack_clever_ext
-    from symodesys.gsl._setup_gsl import get_gsl_clever_ext
-    from symodesys.sundials._setup_sundials import get_sundials_clever_ext
+    from pycodeexport import pce_build_ext
+    from symodesys.shared._setup_shared import get_shared_pce_ext
+    from symodesys.odepack._setup_odepack import get_odepack_pce_ext
+    from symodesys.gsl._setup_gsl import get_gsl_pce_ext
+    from symodesys.sundials._setup_sundials import get_sundials_pce_ext
 
     ext_modules_ = [
-        get_shared_clever_ext(pkg_name),
-        get_odepack_clever_ext(pkg_name),
-        get_gsl_clever_ext(pkg_name),
-        get_sundials_clever_ext(pkg_name),
+        get_shared_pce_ext(pkg_name),
+        get_odepack_pce_ext(pkg_name),
+        get_gsl_pce_ext(pkg_name),
+        get_sundials_pce_ext(pkg_name),
     ]
-    cmdclass_ = {'build_ext': clever_build_ext}
+    cmdclass_ = {'build_ext': pce_build_ext}
 
 
 setup(

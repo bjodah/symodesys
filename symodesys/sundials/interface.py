@@ -62,7 +62,7 @@ class CVODE_Code(ODESys_Code, C_Code):
     param_offset = None
 
     def __init__(self, *args, **kwargs):
-        self._basedir = os.path.dirname(__file__)
+        self.basedir = os.path.dirname(__file__)
         super(CVODE_Code, self).__init__(*args, **kwargs)
 
 

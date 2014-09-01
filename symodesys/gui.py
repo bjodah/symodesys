@@ -17,11 +17,11 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
         >>>viewer=get_chaco_viewer(MyOscillator, y0, params, t0, tend, N)
         >>>viewer.configure_traits()
     """
-    from enthought.chaco.api import ArrayPlotData, Plot
-    from enthought.chaco.tools.api import PanTool, ZoomTool
-    from enthought.enable.component_editor import ComponentEditor
-    from enthought.traits.api import HasTraits, Instance, Array, Property, Range, Float, Enum
-    from enthought.traits.ui.api import Item, View
+    from chaco.api import ArrayPlotData, Plot
+    from chaco.tools.api import PanTool, ZoomTool
+    from enable.component_editor import ComponentEditor
+    from traits.api import HasTraits, Instance, Array, Property, Range, Float, Enum
+    from traitsui.api import Item, View
 
     class ODESolViewer(object):
         """

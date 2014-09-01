@@ -5,11 +5,11 @@ from __future__ import print_function, division
 
 import numpy as np
 
-from enthought.chaco.api import ArrayPlotData, Plot
-from enthought.chaco.tools.api import PanTool, ZoomTool
-from enthought.enable.component_editor import ComponentEditor
-from enthought.traits.api import HasTraits, Instance, Array, Property, Range, Float, Enum
-from enthought.traits.ui.api import Item, View
+from chaco.api import ArrayPlotData, Plot
+from chaco.tools.api import PanTool, ZoomTool
+from enable.component_editor import ComponentEditor
+from traits.api import HasTraits, Instance, Array, Property, Range, Float, Enum
+from traitsui.api import Item, View
 
 from van_der_pol import VanDerPolOscillator
 from symodesys.ivp import IVP

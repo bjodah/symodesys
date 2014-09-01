@@ -70,6 +70,17 @@ But if you have Sundials 2.5.0 on your systems standard include path
 and you don't have Intel's fortran compiler installed (and my setup
 script is clever enough) even pip should do the right thing.
 
+To install Chaco etc. I needed to do:
+
+```
+sudo pip install --upgrade enable --allow-external PIL --allow-unverified PIL
+sudo pip install chaco traitsui
+apt-get install python-qt4-gl
+```
+
+And prepend ``python`` command as e.g. ``QT_API=pyqt python ode.py``.
+
+
 # Status
 symodesys is currently in its prototyping stage and hence big changes
 to API and frequent refactoring is expected. If you are fine with this

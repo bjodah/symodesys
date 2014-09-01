@@ -7,7 +7,6 @@ import sympy
 import numpy as np
 import matplotlib.pyplot as plt
 
-from symodesys.ivp import IVP
 from symodesys.odesys import AnyOrderODESystem, FirstOrderODESystem
 from symodesys.gui import get_chaco_viewer
 

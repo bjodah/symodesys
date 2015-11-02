@@ -75,7 +75,12 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
                 # TODO: enusre 'init_' + ... does not collide
                 depv_str = depv.func.__name__
                 setattr(cls, depv_str, Property(Array, depends_on=all_init+all_param))
-                setattr(cls, 'init_'+depv_str, Range(low=0.0, high=10.0, value=1.0))
+                low = getattr(odesys, str(depv)+'_low', 0.0)
+                high = getattr(odesys, str(depv)+'_high', 10.0)
+                default = getattr(odesys, str(depv)+'_default', 1.0)
+                if default is None:
+                    continue
+                setattr(cls, 'init_'+depv_str, Range(low=low, high=high, value=default))
 
                 def getter(self, depstr=depv_str):
                     # The keyword argument needs to be there not to be overwritten
@@ -94,7 +99,12 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
                 items.append(Item(name=str('init_'+depv_str)))
 
             for param in odesys.param_and_sol_symbs:
-                setattr(cls, str(param), Range(low=0.0, high=10.0, value=1.0))
+                low = getattr(odesys, str(param)+'_low', 0.0)
+                high = getattr(odesys, str(param)+'_high', 10.0)
+                default = getattr(odesys, str(param)+'_default', 1.0)
+                if default is None:
+                    continue
+                setattr(cls, str(param), Range(low=low, high=high, value=default))
                 items.append(Item(name=str(param)))
                 def param_changed(self, depstr=str(param)):
                     self.run_integration()
@@ -173,7 +183,7 @@ def get_chaco_viewer(odesys, y0, params, t0, tend, N):
             self.ivp.depv_init=depv_init
             self.ivp.params=params
             self.ivp.integrate(tend, N = N)
-            return self.ivp.get_interpolated(getattr(self, str(odesys.indepv)))
+            return self.ivp.get_interpolated(getattr(self, str(odesys.indepv)), nderiv=0)
 
         def clean_up(self):
             try:

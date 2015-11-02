@@ -37,7 +37,7 @@ else:
 
     ext_modules_ = [
         get_shared_pce_ext(pkg_name),
-        get_odepack_pce_ext(pkg_name),
+        #get_odepack_pce_ext(pkg_name),
         get_gsl_pce_ext(pkg_name),
         get_sundials_pce_ext(pkg_name),
     ]

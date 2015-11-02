@@ -20,9 +20,9 @@ class GSL_Code(ODESys_Code, C_Code):
         'options': ['warn', 'pic', 'fast'],
         'std': 'c99',
         'defmacros': ['GSL_RANGE_CHECK_OFF', 'HAVE_INLINE'],
-        'libs': cython_gsl.get_libraries(),
-        'inc_dirs': [cython_gsl.get_include(), cython_gsl.get_cython_include_dir()],
-        'lib_dirs': [cython_gsl.get_library_dir()]
+        'libraries': cython_gsl.get_libraries(),
+        'include_dirs': [cython_gsl.get_include(), cython_gsl.get_cython_include_dir()],
+        'library_dirs': [cython_gsl.get_library_dir()]
     }
 
     build_files = ['prebuilt/_drivers.o',

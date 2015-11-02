@@ -7,7 +7,7 @@ script:
   - if [[ "$DRONE_BRANCH" =~ ^v[0-9]+.[0-9]?* ]]; then export SYMODESYS_RELEASE_VERSION=$DRONE_BRANCH; echo ${SYMODESYS_RELEASE_VERSION} | tail -c +2 > __conda_version__.txt; fi
   - pip install pycompilation pycodeexport
   - git clone git://github.com/sympy/sympy.git; cd sympy; python setup.py install; cd -
-  - pip3 install --user symodeint pycvodes pygslodeiv2
+  - pip3 install --user pyodeint pycvodes pygslodeiv2
   - PYTHONPATH=$(pwd) ./scripts/run_tests.sh --cov symodesys --cov-report html
   - python2 setup.py sdist
   - ./scripts/generate_docs.sh

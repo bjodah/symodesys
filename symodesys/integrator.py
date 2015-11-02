@@ -9,7 +9,7 @@ from __future__ import division
 
 import warnings
 
-import sympy.mpmath
+import mpmath
 import numpy as np
 import time
 
@@ -131,7 +131,7 @@ class Mpmath_IVP_Integrator(IVP_Integrator):
 
     def _run(self, depv_init_arr, indepv_init, indepv_end, params_arr, N):
         cb = lambda x, y: self._fo_odesys.evaluate_na_f(x, y, params_arr)
-        self._num_y = sympy.mpmath.odefun(cb, indepv_init, depv_init_arr,
+        self._num_y = mpmath.odefun(cb, indepv_init, depv_init_arr,
                                           tol = self.abstol)
         if N > 0:
             # Fixed stepsize

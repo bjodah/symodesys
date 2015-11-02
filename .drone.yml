@@ -5,8 +5,8 @@ env:
   - MY_SERVER=symodesys@hera.physchem.kth.se
 script:
   - if [[ "$DRONE_BRANCH" =~ ^v[0-9]+.[0-9]?* ]]; then export SYMODESYS_RELEASE_VERSION=$DRONE_BRANCH; echo ${SYMODESYS_RELEASE_VERSION} | tail -c +2 > __conda_version__.txt; fi
-  - pip install mpmath pycompilation pycodeexport git+https://github.com/sympy/sympy.git git+https://github.com/bjodah/symvarsub.git
-  - pip3 install mpmath pycompilation pycodeexport git+https://github.com/sympy/sympy.git git+https://github.com/bjodah/symvarsub.git
+  - pip install mpmath pycompilation pycodeexport git+https://github.com/sympy/sympy.git git+https://github.com/bjodah/symvarsub.git CythonGSL
+  - pip3 install mpmath pycompilation pycodeexport git+https://github.com/sympy/sympy.git git+https://github.com/bjodah/symvarsub.git CythonGSL
   - PYTHONPATH=$(pwd) ./scripts/run_tests.sh --cov symodesys --cov-report html
   - python2 setup.py sdist
   - ./scripts/generate_docs.sh

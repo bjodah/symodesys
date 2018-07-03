@@ -9,3 +9,4 @@ https://github.com/bjodah/pycompilation/archive/v0.3.0.tar.gz
 https://github.com/bjodah/pycodeexport/archive/v0.0.2.tar.gz
 https://github.com/bjodah/symvarsub/archive/v0.0.12.tar.gz
 chaco>=4.4.1
+mpmath

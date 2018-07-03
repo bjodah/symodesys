@@ -1,0 +1,20 @@
+image: bjodah/bjodahimg:latest
+git:
+    path: github.com/bjodah/symodesys
+env:
+  - MY_SERVER=symodesys@hera.physchem.kth.se
+script:
+  - if [[ "$DRONE_BRANCH" =~ ^v[0-9]+.[0-9]?* ]]; then export SYMODESYS_RELEASE_VERSION=$DRONE_BRANCH; echo ${SYMODESYS_RELEASE_VERSION} | tail -c +2 > __conda_version__.txt; fi
+  - pip install mpmath pycompilation pycodeexport git+https://github.com/sympy/sympy.git git+https://github.com/bjodah/symvarsub.git CythonGSL
+  - pip3 install mpmath pycompilation pycodeexport git+https://github.com/sympy/sympy.git git+https://github.com/bjodah/symvarsub.git CythonGSL
+  - PYTHONPATH=$(pwd) ./scripts/run_tests.sh --cov symodesys --cov-report html
+  - python2 setup.py sdist
+  - ./scripts/generate_docs.sh
+  - ./scripts/coverage_badge.py htmlcov/ htmlcov/coverage.svg
+  - ssh "${MY_SERVER}" "mkdir -p ~/public_html/$DRONE_BRANCH" && scp -r doc/_build/html dist/* htmlcov/ ${MY_SERVER}:~/public_html/$DRONE_BRANCH
+  - touch doc/_build/html/.nojekyll
+  - git config --global user.name "drone"
+  - git config --global user.email ${MY_SERVER}
+  - if [[ "$DRONE_BRANCH" == "master" ]]; then ./scripts/github_upload.sh doc/_build/html bjodah symodesys gh-pages; fi
+  - if [[ "$DRONE_BRANCH" == "master" ]]; then scp -r benchmarks/* ${MY_SERVER}:~; fi
+  - if [[ "$DRONE_BRANCH" == "master" ]]; then ssh ${MY_SERVER} 'source /etc/profile; asv run -k -e >asv-run.log; asv publish>asv-publish.log'; fi

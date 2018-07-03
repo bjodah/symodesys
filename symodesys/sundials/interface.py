@@ -26,7 +26,7 @@ class CVODE_Code(ODESys_Code, C_Code):
         'options': ['warn', 'pic', 'fast'] + extra_options,
         'std': 'c99',
         'defmacros': defmacros,
-        'libs': ['m', 'sundials_cvode', 'sundials_nvecserial'],
+        'libraries': ['m', 'sundials_cvode', 'sundials_nvecserial'],
     }
 
     build_files = [

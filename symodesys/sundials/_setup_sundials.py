@@ -2,7 +2,7 @@
 
 """
 Precompiles SUNDIALS wrapper
-when linking don't forget libs, usually: 'm', 'sundials_cvode', 'sundials_nvecserial'
+when linking don't forget libraries, usually: 'm', 'sundials_cvode', 'sundials_nvecserial'
 """
 
 import os
